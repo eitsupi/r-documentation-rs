@@ -110,8 +110,7 @@ fn macro_summary(document: &RdDocument) -> (usize, BTreeMap<String, usize>) {
     fn visit(node: &RdNode, names: &mut BTreeMap<String, usize>) {
         if let RdNode::Raw(raw) = node
             && raw.tag() == Some("USERMACRO")
-        {
-            if let Some(name) = raw
+            && let Some(name) = raw
                 .attributes()
                 .iter()
                 .find_map(|a| {
@@ -121,9 +120,8 @@ fn macro_summary(document: &RdDocument) -> (usize, BTreeMap<String, usize>) {
                     })
                 })
                 .flatten()
-            {
-                *names.entry(name).or_default() += 1;
-            }
+        {
+            *names.entry(name).or_default() += 1;
         }
         match node {
             RdNode::Tagged(n) => n.children().iter().for_each(|x| visit(x, names)),

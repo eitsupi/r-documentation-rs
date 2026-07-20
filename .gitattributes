@@ -1,5 +1,12 @@
+# Normalize all text files to LF on checkin and checkout; binaries are
+# auto-detected and left untouched. Fixture overrides below take precedence.
+* text=auto eol=lf
+
 # Differential-oracle fixtures are byte-exact test inputs/outputs.
 # Never apply EOL conversion: the corpus includes deliberate CRLF and
 # whitespace-only fixtures whose bytes must survive checkout unchanged.
 crates/rd-source/tests/fixtures/rd/** -text
 crates/rd-source/tests/fixtures/oracle/** -text
+# rd-writer keeps byte-identical copies of the rd-source .Rd corpus and
+# compares them with fs::read; EOL conversion would break the comparison.
+crates/rd-writer/tests/fixtures/** -text

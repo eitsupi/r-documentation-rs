@@ -209,7 +209,9 @@ jobs:
         run: |
           cargo test -p rd-rds --all-features --locked
           cargo test -p rd-helpdb --locked
-          cargo test -p rd-writer --locked -- --ignored
+          # corpus_round_trip needs RD_SOURCE_CORPUS and runs in the weekly
+          # r-corpus workflow instead.
+          cargo test -p rd-writer --locked -- --ignored --skip corpus_round_trip
 
   fixture-sync:
     runs-on: ubuntu-latest
