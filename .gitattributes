@@ -1,0 +1,5 @@
+# Differential-oracle fixtures are byte-exact test inputs/outputs.
+# Never apply EOL conversion: the corpus includes deliberate CRLF and
+# whitespace-only fixtures whose bytes must survive checkout unchanged.
+crates/rd-source/tests/fixtures/rd/** -text
+crates/rd-source/tests/fixtures/oracle/** -text

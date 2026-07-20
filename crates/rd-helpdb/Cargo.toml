@@ -1,0 +1,19 @@
+[package]
+name = "rd-helpdb"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Reader for installed R package help databases (aliases, .rdx/.rdb, Meta/hsearch.rds), built on rd-rds"
+readme = "README.md"
+keywords = ["r", "rstats", "documentation", "help", "database"]
+categories = ["database", "parsing"]
+
+[dependencies]
+flate2.workspace = true
+rd-rds.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+rd-ast = { workspace = true, features = ["rds"] }

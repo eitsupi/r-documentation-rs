@@ -1,0 +1,250 @@
+name: Check
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/check.yml
+      - crates/**
+      - "**/*.rds"
+      - "**/*.rdbentry"
+      - Cargo.*
+      - deny.toml
+      - tests/**
+      - .github/scripts/**
+      - "!**/*.md"
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/check.yml
+      - crates/**
+      - "**/*.rds"
+      - "**/*.rdbentry"
+      - Cargo.*
+      - deny.toml
+      - tests/**
+      - .github/scripts/**
+      - "!**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fixture-text-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Scan binary fixtures for forbidden text
+        run: .github/scripts/scan_fixture_text.sh
+
+  cargo-fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Run cargo fmt
+        run: |
+          rustup component add rustfmt
+          cargo fmt \
+            --all \
+            --check
+
+  cargo-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Run cargo clippy
+        run: |
+          rustup component add clippy
+          cargo clippy \
+            --workspace \
+            --all-targets \
+            --all-features \
+            --locked \
+            -- \
+            -D warnings
+
+  cargo-doc:
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Run cargo doc
+        run: >
+          cargo doc
+          --workspace
+          --all-features
+          --no-deps
+          --locked
+
+  cargo-msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: baptiste0928/cargo-install@f204293d9709061b7bc1756fec3ec4e2cd57dec0 # v3.4.0
+        with:
+          crate: cargo-msrv
+          version: 0.19.3
+      - name: Run cargo msrv
+        run: |
+          # Verify MSRV for each package
+          find crates -mindepth 2 -name Cargo.toml | while read -r manifest
+          do
+            echo "Checking package $manifest"
+            cargo msrv verify --manifest-path "$manifest" -- cargo check --all-features || exit 1
+          done
+
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: baptiste0928/cargo-install@f204293d9709061b7bc1756fec3ec4e2cd57dec0 # v3.4.0
+        with:
+          crate: cargo-deny
+      - name: Run cargo deny
+        run: cargo deny check
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Run tests
+        run: >
+          cargo test
+          --all-targets
+          --all-features
+          --workspace
+          --locked
+
+  test-features:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The redundant-looking entries (default vs no-default, all
+          # features spelled out vs --all-features) are kept deliberately as
+          # regression guards for future default-feature changes.
+          - crate: rd-ast
+            flags: ""
+          - crate: rd-ast
+            flags: "--no-default-features"
+          - crate: rd-ast
+            flags: "--no-default-features --features serde"
+          - crate: rd-ast
+            flags: "--no-default-features --features rds"
+          - crate: rd-ast
+            flags: "--no-default-features --features serde,rds"
+          - crate: rd-ast
+            flags: "--all-features"
+          - crate: rd-rds
+            flags: ""
+          - crate: rd-rds
+            flags: "--no-default-features"
+          - crate: rd-rds
+            flags: "--no-default-features --features gzip"
+          - crate: rd-rds
+            flags: "--no-default-features --features xz"
+          - crate: rd-rds
+            flags: "--no-default-features --features bzip2"
+          - crate: rd-rds
+            flags: "--no-default-features --features zstd"
+          - crate: rd-rds
+            flags: "--all-features"
+    name: test-features (${{ matrix.crate }} ${{ matrix.flags }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Run tests
+        run: |
+          cargo test -p ${{ matrix.crate }} ${{ matrix.flags }} --locked
+
+  r-oracle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up R
+        uses: r-lib/actions/setup-r@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2.12.1
+        with:
+          r-version: "4.6.1"
+      - name: Verify R
+        run: |
+          Rscript --version
+          Rscript -e 'stopifnot(identical(as.character(getRversion()), "4.6.1")); loadNamespace("utils"); loadNamespace("tools")'
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages("RcppTOML", repos = "https://packagemanager.posit.co/cran/__linux__/noble/2026-07-01")'
+          Rscript -e 'loadNamespace("RcppTOML")'
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Check Rd source fixtures
+        run: |
+          Rscript crates/rd-source/tests/fixtures/generate.R --check
+      - name: Run R oracle tests
+        run: |
+          cargo test -p rd-rds --all-features --locked
+          cargo test -p rd-helpdb --locked
+          cargo test -p rd-writer --locked -- --ignored
+
+  fixture-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Verify fixture copies are byte-identical
+        run: |
+          failed=0
+
+          check_copies() {
+            source_dir="$1"
+            target_dir="$2"
+            while IFS= read -r -d '' source; do
+              basename="${source##*/}"
+              target="$target_dir/$basename"
+              if [[ ! -f "$target" ]]; then
+                echo "missing fixture counterpart: $target (for $source)"
+                failed=1
+              elif ! cmp -s "$source" "$target"; then
+                echo "mismatching fixture copy: $source != $target"
+                failed=1
+              fi
+            done < <(find "$source_dir" -mindepth 1 -maxdepth 1 -type f -print0)
+          }
+
+          check_copies crates/rd-ast/tests/fixtures/data crates/rd-rds/tests/fixtures/data
+          check_copies crates/rd-helpdb/tests/fixtures/data tests/fixtures/data
+
+          while IFS= read -r -d '' source; do
+            basename="${source##*/}"
+            target="tests/fixtures/data/$basename"
+            if [[ -f "$target" ]] && ! cmp -s "$source" "$target"; then
+              echo "mismatching fixture copy: $source != $target"
+              failed=1
+            fi
+          done < <(find crates/rd-rds/tests/fixtures/data -mindepth 1 -maxdepth 1 -type f -print0)
+
+          exit "$failed"

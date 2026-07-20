@@ -1,0 +1,1417 @@
+# Strict TOML manifest for the rd-source foundation fixtures.
+# Each [[case]] describes one .Rd fixture and its RDS oracle.
+# Optional expectation fields are omitted when their obligation is not applicable.
+# Plain arrays contain strings; structured expectations use inline tables.
+# Paths use zero-based child indexes. Kinds omit a leading backslash.
+
+[[case]]
+name = "conditional-brace-depth"
+source_status = "valid"
+category = "conditionals"
+rd = "rd/conditional-brace-depth.Rd"
+oracle = "oracle/conditional-brace-depth.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [
+  { path = "root", kinds = ["name", "TEXT", "examples", "TEXT", "TEXT", "examples", "TEXT"] },
+  { path = "root/2", kinds = ["RCODE", "RCODE", "#ifdef", "RCODE"] },
+  { path = "root/2/2", kinds = ["GROUP", "GROUP"] },
+  { path = "root/2/2/1", kinds = ["RCODE"] },
+  { path = "root/5", kinds = ["RCODE", "#ifdef", "RCODE", "RCODE"] },
+  { path = "root/5/1", kinds = ["GROUP", "GROUP"] },
+  { path = "root/5/1/1", kinds = ["RCODE"] },
+]
+expected_leaves = [
+  { kind = "VERB", value = "conditional-brace-depth" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "x <- function() {\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "}\n" },
+  { kind = "RCODE", value = "y <- 1\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "{\n" },
+  { kind = "RCODE", value = "}\n" },
+  { kind = "RCODE", value = "y <- 1\n" },
+  { kind = "TEXT", value = "\n" },
+]
+
+[[case]]
+name = "conditional-rlike-string-state"
+source_status = "valid"
+category = "conditionals"
+rd = "rd/conditional-rlike-string-state.Rd"
+oracle = "oracle/conditional-rlike-string-state.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [
+  { path = "root", kinds = ["name", "TEXT", "examples", "TEXT"] },
+  { path = "root/2", kinds = ["RCODE", "RCODE", "#ifdef", "RCODE", "RCODE", "RCODE", "#ifdef", "emph", "RCODE", "RCODE", "#ifdef", "RCODE", "RCODE", "#ifdef"] },
+  { path = "root/2/2", kinds = ["GROUP", "GROUP"] },
+  { path = "root/2/6", kinds = ["GROUP", "GROUP"] },
+  { path = "root/2/10", kinds = ["GROUP", "GROUP"] },
+  { path = "root/2/10/1", kinds = ["RCODE", "RCODE"] },
+  { path = "root/2/13", kinds = ["GROUP", "GROUP"] },
+  { path = "root/2/13/1", kinds = ["RCODE", "RCODE", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "VERB", value = "conditional-rlike-string-state" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "\"r1 open\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "a \\emph{b} c\n" },
+  { kind = "RCODE", value = "close\"\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "\"r2 open\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "body close\"\n" },
+  { kind = "TEXT", value = "after" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "\"r5 opens\n" },
+  { kind = "RCODE", value = "still \\emph{string}\n" },
+  { kind = "RCODE", value = "close\"\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "x <- \"{\n" },
+  { kind = "RCODE", value = "body {\n" },
+  { kind = "RCODE", value = "} }\"\n" },
+  { kind = "TEXT", value = "\n" },
+]
+
+[[case]]
+name = "rlike-hash-comment-percent"
+source_status = "valid"
+category = "rlike"
+rd = "rd/rlike-hash-comment-percent.Rd"
+oracle = "oracle/rlike-hash-comment-percent.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 1
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "examples", "TEXT"] }, { path = "root/2", kinds = ["RCODE", "RCODE", "RCODE", "donttest", "RCODE", "RCODE", "COMMENT", "RCODE"] }, { path = "root/2/3", kinds = ["RCODE", "RCODE", "RCODE"] }]
+expected_leaves = [
+  { kind = "VERB", value = "rlike-hash-comment-percent" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "# before % after\n" },
+  { kind = "RCODE", value = "## format %tc excludes leap-seconds, assumed here\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "# everything % not diff-able\n" },
+  { kind = "RCODE", value = "ls()\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "x <- 1 " },
+  { kind = "COMMENT", value = "% outside comment" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+]
+
+[[case]]
+name = "rlike-hash-comment-percent-owning-brace"
+source_status = "valid"
+category = "rlike"
+rd = "rd/rlike-hash-comment-percent-owning-brace.Rd"
+oracle = "oracle/rlike-hash-comment-percent-owning-brace.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "examples", "TEXT"] }, { path = "root/2", kinds = ["RCODE", "RCODE"] }]
+expected_leaves = [
+  { kind = "VERB", value = "rlike-hash-comment-percent-owning-brace" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "f() # comment % oops" },
+  { kind = "TEXT", value = "\n" },
+]
+
+[[case]]
+name = "conditional-sections"
+source_status = "valid"
+category = "conditionals"
+rd = "rd/conditional-sections.Rd"
+oracle = "oracle/conditional-sections.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "#ifdef", "#ifndef", "TEXT"] }, { path = "root/2", kinds = ["GROUP", "GROUP"] }, { path = "root/2/0", kinds = ["TEXT"] }, { path = "root/2/1", kinds = ["alias", "TEXT"] }, { path = "root/3", kinds = ["GROUP", "GROUP"] }, { path = "root/3/1", kinds = ["alias", "TEXT"] }]
+expected_leaves = [
+  { kind = "VERB", value = "conditional-sections" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "VERB", value = "conditional-sections-unix" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = " windows\n" },
+  { kind = "VERB", value = "conditional-sections-not-windows" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+]
+
+[[case]]
+name = "conditional-argument-modes"
+source_status = "valid"
+category = "conditionals"
+rd = "rd/conditional-argument-modes.Rd"
+oracle = "oracle/conditional-argument-modes.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [
+  { path = "root", kinds = ["name", "TEXT", "description", "TEXT", "usage", "TEXT", "examples", "TEXT"] },
+  { path = "root/2", kinds = ["TEXT", "TEXT", "#ifdef", "TEXT", "TEXT", "TEXT", "TEXT", "preformatted", "TEXT", "eqn", "TEXT"] },
+  { path = "root/2/2", kinds = ["GROUP", "GROUP"] },
+  { path = "root/2/2/1", kinds = ["TEXT", "#ifndef", "TEXT"] },
+  { path = "root/2/2/1/1", kinds = ["GROUP", "GROUP"] },
+  { path = "root/2/7", kinds = ["VERB", "#ifndef"] },
+  { path = "root/4", kinds = ["RCODE", "#ifdef"] },
+  { path = "root/6", kinds = ["RCODE", "RCODE", "#ifdef", "RCODE", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "VERB", value = "conditional-argument-modes" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "before\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "TEXT", value = "inside latex\n" },
+  { kind = "TEXT", value = " windows\n" },
+  { kind = "TEXT", value = "inside nested latex\n" },
+  { kind = "TEXT", value = "after nested\n" },
+  { kind = "TEXT", value = "after\n" },
+  { kind = "TEXT", value = "  #ifdef unix\n" },
+  { kind = "TEXT", value = "indented latex\n" },
+  { kind = "TEXT", value = "#foo unknown latex\n" },
+  { kind = "VERB", value = "\n" },
+  { kind = "TEXT", value = " windows\n" },
+  { kind = "VERB", value = "inside verbatim\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "VERB", value = "\n" },
+  { kind = "VERB", value = "#ifdef unix\n" },
+  { kind = "VERB", value = "opaque equation\n" },
+  { kind = "VERB", value = "#endif\n" },
+  { kind = "VERB", value = "equation result" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "inside_usage()\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "x <- \"\n" },
+  { kind = "TEXT", value = " unix\n" },
+  { kind = "RCODE", value = "inside_string()\n" },
+  { kind = "RCODE", value = "\"\n" },
+  { kind = "RCODE", value = "x <- r\"(\n#ifdef unix\nopaque raw\n#endif\n)\"\n" },
+  { kind = "TEXT", value = "\n" },
+]
+
+[[case]]
+name = "rlike-hash-comment-braces"
+source_status = "valid"
+category = "rlike"
+rd = "rd/rlike-hash-comment-braces.Rd"
+oracle = "oracle/rlike-hash-comment-braces.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "examples", "TEXT"] }, { path = "root/2", kinds = ["RCODE", "dontshow", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE"] }]
+expected_leaves = [
+  { kind = "VERB", value = "rlike-hash-comment-braces" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "x <- 1 # the whole list" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "# note {grp} \\link{x}\n" },
+  { kind = "RCODE", value = "x <- 1\n" },
+  { kind = "RCODE", value = "# note {escaped} {real}\n" },
+  { kind = "RCODE", value = "x <- 2\n" },
+  { kind = "RCODE", value = "r# comment \\link{x} {literal}\n" },
+  { kind = "TEXT", value = "\n" },
+]
+
+[[case]]
+name = "figure-rlike-arity"
+source_status = "valid"
+category = "modes"
+rd = "rd/figure-rlike-arity.Rd"
+oracle = "oracle/figure-rlike-arity.rds"
+phase = "vocabulary"
+obligations = ["leaf_kinds", "node_sequence", "tag_arity", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "examples", "TEXT"] }, { path = "root/2", kinds = ["figure", "RCODE"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "VERB", "RCODE", "TEXT"]
+expected_arities = [{ tag = "figure", counts = [1] }]
+required_tags = ["name", "examples", "figure"]
+
+[[case]]
+name = "minimal"
+source_status = "valid"
+category = "sections"
+rd = "rd/minimal.Rd"
+oracle = "oracle/minimal.rds"
+phase = "foundation"
+obligations = []
+comments = 0
+
+[[case]]
+name = "whitespace"
+source_status = "valid"
+category = "trivia"
+rd = "rd/whitespace.Rd"
+oracle = "oracle/whitespace.rds"
+phase = "foundation"
+obligations = ["whitespace_text"]
+comments = 0
+
+[[case]]
+name = "adjacent-text"
+source_status = "valid"
+category = "trivia"
+rd = "rd/adjacent-text.Rd"
+oracle = "oracle/adjacent-text.rds"
+phase = "foundation"
+obligations = ["adjacent_text", "comments", "comment_paths", "node_sequence"]
+comments = 1
+comment_paths = ["root/2/1"]
+comment_values = ["% boundary"]
+expected_sequence = [{ path = "root/2", kinds = ["TEXT", "COMMENT", "TEXT", "TEXT"] }]
+
+[[case]]
+name = "comment"
+source_status = "valid"
+category = "trivia"
+rd = "rd/comment.Rd"
+oracle = "oracle/comment.rds"
+phase = "foundation"
+obligations = ["comments", "comment_paths"]
+comments = 1
+comment_paths = ["root/3"]
+comment_values = ["% preserved comment"]
+
+[[case]]
+name = "groups"
+source_status = "valid"
+category = "structure"
+rd = "rd/groups.Rd"
+oracle = "oracle/groups.rds"
+phase = "foundation"
+obligations = ["groups"]
+comments = 0
+
+[[case]]
+name = "options"
+source_status = "valid"
+category = "options"
+rd = "rd/options.Rd"
+oracle = "oracle/options.rds"
+phase = "foundation"
+obligations = ["option_absent", "option_nonempty"]
+comments = 0
+
+[[case]]
+name = "escapes"
+source_status = "valid"
+category = "escapes"
+rd = "rd/escapes.Rd"
+oracle = "oracle/escapes.rds"
+phase = "foundation"
+obligations = ["decoded_escapes", "exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "escapes" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "literal % percent, { brace, } brace, \\ slash, and \\n marker." }, { kind = "TEXT", value = "\n" }]
+
+[[case]]
+name = "unicode"
+source_status = "valid"
+category = "encoding"
+rd = "rd/unicode.Rd"
+oracle = "oracle/unicode.rds"
+phase = "foundation"
+obligations = ["unicode_exact"]
+comments = 0
+
+[[case]]
+name = "whitespace-inline-boundaries"
+source_status = "valid"
+category = "trivia"
+rd = "rd/whitespace-inline-boundaries.Rd"
+oracle = "oracle/whitespace-inline-boundaries.rds"
+phase = "foundation"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "description", "TEXT"] }, { path = "root/2", kinds = ["TEXT", "emph", "TEXT"] }]
+expected_leaves = [{ kind = "VERB", value = "inline-space" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "alpha " }, { kind = "TEXT", value = "beta" }, { kind = "TEXT", value = " gamma" }, { kind = "TEXT", value = "\n" }]
+
+[[case]]
+name = "newline-inside-section"
+source_status = "valid"
+category = "trivia"
+rd = "rd/newline-inside-section.Rd"
+oracle = "oracle/newline-inside-section.rds"
+phase = "foundation"
+obligations = ["exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "x" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "first line\n" }, { kind = "TEXT", value = "second line\n" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "fourth line" }, { kind = "TEXT", value = "\n" }]
+
+[[case]]
+name = "comment-leading"
+source_status = "valid"
+category = "comments"
+rd = "rd/comment-leading.Rd"
+oracle = "oracle/comment-leading.rds"
+phase = "foundation"
+obligations = ["comments", "comment_paths"]
+comments = 1
+comment_paths = ["root/0"]
+comment_values = ["% leading comment"]
+
+[[case]]
+name = "comment-trailing"
+source_status = "valid"
+category = "comments"
+rd = "rd/comment-trailing.Rd"
+oracle = "oracle/comment-trailing.rds"
+phase = "foundation"
+obligations = ["comments", "comment_paths"]
+comments = 1
+comment_paths = ["root/2"]
+comment_values = ["% trailing comment"]
+
+[[case]]
+name = "comment-inside-section"
+source_status = "valid"
+category = "comments"
+rd = "rd/comment-inside-section.Rd"
+oracle = "oracle/comment-inside-section.rds"
+phase = "foundation"
+obligations = ["comments", "comment_paths", "node_sequence"]
+comments = 1
+comment_paths = ["root/2/1"]
+comment_values = ["% inside"]
+expected_sequence = [{ path = "root/2", kinds = ["TEXT", "COMMENT", "TEXT", "TEXT"] }]
+
+[[case]]
+name = "comment-between-sections"
+source_status = "valid"
+category = "comments"
+rd = "rd/comment-between-sections.Rd"
+oracle = "oracle/comment-between-sections.rds"
+phase = "foundation"
+obligations = ["comments", "comment_paths", "node_sequence"]
+comments = 1
+comment_paths = ["root/2"]
+comment_values = ["% between"]
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "COMMENT", "TEXT", "title", "TEXT"] }]
+
+[[case]]
+name = "nested-groups"
+source_status = "valid"
+category = "structure"
+rd = "rd/nested-groups.Rd"
+oracle = "oracle/nested-groups.rds"
+phase = "foundation"
+obligations = ["group_shape", "leaf_kinds"]
+comments = 0
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
+expected_groups = [{ path = "root/2/0/0", children = 1 }, { path = "root/2/0/1", children = 2 }]
+
+[[case]]
+name = "escape-equation-first-arg"
+source_status = "valid"
+category = "escapes"
+rd = "rd/escape-equation-first-arg.Rd"
+oracle = "oracle/escape-equation-first-arg.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "title", "TEXT", "description", "TEXT"] }, { path = "root/4", kinds = ["eqn", "TEXT", "TEXT", "deqn"] }]
+expected_leaves = [
+  { kind = "VERB", value = "escape-equation-first-arg" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "Equation first argument escapes" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "VERB", value = "a\\{b\\}c \\% d\\\\e\n" },
+  { kind = "VERB", value = "% equation percent\n" },
+  { kind = "VERB", value = "#ifdef EQUATION\n" },
+  { kind = "VERB", value = "literal conditional\n" },
+  { kind = "VERB", value = "#endif" },
+  { kind = "VERB", value = "second" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "VERB", value = "x\\{y\\}z \\% w\\\\q\n" },
+  { kind = "VERB", value = "% deqn percent\n" },
+  { kind = "VERB", value = "#ifdef DEQN\n" },
+  { kind = "VERB", value = "literal conditional\n" },
+  { kind = "VERB", value = "#endif" },
+  { kind = "VERB", value = "second" },
+  { kind = "TEXT", value = "\n" }
+]
+
+[[case]]
+name = "escape-equation-second-arg"
+source_status = "valid"
+category = "escapes"
+rd = "rd/escape-equation-second-arg.Rd"
+oracle = "oracle/escape-equation-second-arg.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "comments", "comment_paths"]
+comments = 1
+comment_paths = ["root/4/0/1/2"]
+comment_values = ["% second argument comment"]
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "title", "TEXT", "description", "TEXT"] }]
+expected_leaves = [{ kind = "VERB", value = "escape-equation-second-arg" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "Equation second argument escapes" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "first" }, { kind = "VERB", value = "second {a} % d\\e\n" }, { kind = "TEXT", value = " SECOND\n" }, { kind = "VERB", value = "conditional body\n" }, { kind = "COMMENT", value = "% second argument comment" }, { kind = "VERB", value = "\n" }, { kind = "TEXT", value = "\n" }]
+
+[[case]]
+name = "escape-verbatim-decodes"
+source_status = "valid"
+category = "escapes"
+rd = "rd/escape-verbatim-decodes.Rd"
+oracle = "oracle/escape-verbatim-decodes.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "comments", "comment_paths"]
+comments = 1
+comment_paths = ["root/4/0/1"]
+comment_values = ["% verbatim comment"]
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "title", "TEXT", "description", "TEXT"] }]
+expected_leaves = [{ kind = "VERB", value = "escape-verbatim-decodes" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "Verbatim escapes decode" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "p {a} % d\\e\n" }, { kind = "COMMENT", value = "% verbatim comment" }, { kind = "VERB", value = "\n" }, { kind = "VERB", value = "  q" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "v {a} % d\\e" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "s {a} % d\\e" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "u {a} % d\\e" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "o {a} % d\\e" }, { kind = "TEXT", value = "\n" }]
+
+[[case]]
+name = "escape-rlike-strings"
+source_status = "valid"
+category = "escapes"
+rd = "rd/escape-rlike-strings.Rd"
+oracle = "oracle/escape-rlike-strings.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "title", "TEXT", "examples", "TEXT"] }, { path = "root/4", kinds = ["RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE"] }]
+expected_leaves = [{ kind = "VERB", value = "escape-rlike-strings" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "R-like string escapes" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "f(\"in\\{str\\}\")\n" }, { kind = "RCODE", value = "s <- \"p\\q\"\n" }, { kind = "RCODE", value = "t <- \"a\\{b\\}c d%e\"\n" }, { kind = "RCODE", value = "a { b } c\n" }, { kind = "RCODE", value = "r <- 1 % 2\n" }, { kind = "RCODE", value = "# cmt a{b} % p\\q\n" }, { kind = "RCODE", value = "z <- r\"(raw \\{b\\} \\% p\\\\q end)\"\n" }, { kind = "TEXT", value = "\n" }]
+
+[[case]]
+name = "empty-groups"
+source_status = "valid"
+category = "structure"
+rd = "rd/empty-groups.Rd"
+oracle = "oracle/empty-groups.rds"
+phase = "foundation"
+obligations = ["group_shape"]
+comments = 0
+expected_groups = [{ path = "root/2/0/0", children = 0 }, { path = "root/2/0/1", children = 0 }]
+
+[[case]]
+name = "whitespace-only-input"
+source_status = "valid"
+category = "boundary"
+rd = "rd/whitespace-only-input.Rd"
+oracle = "oracle/whitespace-only-input.rds"
+phase = "foundation"
+obligations = ["document_shape", "exact_leaf_values", "whitespace_text"]
+comments = 0
+expected_leaves = [{ kind = "TEXT", value = " \t\n" }, { kind = "TEXT", value = "\n" }]
+expected_root_nodes = 2
+
+[[case]]
+name = "escapes-rcode"
+source_status = "valid"
+category = "escapes"
+rd = "rd/escapes-rcode.Rd"
+oracle = "oracle/escapes-rcode.rds"
+phase = "foundation"
+obligations = ["leaf_kinds", "decoded_escapes_by_kind", "exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "x" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "f(%, {, }, \\)" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "RCODE", "TEXT"]
+expected_decoded = [{ kind = "RCODE", value = "%" }, { kind = "RCODE", value = "{" }, { kind = "RCODE", value = "}" }, { kind = "RCODE", value = "\\" }]
+
+[[case]]
+name = "escapes-verb"
+source_status = "valid"
+category = "escapes"
+rd = "rd/escapes-verb.Rd"
+oracle = "oracle/escapes-verb.rds"
+phase = "foundation"
+obligations = ["leaf_kinds", "decoded_escapes_by_kind", "exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "x" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "literal % { } \\" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "VERB", "TEXT"]
+expected_decoded = [{ kind = "VERB", value = "%" }, { kind = "VERB", value = "{" }, { kind = "VERB", value = "}" }, { kind = "VERB", value = "\\" }]
+
+[[case]]
+name = "equation-arity"
+source_status = "valid"
+category = "arguments"
+rd = "rd/equation-arity.Rd"
+oracle = "oracle/equation-arity.rds"
+phase = "f2"
+obligations = ["tag_arity", "group_shape", "leaf_kinds"]
+comments = 0
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "VERB", "TEXT", "VERB", "VERB", "TEXT", "VERB", "VERB", "TEXT", "TEXT"]
+expected_groups = [{ path = "root/2/1/0", children = 1 }, { path = "root/2/3/0", children = 1 }, { path = "root/2/3/1", children = 1 }, { path = "root/2/5/0", children = 1 }, { path = "root/2/5/1", children = 1 }]
+expected_arities = [{ tag = "eqn", counts = [1, 2] }, { tag = "deqn", counts = [2] }]
+
+[[case]]
+name = "method-families"
+source_status = "valid"
+category = "arguments"
+rd = "rd/method-families.Rd"
+oracle = "oracle/method-families.rds"
+phase = "f2"
+obligations = ["tag_arity", "node_sequence", "leaf_kinds"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["method", "RCODE", "S3method", "RCODE", "S4method", "RCODE"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "RCODE", "TEXT", "TEXT", "RCODE", "TEXT", "TEXT", "RCODE", "TEXT"]
+expected_arities = [{ tag = "method", counts = [2] }, { tag = "S3method", counts = [2] }, { tag = "S4method", counts = [2] }]
+
+[[case]]
+name = "sexpr-options"
+source_status = "valid"
+category = "dynamic"
+rd = "rd/sexpr-options.Rd"
+oracle = "oracle/sexpr-options.rds"
+phase = "f2"
+obligations = ["option_shape", "leaf_kinds", "exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "sexpr-options" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "1 + 1" }, { kind = "TEXT", value = " and " }, { kind = "RCODE", value = "2 + 2" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "RCODE", "TEXT", "RCODE", "TEXT"]
+expected_options = [{ tag = "Sexpr", presence = "absent" }, { tag = "Sexpr", presence = "nonempty" }]
+
+[[case]]
+name = "rdopts-and-sexpr"
+source_status = "valid"
+category = "dynamic"
+rd = "rd/rdopts-and-sexpr.Rd"
+oracle = "oracle/rdopts-and-sexpr.rds"
+phase = "f2"
+obligations = ["leaf_kinds", "exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "rdopts-and-sexpr" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "stage=build,results=verbatim" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "x <- 1; x" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "VERB", "TEXT", "RCODE", "TEXT"]
+
+[[case]]
+name = "preformatted-verbatim"
+source_status = "valid"
+category = "verbatim"
+rd = "rd/preformatted-verbatim.Rd"
+oracle = "oracle/preformatted-verbatim.rds"
+phase = "f2"
+obligations = ["leaf_kinds", "exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "preformatted-verbatim" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "  line one\n" }, { kind = "VERB", value = "    literal {brace}\n" }, { kind = "VERB", value = "  line three" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "VERB", "VERB", "VERB", "TEXT"]
+
+[[case]]
+name = "usage-examples-token-kinds"
+source_status = "valid"
+category = "modes"
+rd = "rd/usage-examples-token-kinds.Rd"
+oracle = "oracle/usage-examples-token-kinds.rds"
+phase = "f2"
+obligations = ["leaf_kinds", "exact_leaf_values", "node_sequence"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["RCODE"] }, { path = "root/4", kinds = ["RCODE", "RCODE"] }]
+expected_leaves = [{ kind = "VERB", value = "usage-examples-token-kinds" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "f(x = 1)" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "x <- f(1)\n" }, { kind = "RCODE", value = "print(x)" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "RCODE", "TEXT", "RCODE", "RCODE", "TEXT"]
+
+[[case]]
+name = "crlf-document"
+source_status = "valid"
+category = "encoding"
+rd = "rd/crlf-document.Rd"
+oracle = "oracle/crlf-document.rds"
+phase = "f2"
+obligations = ["crlf_source", "exact_leaf_values", "document_shape"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "crlf-document" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "CRLF document" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "first line\n" }, { kind = "TEXT", value = "second line" }, { kind = "TEXT", value = "\n" }]
+expected_root_nodes = 6
+
+[[case]]
+name = "composite-function"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-function.Rd"
+oracle = "oracle/composite-function.rds"
+phase = "f2"
+obligations = ["required_tags", "tag_arity", "node_sequence"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "alias", "TEXT", "title", "TEXT", "description", "TEXT", "usage", "TEXT", "arguments", "TEXT", "value", "TEXT", "examples", "TEXT"] }]
+required_tags = ["name", "alias", "title", "usage", "arguments", "item", "value", "description", "examples"]
+expected_arities = [{ tag = "item", counts = [2, 2, 2, 2] }]
+
+[[case]]
+name = "composite-dataset"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-dataset.Rd"
+oracle = "oracle/composite-dataset.rds"
+phase = "f2"
+obligations = ["required_tags", "tag_arity", "group_shape", "node_sequence"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "alias", "TEXT", "title", "TEXT", "docType", "TEXT", "format", "TEXT", "source", "TEXT", "references", "TEXT", "examples", "TEXT"] }]
+required_tags = ["name", "alias", "title", "docType", "format", "describe", "item", "source", "references", "examples"]
+expected_groups = [{ path = "root/8/3/2/0", children = 1 }, { path = "root/8/3/2/1", children = 1 }, { path = "root/8/3/5/0", children = 1 }, { path = "root/8/3/5/1", children = 1 }]
+expected_arities = [{ tag = "item", counts = [2, 2] }]
+
+[[case]]
+name = "composite-s3-methods"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-s3-methods.Rd"
+oracle = "oracle/composite-s3-methods.rds"
+phase = "f2"
+obligations = ["required_tags", "tag_arity", "option_shape"]
+comments = 0
+required_tags = ["name", "alias", "title", "usage", "method", "S3method", "arguments", "item", "seealso", "code", "link"]
+expected_arities = [{ tag = "method", counts = [2] }, { tag = "S3method", counts = [2] }, { tag = "item", counts = [2, 2] }]
+expected_options = [{ tag = "link", presence = "nonempty" }]
+
+[[case]]
+name = "composite-s4-class"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-s4-class.Rd"
+oracle = "oracle/composite-s4-class.rds"
+phase = "f2"
+obligations = ["required_tags", "tag_arity", "group_shape"]
+comments = 0
+required_tags = ["name", "alias", "title", "docType", "description", "format", "describe", "item", "usage", "S4method"]
+expected_groups = [{ path = "root/10/0/2/0", children = 1 }, { path = "root/10/0/2/1", children = 1 }, { path = "root/10/0/5/0", children = 1 }, { path = "root/10/0/5/1", children = 1 }]
+expected_arities = [{ tag = "describe", counts = [0] }, { tag = "item", counts = [2, 2] }]
+
+[[case]]
+name = "composite-markup"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-markup.Rd"
+oracle = "oracle/composite-markup.rds"
+phase = "f2"
+obligations = ["required_tags", "option_shape", "node_sequence"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "title", "TEXT", "description", "TEXT"] }]
+required_tags = ["name", "title", "description", "emph", "strong", "code", "pkg", "file", "email", "url", "href", "link", "itemize", "item"]
+expected_options = [{ tag = "link", presence = "absent" }]
+
+[[case]]
+name = "composite-math"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-math.Rd"
+oracle = "oracle/composite-math.rds"
+phase = "f2"
+obligations = ["required_tags", "tag_arity", "group_shape"]
+comments = 0
+required_tags = ["name", "title", "description", "eqn", "deqn", "tabular", "tab", "cr", "references"]
+expected_groups = [{ path = "root/4/2/0", children = 1 }, { path = "root/4/4/0", children = 1 }, { path = "root/4/4/1", children = 1 }, { path = "root/4/7/0", children = 1 }, { path = "root/4/7/1", children = 1 }, { path = "root/4/9/0", children = 1 }, { path = "root/4/9/1", children = 9 }]
+expected_arities = [{ tag = "eqn", counts = [1, 2] }, { tag = "deqn", counts = [2] }, { tag = "tabular", counts = [2] }, { tag = "tab", counts = [0, 0] }, { tag = "cr", counts = [0] }]
+
+[[case]]
+name = "composite-code-heavy"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-code-heavy.Rd"
+oracle = "oracle/composite-code-heavy.rds"
+phase = "f2"
+obligations = ["required_tags", "comment_paths", "node_sequence"]
+comments = 2
+comment_paths = ["root/6/1", "root/6/5/1"]
+comment_values = ["% an example comment", "% a guarded comment"]
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "title", "TEXT", "usage", "TEXT", "examples", "TEXT"] }]
+required_tags = ["name", "title", "usage", "examples", "dontrun", "donttest"]
+
+[[case]]
+name = "composite-dynamic-verbatim"
+source_status = "valid"
+category = "composite"
+rd = "rd/composite-dynamic-verbatim.Rd"
+oracle = "oracle/composite-dynamic-verbatim.rds"
+phase = "f2"
+obligations = ["required_tags", "option_shape", "leaf_kinds"]
+comments = 0
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "VERB", "TEXT", "TEXT", "RCODE", "TEXT", "TEXT", "RCODE", "TEXT", "VERB", "VERB", "TEXT", "VERB", "TEXT"]
+required_tags = ["name", "title", "RdOpts", "Sexpr", "preformatted", "verb"]
+expected_options = [{ tag = "Sexpr", presence = "absent" }, { tag = "Sexpr", presence = "nonempty" }]
+
+[[case]]
+name = "mode-tag-matrix"
+source_status = "valid"
+category = "grammar"
+rd = "rd/mode-tag-matrix.Rd"
+oracle = "oracle/mode-tag-matrix.rds"
+phase = "f4b"
+obligations = ["leaf_kinds", "required_tags"]
+comments = 0
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "VERB", "TEXT", "VERB", "TEXT", "TEXT", "TEXT"]
+required_tags = ["name", "title", "alias", "keyword", "concept", "encoding", "docType", "Rdversion", "synopsis", "description"]
+
+[[case]]
+name = "comment-by-mode"
+source_status = "valid"
+category = "comment"
+rd = "rd/comment-by-mode.Rd"
+oracle = "oracle/comment-by-mode.rds"
+phase = "f4b"
+obligations = ["comments", "comment_paths", "exact_leaf_values", "leaf_kinds", "decoded_escapes_by_kind"]
+comments = 3
+comment_paths = ["root/4/1", "root/4/5/1", "root/6/1"]
+comment_values = ["% text comment", "% verb comment", "% code comment"]
+expected_leaves = [{ kind = "VERB", value = "comment-by-mode" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "Comments by mode" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "COMMENT", value = "% text comment" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "text after comment\n" }, { kind = "TEXT", value = "escaped % text\n" }, { kind = "VERB", value = "\n" }, { kind = "COMMENT", value = "% verb comment" }, { kind = "VERB", value = "\n" }, { kind = "VERB", value = "verb after comment\n" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "equation " }, { kind = "VERB", value = "a%b" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\n" }, { kind = "COMMENT", value = "% code comment" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "x <- 1\n" }, { kind = "RCODE", value = "y <- 2 % literal\n" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "COMMENT", "TEXT", "TEXT", "TEXT", "VERB", "COMMENT", "VERB", "VERB", "TEXT", "TEXT", "VERB", "TEXT", "TEXT", "RCODE", "COMMENT", "RCODE", "RCODE", "RCODE", "TEXT"]
+expected_decoded = [{ kind = "TEXT", value = "%" }, { kind = "RCODE", value = "%" }, { kind = "VERB", value = "%" }]
+
+[[case]]
+name = "brace-by-mode"
+source_status = "valid"
+category = "grammar"
+rd = "rd/brace-by-mode.Rd"
+oracle = "oracle/brace-by-mode.rds"
+phase = "f4b"
+obligations = ["group_shape", "node_sequence", "exact_leaf_values"]
+comments = 0
+expected_sequence = [{ path = "root/4", kinds = ["TEXT", "code", "TEXT", "code", "TEXT", "preformatted", "TEXT", "LIST"] }, { path = "root/6", kinds = ["TEXT", "eqn"] }]
+expected_leaves = [{ kind = "VERB", value = "brace-by-mode" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "Braces by mode" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "code " }, { kind = "RCODE", value = "f({1})" }, { kind = "TEXT", value = " quoted " }, { kind = "RCODE", value = "f(\"}\")" }, { kind = "TEXT", value = " verb " }, { kind = "VERB", value = "{x}" }, { kind = "TEXT", value = " escaped {plain} " }, { kind = "TEXT", value = "group" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "equation " }, { kind = "VERB", value = "x^{2}" }, { kind = "VERB", value = "x^{2}" }, { kind = "TEXT", value = "\n" }]
+expected_groups = [{ path = "root/6/1/0", children = 1 }, { path = "root/6/1/1", children = 1 }]
+
+[[case]]
+name = "rlike-raw-strings"
+source_status = "valid"
+category = "grammar"
+rd = "rd/rlike-raw-strings.Rd"
+oracle = "oracle/rlike-raw-strings.rds"
+phase = "f4b"
+obligations = ["node_sequence", "exact_leaf_values", "leaf_kinds", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/5", kinds = ["RCODE", "RCODE", "RCODE", "RCODE", "RCODE"] }, { path = "root/8", kinds = ["RCODE", "RCODE", "RCODE"] }, { path = "root/11", kinds = ["code"] }, { path = "root/11/0", kinds = ["RCODE"] }]
+expected_leaves = [
+  { kind = "VERB", value = "rlike-raw-strings" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "R-like raw strings" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "paren <- r\"(body } ] ) ' \" % \\ \\} NEAR)x]y}z)\"; after_paren()\n" },
+  { kind = "RCODE", value = "upper <- R\"(upper } body)\"; after_upper()\n" },
+  { kind = "RCODE", value = "nested <- r\"((a))\"; after_nested()\n" },
+  { kind = "RCODE", value = "dash_near <- r\"---(near )x)---\"; after_dash_near()\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "square <- r\"[body } ] ) ' \" % \\ \\} NEAR)x]y}z]\"; after_square()\n" },
+  { kind = "RCODE", value = "dash <- r\"---(body } ] ) ' \" % \\ \\} NEAR)x]y}z)---\"; after_dash()\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "brace <- r\"{body } ] ) ' \" % \\ \\} NEAR)x]y}z}\"; after_brace()" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "VERB", value = "top" },
+  { kind = "TEXT", value = "\n" }
+]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "TEXT", "TEXT", "RCODE", "RCODE", "RCODE", "TEXT", "TEXT", "RCODE", "TEXT", "TEXT", "VERB", "TEXT"]
+required_tags = ["name", "title", "usage", "examples", "description", "code", "alias"]
+
+[[case]]
+name = "escape-boundaries"
+source_status = "valid"
+category = "escape"
+rd = "rd/escape-boundaries.Rd"
+oracle = "oracle/escape-boundaries.rds"
+phase = "f4b"
+obligations = ["decoded_escapes_by_kind", "exact_leaf_values"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "escape-boundaries" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "Escape boundaries" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "a%b{c}d\\e\n" }, { kind = "VERB", value = "a%b{c}d\\e" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "a%b{c}d\\e" }, { kind = "TEXT", value = "\n" }]
+expected_decoded = [{ kind = "TEXT", value = "%" }, { kind = "TEXT", value = "{" }, { kind = "TEXT", value = "}" }, { kind = "TEXT", value = "\\" }, { kind = "RCODE", value = "%" }, { kind = "RCODE", value = "{" }, { kind = "RCODE", value = "}" }, { kind = "RCODE", value = "\\" }, { kind = "VERB", value = "%" }, { kind = "VERB", value = "{" }, { kind = "VERB", value = "}" }, { kind = "VERB", value = "\\" }]
+
+[[case]]
+name = "dont-family"
+source_status = "valid"
+category = "modes"
+rd = "rd/dont-family.Rd"
+oracle = "oracle/dont-family.rds"
+phase = "f4b"
+obligations = ["node_sequence", "leaf_kinds", "exact_leaf_values", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["RCODE", "RCODE", "dontrun", "RCODE", "donttest", "RCODE", "dontshow", "RCODE", "RCODE"] }]
+expected_leaves = [{ kind = "VERB", value = "dont-family" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "before()\n" }, { kind = "VERB", value = "run_this()" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "test_this()" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "show_this()" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "after()\n" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "RCODE", "RCODE", "VERB", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "TEXT"]
+required_tags = ["name", "examples", "dontrun", "donttest", "dontshow"]
+
+[[case]]
+name = "tabular-modes"
+source_status = "valid"
+category = "modes"
+rd = "rd/tabular-modes.Rd"
+oracle = "oracle/tabular-modes.rds"
+phase = "f4b"
+obligations = ["node_sequence", "leaf_kinds", "exact_leaf_values", "tag_arity", "group_shape", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["TEXT", "tabular", "TEXT"] }, { path = "root/2/1/1", kinds = ["TEXT", "TEXT", "tab", "TEXT", "emph", "TEXT", "cr", "TEXT", "TEXT", "tab", "TEXT"] }]
+expected_leaves = [{ kind = "VERB", value = "tabular-modes" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "l l" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "left " }, { kind = "TEXT", value = " " }, { kind = "TEXT", value = "right" }, { kind = "TEXT", value = " " }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "next " }, { kind = "TEXT", value = " cell\n" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
+required_tags = ["name", "description", "tabular", "tab", "cr", "emph"]
+expected_groups = [{ path = "root/2/1/0", children = 1 }, { path = "root/2/1/1", children = 11 }]
+expected_arities = [{ tag = "tabular", counts = [2] }, { tag = "tab", counts = [0, 0] }, { tag = "cr", counts = [0] }]
+
+[[case]]
+name = "section-leading-trailing-newline"
+source_status = "valid"
+category = "trivia"
+rd = "rd/section-leading-trailing-newline.Rd"
+oracle = "oracle/section-leading-trailing-newline.rds"
+phase = "f4b"
+obligations = ["node_sequence", "leaf_kinds", "exact_leaf_values", "group_shape", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root", kinds = ["name", "TEXT", "section", "TEXT", "section", "TEXT"] }]
+expected_leaves = [{ kind = "VERB", value = "section-leading-trailing-newline" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "title" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "leading and trailing\n" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "tight" }, { kind = "TEXT", value = "content" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
+required_tags = ["name", "section"]
+expected_groups = [{ path = "root/2/0", children = 1 }, { path = "root/2/1", children = 2 }, { path = "root/4/0", children = 1 }, { path = "root/4/1", children = 1 }]
+
+[[case]]
+name = "control-sequence-in-verbatim"
+source_status = "valid"
+category = "modes"
+rd = "rd/control-sequence-in-verbatim.Rd"
+oracle = "oracle/control-sequence-in-verbatim.rds"
+phase = "f4b"
+obligations = ["node_sequence", "leaf_kinds", "exact_leaf_values", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["TEXT", "preformatted", "TEXT", "verb", "TEXT", "eqn", "TEXT"] }]
+expected_leaves = [{ kind = "VERB", value = "control-sequence-in-verbatim" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "literal \\foo here" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "literal \\foo here" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "x \\foo y" }, { kind = "VERB", value = "x \\bar y" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "VERB", "TEXT", "VERB", "TEXT", "VERB", "VERB", "TEXT", "TEXT"]
+required_tags = ["name", "description", "preformatted", "eqn"]
+
+[[case]]
+name = "option-presence"
+source_status = "valid"
+category = "options"
+rd = "rd/option-presence.Rd"
+oracle = "oracle/option-presence.rds"
+phase = "f4b"
+obligations = ["option_shape", "option_nodes", "required_tags"]
+comments = 0
+required_tags = ["name", "description", "link"]
+expected_options = [{ tag = "link", presence = "absent" }, { tag = "link", presence = "nonempty" }, { tag = "link", presence = "nonempty" }]
+expected_option_nodes = [{ tag = "link", nodes = [{ kind = "TEXT", value = "pkg::topic" }] }, { tag = "link", nodes = [{ kind = "emph", value = "pkg" }] }]
+
+[[case]]
+name = "option-markup"
+source_status = "valid"
+category = "options"
+rd = "rd/option-markup.Rd"
+oracle = "oracle/option-markup.rds"
+phase = "f4b"
+obligations = ["option_shape", "option_nodes", "required_tags"]
+comments = 0
+required_tags = ["name", "description", "link"]
+expected_options = [{ tag = "link", presence = "nonempty" }]
+expected_option_nodes = [{ tag = "link", nodes = [{ kind = "emph", value = "pkg" }] }]
+
+[[case]]
+name = "option-spacing"
+source_status = "valid"
+category = "options"
+rd = "rd/option-spacing.Rd"
+oracle = "oracle/option-spacing.rds"
+phase = "f4b"
+obligations = ["option_shape", "exact_leaf_values", "required_tags"]
+comments = 0
+expected_leaves = [{ kind = "VERB", value = "option-spacing" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "tight " }, { kind = "TEXT", value = "target" }, { kind = "TEXT", value = "\n" }]
+required_tags = ["name", "description", "link"]
+expected_options = [{ tag = "link", presence = "nonempty" }]
+
+[[case]]
+name = "method-mode-boundaries"
+source_status = "valid"
+category = "modes"
+rd = "rd/method-mode-boundaries.Rd"
+oracle = "oracle/method-mode-boundaries.rds"
+phase = "f4b"
+obligations = ["leaf_kinds", "node_sequence", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["method", "RCODE", "S3method", "RCODE", "S4method", "RCODE"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "RCODE", "TEXT", "TEXT", "RCODE", "TEXT", "TEXT", "RCODE", "TEXT"]
+required_tags = ["name", "usage", "method", "S3method", "S4method"]
+
+[[case]]
+name = "inline-markup-modes"
+source_status = "valid"
+category = "modes"
+rd = "rd/inline-markup-modes.Rd"
+oracle = "oracle/inline-markup-modes.rds"
+phase = "vocabulary"
+obligations = ["leaf_kinds", "node_sequence", "tag_arity", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/4", kinds = ["TEXT", "samp", "TEXT", "kbd", "TEXT", "env", "TEXT", "option", "TEXT", "command", "TEXT", "sQuote", "TEXT", "dQuote", "TEXT", "acronym", "TEXT", "abbr", "TEXT", "cite", "TEXT", "dfn", "TEXT"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "VERB", "TEXT", "VERB", "TEXT", "VERB", "TEXT", "VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
+expected_arities = [{ tag = "samp", counts = [0] }, { tag = "kbd", counts = [0] }, { tag = "env", counts = [0] }, { tag = "option", counts = [0] }, { tag = "command", counts = [0] }, { tag = "sQuote", counts = [0] }, { tag = "dQuote", counts = [0] }, { tag = "acronym", counts = [0] }, { tag = "abbr", counts = [0] }, { tag = "cite", counts = [0] }, { tag = "dfn", counts = [0] }]
+required_tags = ["name", "title", "description", "samp", "kbd", "env", "option", "command", "sQuote", "dQuote", "acronym", "abbr", "cite", "dfn", "emph"]
+
+[[case]]
+name = "specialized-inline-arity"
+source_status = "valid"
+category = "modes"
+rd = "rd/specialized-inline-arity.Rd"
+oracle = "oracle/specialized-inline-arity.rds"
+phase = "vocabulary"
+obligations = ["leaf_kinds", "node_sequence", "tag_arity", "group_shape", "option_shape", "option_nodes", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/4", kinds = ["TEXT", "linkS4class", "TEXT", "linkS4class", "TEXT", "figure", "TEXT", "figure", "TEXT", "enc", "TEXT"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "VERB", "TEXT", "VERB", "VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT"]
+expected_arities = [{ tag = "linkS4class", counts = [0, 0] }, { tag = "figure", counts = [1, 2] }, { tag = "enc", counts = [2] }]
+expected_groups = [{ path = "root/4/9/0", children = 2 }, { path = "root/4/9/1", children = 1 }]
+expected_options = [{ tag = "linkS4class", presence = "absent" }, { tag = "linkS4class", presence = "nonempty" }]
+expected_option_nodes = [{ tag = "linkS4class", nodes = [{ kind = "TEXT", value = "pkg" }] }]
+required_tags = ["name", "title", "description", "linkS4class", "figure", "enc", "emph"]
+
+[[case]]
+name = "conditional-content"
+source_status = "valid"
+category = "modes"
+rd = "rd/conditional-content.Rd"
+oracle = "oracle/conditional-content.rds"
+phase = "vocabulary"
+obligations = ["leaf_kinds", "node_sequence", "tag_arity", "group_shape", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/4", kinds = ["TEXT", "if", "TEXT", "ifelse", "TEXT", "out", "TEXT"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "VERB", "TEXT", "TEXT"]
+expected_arities = [{ tag = "if", counts = [2] }, { tag = "ifelse", counts = [3] }, { tag = "out", counts = [0] }]
+expected_groups = [{ path = "root/4/1/0", children = 1 }, { path = "root/4/1/1", children = 1 }, { path = "root/4/3/0", children = 1 }, { path = "root/4/3/1", children = 1 }, { path = "root/4/3/2", children = 1 }]
+required_tags = ["name", "title", "description", "if", "ifelse", "out", "emph", "strong"]
+
+[[case]]
+name = "zero-argument-insertions"
+source_status = "valid"
+category = "modes"
+rd = "rd/zero-argument-insertions.Rd"
+oracle = "oracle/zero-argument-insertions.rds"
+phase = "vocabulary"
+obligations = ["leaf_kinds", "node_sequence", "tag_arity", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/4", kinds = ["TEXT", "R", "TEXT", "dots", "TEXT", "ldots", "TEXT", "R", "LIST", "TEXT", "dots", "LIST", "TEXT", "ldots", "LIST", "TEXT"] }, { path = "root/6", kinds = ["RCODE", "R", "RCODE", "dots", "RCODE", "ldots", "RCODE", "R", "RCODE", "dots", "RCODE", "ldots", "RCODE"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "TEXT"]
+expected_arities = [{ tag = "R", counts = [0, 0, 0, 0] }, { tag = "dots", counts = [0, 0, 0, 0] }, { tag = "ldots", counts = [0, 0, 0, 0] }]
+required_tags = ["name", "title", "description", "examples", "R", "dots", "ldots"]
+
+[[case]]
+name = "dont-family-extras"
+source_status = "valid"
+category = "modes"
+rd = "rd/dont-family-extras.Rd"
+oracle = "oracle/dont-family-extras.rds"
+phase = "vocabulary"
+obligations = ["leaf_kinds", "node_sequence", "tag_arity", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/4", kinds = ["RCODE", "dontdiff", "RCODE", "testonly", "RCODE"] }]
+expected_leaf_kinds = ["VERB", "TEXT", "TEXT", "TEXT", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "RCODE", "TEXT"]
+expected_arities = [{ tag = "dontdiff", counts = [0] }, { tag = "testonly", counts = [0] }]
+required_tags = ["name", "title", "examples", "dontdiff", "testonly"]
+
+[[case]]
+name = "rlike-link-quotes"
+source_status = "valid"
+category = "rlike"
+rd = "rd/rlike-link-quotes.Rd"
+oracle = "oracle/rlike-link-quotes.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "required_tags", "option_shape", "option_nodes"]
+comments = 0
+expected_sequence = [{ path = "root/2/0", kinds = ["RCODE", "link", "RCODE", "link", "RCODE", "link"] }, { path = "root/4", kinds = ["RCODE", "RCODE", "link", "RCODE", "RCODE", "link", "RCODE", "link", "RCODE"] }, { path = "root/6", kinds = ["RCODE", "RCODE", "link", "RCODE", "RCODE", "link", "RCODE", "link", "RCODE"] }]
+expected_leaves = [{ kind = "VERB", value = "rlike-link-quotes" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\"" }, { kind = "TEXT", value = "description-double" }, { kind = "RCODE", value = "\" '" }, { kind = "TEXT", value = "description-single" }, { kind = "RCODE", value = "' " }, { kind = "TEXT", value = "description-bare" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "\"" }, { kind = "TEXT", value = "usage-double" }, { kind = "RCODE", value = "\"\n" }, { kind = "RCODE", value = "'" }, { kind = "TEXT", value = "usage-single" }, { kind = "RCODE", value = "'\n" }, { kind = "TEXT", value = "usage-bare" }, { kind = "RCODE", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "\"" }, { kind = "TEXT", value = "examples-double" }, { kind = "RCODE", value = "\"\n" }, { kind = "RCODE", value = "'" }, { kind = "TEXT", value = "examples-single" }, { kind = "RCODE", value = "'\n" }, { kind = "TEXT", value = "examples-bare" }, { kind = "RCODE", value = "\n" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }]
+required_tags = ["description", "usage", "examples", "link"]
+expected_options = [{ tag = "link", presence = "absent" }, { tag = "link", presence = "nonempty" }, { tag = "link", presence = "absent" }, { tag = "link", presence = "absent" }, { tag = "link", presence = "nonempty" }, { tag = "link", presence = "absent" }, { tag = "link", presence = "absent" }, { tag = "link", presence = "nonempty" }, { tag = "link", presence = "absent" }]
+expected_option_nodes = [{ tag = "link", nodes = [{ kind = "TEXT", value = "pkg" }] }, { tag = "link", nodes = [{ kind = "TEXT", value = "pkg" }] }, { tag = "link", nodes = [{ kind = "TEXT", value = "pkg" }] }]
+
+[[case]]
+name = "rlike-quoted-macro-whitelist"
+source_status = "valid"
+category = "rlike"
+rd = "rd/rlike-quoted-macro-whitelist.Rd"
+oracle = "oracle/rlike-quoted-macro-whitelist.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["RCODE", "link", "RCODE", "linkS4class", "RCODE", "var", "RCODE", "verb", "RCODE", "ldots", "RCODE"] }]
+expected_leaves = [{ kind = "VERB", value = "rlike-quoted-macro-whitelist" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\"" }, { kind = "TEXT", value = "a" }, { kind = "RCODE", value = " " }, { kind = "TEXT", value = "B" }, { kind = "RCODE", value = " " }, { kind = "TEXT", value = "v" }, { kind = "RCODE", value = " " }, { kind = "VERB", value = "z" }, { kind = "RCODE", value = " " }, { kind = "RCODE", value = " \\emph{e} \\code{c}\"" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }]
+required_tags = ["examples", "link", "linkS4class", "var", "verb", "ldots"]
+
+[[case]]
+name = "rlike-link-opaque-regions"
+source_status = "valid"
+category = "rlike"
+rd = "rd/rlike-link-opaque-regions.Rd"
+oracle = "oracle/rlike-link-opaque-regions.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["RCODE", "RCODE", "RCODE", "RCODE", "linkS4class", "RCODE"] }]
+expected_leaves = [{ kind = "VERB", value = "rlike-link-opaque-regions" }, { kind = "TEXT", value = "\n" }, { kind = "RCODE", value = "\n" }, { kind = "RCODE", value = "# \\link{comment-link}\n" }, { kind = "RCODE", value = "r\"(\\link{raw-link})\"\n" }, { kind = "RCODE", value = "\"\\emph{plain} \\code{plain} \\href{https://example.org/}{plain} " }, { kind = "TEXT", value = "Class" }, { kind = "RCODE", value = "\"\n" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }]
+required_tags = ["examples", "linkS4class"]
+
+[[case]]
+name = "href-argument-modes"
+source_status = "valid"
+category = "markup"
+rd = "rd/href-argument-modes.Rd"
+oracle = "oracle/href-argument-modes.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "required_tags", "tag_arity"]
+comments = 0
+expected_sequence = [{ path = "root/2/0", kinds = ["GROUP", "GROUP"] }, { path = "root/4/0", kinds = ["GROUP", "GROUP"] }]
+expected_leaves = [{ kind = "VERB", value = "href-argument-modes" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "https://example.org/\\emph{literal}" }, { kind = "TEXT", value = "display " }, { kind = "TEXT", value = "text" }, { kind = "TEXT", value = "\n" }, { kind = "VERB", value = "https://example.org/\\emph{literal}" }, { kind = "TEXT", value = "display " }, { kind = "TEXT", value = "text" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }]
+required_tags = ["description", "examples", "href", "emph"]
+expected_arities = [{ tag = "href", counts = [2, 2] }]
+
+[[case]]
+name = "conditional-links"
+source_status = "valid"
+category = "markup"
+rd = "rd/conditional-links.Rd"
+oracle = "oracle/conditional-links.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "required_tags", "tag_arity"]
+comments = 0
+expected_sequence = [{ path = "root/2", kinds = ["if", "TEXT", "ifelse"] }, { path = "root/4", kinds = ["if", "RCODE", "ifelse"] }]
+expected_leaves = [{ kind = "VERB", value = "conditional-links" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "html" }, { kind = "TEXT", value = "if-link" }, { kind = "TEXT", value = " " }, { kind = "TEXT", value = "html" }, { kind = "TEXT", value = "yes-link" }, { kind = "TEXT", value = "no-link" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "html" }, { kind = "TEXT", value = "if-link" }, { kind = "RCODE", value = " " }, { kind = "TEXT", value = "html" }, { kind = "TEXT", value = "yes-link" }, { kind = "TEXT", value = "no-link" }, { kind = "TEXT", value = "\n" }, { kind = "TEXT", value = "\n" }]
+required_tags = ["description", "examples", "if", "ifelse", "link"]
+expected_arities = [{ tag = "if", counts = [2, 2] }, { tag = "ifelse", counts = [3, 3] }]
+[[case]]
+name = "value-item-boundaries"
+source_status = "valid"
+category = "markup"
+rd = "rd/value-item-boundaries.Rd"
+oracle = "oracle/value-item-boundaries.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "tag_arity", "required_tags"]
+comments = 1
+expected_sequence = [{ path = "root/4", kinds = ["TEXT", "TEXT", "TEXT", "item", "TEXT", "TEXT", "TEXT", "COMMENT", "TEXT", "TEXT", "item", "TEXT"] }]
+expected_leaves = [
+  { kind = "VERB", value = "value-item-boundaries" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "Value item boundaries" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  Leading text.\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "first" },
+  { kind = "TEXT", value = "First description." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  Interleaved text.\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "COMMENT", value = "% comment before second item" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "second" },
+  { kind = "TEXT", value = "Second description." },
+  { kind = "TEXT", value = " Trailing text.\n" },
+  { kind = "TEXT", value = "\n" }
+]
+expected_arities = [{ tag = "item", counts = [2, 2] }]
+required_tags = ["name", "title", "value", "item"]
+
+[[case]]
+name = "item-context-restoration"
+source_status = "valid"
+category = "markup"
+rd = "rd/item-context-restoration.Rd"
+oracle = "oracle/item-context-restoration.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "tag_arity", "required_tags"]
+comments = 0
+expected_sequence = [{ path = "root/6", kinds = ["TEXT", "TEXT", "itemize", "TEXT", "TEXT", "item", "TEXT", "TEXT", "describe", "TEXT", "TEXT", "enumerate", "TEXT", "TEXT", "item", "TEXT"] }]
+expected_leaves = [
+  { kind = "VERB", value = "item-context-restoration" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "Item context restoration" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "x" },
+  { kind = "TEXT", value = "An argument." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "    " },
+  { kind = "TEXT", value = " An entry.\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "result" },
+  { kind = "TEXT", value = "A named result." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "    " },
+  { kind = "TEXT", value = "nested" },
+  { kind = "TEXT", value = "A described entry." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "    " },
+  { kind = "TEXT", value = " Another entry.\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "  " },
+  { kind = "TEXT", value = "final" },
+  { kind = "TEXT", value = "A final named result." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "\n" }
+]
+expected_arities = [{ tag = "item", counts = [2, 0, 2, 2, 0, 2] }]
+required_tags = ["name", "title", "arguments", "value", "itemize", "describe", "enumerate", "item"]
+
+[[case]]
+name = "system-macro-doi"
+source_status = "valid"
+comparison = "source-only"
+divergence_reason = "R expands the system macro into USERMACRO plus Sexpr; per CONTRACT.md section 13, rd-source instead recognizes \\doi directly as RdTag::Doi without replicating the R-evaluation expansion."
+category = "macros"
+rd = "rd/system-macro-doi.Rd"
+phase = "vocabulary"
+obligations = []
+comments = 0
+
+[case.oracle_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "option_shape", "option_nodes", "required_tags"]
+comments = 0
+expected_root_nodes = 3
+expected_sequence = [{ path = "root", kinds = ["USERMACRO", "Sexpr", "TEXT"] }]
+expected_leaves = [{ kind = "RCODE", value = "tools:::Rd_expr_doi(\"10.1000/xyz\")" }, { kind = "TEXT", value = "\n" }]
+expected_options = [{ tag = "Sexpr", presence = "nonempty" }]
+expected_option_nodes = [{ tag = "Sexpr", nodes = [{ kind = "TEXT", value = "results=rd" }] }]
+required_tags = ["USERMACRO", "Sexpr"]
+
+[case.source_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "option_shape", "required_tags"]
+comments = 0
+expected_root_nodes = 2
+expected_sequence = [{ path = "root", kinds = ["doi", "TEXT"] }]
+expected_leaves = [{ kind = "TEXT", value = "10.1000/xyz" }, { kind = "TEXT", value = "\n" }]
+expected_options = [{ tag = "doi", presence = "absent" }]
+required_tags = ["doi"]
+
+[[case]]
+name = "system-macro-cranpkg"
+source_status = "valid"
+comparison = "source-only"
+divergence_reason = "R expands the system macro into a USERMACRO leaf followed by an href/pkg subtree; per CONTRACT.md section 13, rd-source instead preserves the source-level CRAN package reference directly as RdTag::CranPkg."
+category = "macros"
+rd = "rd/system-macro-cranpkg.Rd"
+phase = "vocabulary"
+obligations = []
+comments = 0
+
+[case.oracle_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "tag_arity", "option_shape", "required_tags"]
+comments = 0
+expected_root_nodes = 4
+expected_sequence = [
+  { path = "root", kinds = ["description", "TEXT", "usage", "TEXT"] },
+  { path = "root/0", kinds = ["TEXT", "USERMACRO", "href", "TEXT"] },
+  { path = "root/0/2", kinds = ["GROUP", "GROUP"] },
+  { path = "root/0/2/1", kinds = ["pkg"] },
+  { path = "root/2", kinds = ["RCODE", "USERMACRO", "href", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "TEXT", value = "Latex " },
+  { kind = "VERB", value = "https://CRAN.R-project.org/package=stats" },
+  { kind = "TEXT", value = "stats" },
+  { kind = "TEXT", value = "." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "f(" },
+  { kind = "VERB", value = "https://CRAN.R-project.org/package=stats" },
+  { kind = "TEXT", value = "stats" },
+  { kind = "RCODE", value = ")" },
+  { kind = "TEXT", value = "\n" },
+]
+expected_arities = [{ tag = "href", counts = [2, 2] }]
+expected_options = [{ tag = "href", presence = "absent" }, { tag = "href", presence = "absent" }]
+required_tags = ["USERMACRO", "href", "pkg"]
+
+[case.source_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "tag_arity", "option_shape", "required_tags"]
+comments = 0
+expected_root_nodes = 4
+expected_sequence = [
+  { path = "root", kinds = ["description", "TEXT", "usage", "TEXT"] },
+  { path = "root/0", kinds = ["TEXT", "CRANpkg", "TEXT"] },
+  { path = "root/2", kinds = ["RCODE", "CRANpkg", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "TEXT", value = "Latex " },
+  { kind = "TEXT", value = "stats" },
+  { kind = "TEXT", value = "." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "f(" },
+  { kind = "TEXT", value = "stats" },
+  { kind = "RCODE", value = ")" },
+  { kind = "TEXT", value = "\n" },
+]
+expected_arities = [{ tag = "CRANpkg", counts = [0, 0] }]
+expected_options = [{ tag = "CRANpkg", presence = "absent" }, { tag = "CRANpkg", presence = "absent" }]
+required_tags = ["CRANpkg"]
+
+[[case]]
+name = "system-macro-sspace"
+source_status = "valid"
+comparison = "source-only"
+divergence_reason = "R expands the zero-argument system macro into a USERMACRO leaf followed by an output-dependent ifelse subtree; per CONTRACT.md section 13, rd-source preserves the spacing operation directly as RdTag::Sspace."
+category = "macros"
+rd = "rd/system-macro-sspace.Rd"
+phase = "vocabulary"
+obligations = []
+comments = 0
+
+[case.oracle_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "tag_arity", "option_shape", "required_tags"]
+comments = 0
+expected_root_nodes = 4
+expected_sequence = [
+  { path = "root", kinds = ["description", "TEXT", "usage", "TEXT"] },
+  { path = "root/0", kinds = ["TEXT", "USERMACRO", "ifelse", "TEXT"] },
+  { path = "root/0/2", kinds = ["GROUP", "GROUP", "GROUP"] },
+  { path = "root/2", kinds = ["RCODE", "USERMACRO", "ifelse", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "TEXT", value = "Sentence." },
+  { kind = "TEXT", value = "latex" },
+  { kind = "VERB", value = "~" },
+  { kind = "TEXT", value = " " },
+  { kind = "TEXT", value = " Next." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "f(" },
+  { kind = "TEXT", value = "latex" },
+  { kind = "VERB", value = "~" },
+  { kind = "TEXT", value = " " },
+  { kind = "RCODE", value = ")" },
+  { kind = "TEXT", value = "\n" },
+]
+expected_arities = [{ tag = "ifelse", counts = [3, 3] }]
+expected_options = [{ tag = "ifelse", presence = "absent" }, { tag = "ifelse", presence = "absent" }]
+required_tags = ["USERMACRO", "ifelse", "out"]
+
+[case.source_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "tag_arity", "option_shape", "required_tags"]
+comments = 0
+expected_root_nodes = 4
+expected_sequence = [
+  { path = "root", kinds = ["description", "TEXT", "usage", "TEXT"] },
+  { path = "root/0", kinds = ["TEXT", "sspace", "TEXT"] },
+  { path = "root/2", kinds = ["RCODE", "sspace", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "TEXT", value = "Sentence." },
+  { kind = "TEXT", value = " Next." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "f(" },
+  { kind = "RCODE", value = ")" },
+  { kind = "TEXT", value = "\n" },
+]
+expected_arities = [{ tag = "sspace", counts = [0, 0] }]
+expected_options = [{ tag = "sspace", presence = "absent" }, { tag = "sspace", presence = "absent" }]
+required_tags = ["sspace"]
+
+[[case]]
+name = "system-macro-i"
+source_status = "valid"
+comparison = "source-only"
+divergence_reason = "R records the system macro as USERMACRO and reparses its unchanged argument into the surrounding Latex or R-like mode; per CONTRACT.md section 13, rd-source preserves the RdTextFilter marker directly as RdTag::I."
+category = "macros"
+rd = "rd/system-macro-i.Rd"
+phase = "vocabulary"
+obligations = []
+comments = 0
+
+[case.oracle_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "option_shape", "required_tags"]
+comments = 0
+expected_root_nodes = 4
+expected_sequence = [
+  { path = "root", kinds = ["description", "TEXT", "usage", "TEXT"] },
+  { path = "root/0", kinds = ["TEXT", "USERMACRO", "TEXT"] },
+  { path = "root/2", kinds = ["RCODE", "USERMACRO", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "TEXT", value = "Latex " },
+  { kind = "TEXT", value = "marker." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "f(" },
+  { kind = "RCODE", value = "marker)" },
+  { kind = "TEXT", value = "\n" },
+]
+expected_options = [{ tag = "description", presence = "absent" }, { tag = "usage", presence = "absent" }]
+required_tags = ["USERMACRO"]
+
+[case.source_obligations]
+labels = ["document_shape", "node_sequence", "exact_leaf_values", "option_shape", "required_tags"]
+comments = 0
+expected_root_nodes = 4
+expected_sequence = [
+  { path = "root", kinds = ["description", "TEXT", "usage", "TEXT"] },
+  { path = "root/0", kinds = ["TEXT", "I", "TEXT"] },
+  { path = "root/2", kinds = ["RCODE", "I", "RCODE"] },
+]
+expected_leaves = [
+  { kind = "TEXT", value = "Latex " },
+  { kind = "TEXT", value = "marker" },
+  { kind = "TEXT", value = "." },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "f(" },
+  { kind = "RCODE", value = "marker" },
+  { kind = "RCODE", value = ")" },
+  { kind = "TEXT", value = "\n" },
+]
+expected_options = [{ tag = "I", presence = "absent" }, { tag = "I", presence = "absent" }]
+required_tags = ["I"]
+
+[[case]]
+name = "special-modes"
+source_status = "valid"
+category = "macros"
+rd = "rd/special-modes.Rd"
+oracle = "oracle/special-modes.rds"
+phase = "vocabulary"
+obligations = ["node_sequence", "exact_leaf_values", "tag_arity", "required_tags"]
+comments = 0
+expected_sequence = [
+  { path = "root", kinds = ["name", "TEXT", "title", "TEXT", "description", "TEXT", "usage", "TEXT", "examples", "TEXT"] },
+  { path = "root/4", kinds = ["TEXT", "special", "LIST", "TEXT"] },
+  { path = "root/4/1", kinds = ["RCODE", "emph", "RCODE"] },
+  { path = "root/4/1/1", kinds = ["TEXT"] },
+  { path = "root/6", kinds = ["RCODE", "special", "RCODE"] },
+  { path = "root/6/1", kinds = ["RCODE"] },
+  { path = "root/8", kinds = ["RCODE", "RCODE", "special", "RCODE", "RCODE"] },
+  { path = "root/8/2", kinds = ["RCODE", "emph", "RCODE"] },
+  { path = "root/8/2/1", kinds = ["TEXT"] },
+]
+expected_leaves = [
+  { kind = "VERB", value = "special-modes" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "Special macro modes" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "TEXT", value = "before " },
+  { kind = "RCODE", value = "left " },
+  { kind = "TEXT", value = "nested" },
+  { kind = "RCODE", value = " right" },
+  { kind = "TEXT", value = "latex sibling" },
+  { kind = "TEXT", value = " after" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "R CMD BATCH [options] infile [outfile]" },
+  { kind = "RCODE", value = "{usage sibling}\n" },
+  { kind = "TEXT", value = "\n" },
+  { kind = "RCODE", value = "\n" },
+  { kind = "RCODE", value = "before <- 1\n" },
+  { kind = "RCODE", value = "left " },
+  { kind = "TEXT", value = "nested" },
+  { kind = "RCODE", value = " right" },
+  { kind = "RCODE", value = "{examples sibling}\n" },
+  { kind = "RCODE", value = "after <- 2\n" },
+  { kind = "TEXT", value = "\n" },
+]
+expected_arities = [{ tag = "special", counts = [0, 0, 0] }]
+required_tags = ["name", "title", "description", "special", "emph", "usage", "examples"]

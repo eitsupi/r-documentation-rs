@@ -1,0 +1,29 @@
+[package]
+name = "rd-rds"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Read-only reader for the subset of R's RDS serialization format used by installed-package help databases"
+readme = "README.md"
+keywords = ["r", "rstats", "rds", "serialization", "xdr"]
+categories = ["encoding", "parsing"]
+exclude = ["tests/fixtures/generate_*.R"]
+
+[dependencies]
+thiserror.workspace = true
+flate2 = { workspace = true, optional = true }
+xz2 = { workspace = true, optional = true }
+bzip2 = { workspace = true, optional = true }
+ruzstd = { workspace = true, optional = true }
+
+[features]
+default = ["gzip", "xz", "bzip2", "zstd"]
+gzip = ["dep:flate2"]
+xz = ["dep:xz2"]
+bzip2 = ["dep:bzip2"]
+zstd = ["dep:ruzstd"]
+
+[dev-dependencies]
+flate2.workspace = true

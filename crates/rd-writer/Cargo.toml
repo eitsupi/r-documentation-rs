@@ -1,0 +1,16 @@
+[package]
+name = "rd-writer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Writer serializing rd-ast documents back to Rd source text"
+readme = "README.md"
+keywords = ["r", "rstats", "rd", "documentation", "writer"]
+categories = ["text-processing", "value-formatting"]
+
+[dependencies]
+rd-ast = { workspace = true }
+rd-source.workspace = true
+thiserror.workspace = true

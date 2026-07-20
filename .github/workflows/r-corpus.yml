@@ -1,0 +1,55 @@
+# This runs the mass Rd corpus differential test against the pinned R 4.6.1 source tree.
+# It is not a required PR gate, but the release procedure in RELEASING.md
+# requires a recent successful run.
+name: R Corpus
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  corpus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up R
+        uses: r-lib/actions/setup-r@d3c5be51b12e724e68f33216ca3c148b66d5f0b6 # v2.12.1
+        with:
+          r-version: "4.6.1"
+      - name: Verify R
+        run: |
+          Rscript --version
+          Rscript -e 'stopifnot(identical(as.character(getRversion()), "4.6.1")); loadNamespace("utils"); loadNamespace("tools")'
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Download R source corpus
+        run: |
+          # The pinned hash is authoritative; the CDN-backed cloud mirror is
+          # preferred, with the CRAN master as an availability fallback.
+          curl --fail --location \
+            --output "$RUNNER_TEMP/R-4.6.1.tar.gz" \
+            https://cloud.r-project.org/src/base/R-4/R-4.6.1.tar.gz \
+          || curl --fail --location \
+            --output "$RUNNER_TEMP/R-4.6.1.tar.gz" \
+            https://cran.r-project.org/src/base/R-4/R-4.6.1.tar.gz
+          echo "4da6e61d2c0aac5f14a2e7e432cb5fcc269efe83da4293050ba7f03dff4e2cf4  $RUNNER_TEMP/R-4.6.1.tar.gz" | sha256sum -c -
+          tar --extract --gzip --file "$RUNNER_TEMP/R-4.6.1.tar.gz" --directory "$RUNNER_TEMP"
+      - name: Run corpus differential test
+        run: |
+          RD_SOURCE_CORPUS="$RUNNER_TEMP/R-4.6.1/src/library" cargo test -p rd-source --test corpus_differential --locked -- --ignored
+      - name: Run writer round-trip corpus test
+        run: |
+          # Update this baseline when the pinned R version or writer strictness intentionally changes.
+          RD_SOURCE_CORPUS="$RUNNER_TEMP/R-4.6.1/src/library" RD_WRITER_CORPUS_EXPECT="total=1483 unparsed=626 unserializable=0 round_tripped=857" cargo test -p rd-writer --test corpus_round_trip --locked -- --ignored --nocapture

@@ -1,0 +1,21 @@
+[package]
+name = "rd-source"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Parser for R documentation source files into rd-ast documents"
+readme = "README.md"
+keywords = ["r", "rstats", "rd", "documentation", "parser"]
+categories = ["parsing", "text-processing"]
+exclude = ["tests/fixtures/generate.R"]
+
+[dependencies]
+rd-ast = { workspace = true }
+
+[dev-dependencies]
+rd-ast = { workspace = true, features = ["rds"] }
+rd-rds.workspace = true
+serde = { version = "1", features = ["derive"] }
+toml = "1"

@@ -1,0 +1,26 @@
+[package]
+name = "rd-ast"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Canonical, producer-agnostic AST for R's Rd (documentation) format"
+readme = "README.md"
+keywords = ["r", "rstats", "rd", "documentation", "ast"]
+categories = ["data-structures", "parsing"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+rd-rds = { workspace = true, optional = true }
+
+[features]
+serde = ["dep:serde"]
+rds = ["dep:rd-rds"]
+
+[dev-dependencies]
+serde_json = "1"
+flate2.workspace = true
