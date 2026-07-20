@@ -4,7 +4,7 @@ Rust crates for reading and modeling R documentation (Rd), from both the help da
 
 ## Status
 
-This repository is pre-release software in the `0.0.x` series. APIs are unstable, and the crates are not yet published on crates.io. The test oracles are built against R 4.6.x, currently including R 4.6.1-generated fixtures.
+This repository is pre-release software in the `0.0.x` series. APIs are unstable. The crates are published on crates.io. The test oracles are built against R 4.6.x, currently including R 4.6.1-generated fixtures.
 
 See the [stability policy](STABILITY.md), [changelog](CHANGELOG.md), and [release procedure](RELEASING.md) for compatibility, support, and release-history details.
 

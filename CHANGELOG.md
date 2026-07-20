@@ -4,9 +4,7 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-## [0.0.1] - Unreleased
-
-Version 0.0.1 has not been published to crates.io yet; the date will be set at publish time.
+## [0.0.1] - 2026-07-20
 
 ### Added
 
