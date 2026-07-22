@@ -22,7 +22,7 @@ Supported: typed package-metadata views are the recommended surface. Supported (
 
 ### rd-helpdb
 
-Supported: alias, topic, and search reading for an explicitly named installed-package directory. Out of scope: R library discovery, including finding libraries or packages on a machine.
+Supported: alias, topic, search, vignette, and demo reading for an explicitly named installed-package directory. Out of scope: R library discovery, including finding libraries or packages on a machine.
 
 ### rd-ast
 

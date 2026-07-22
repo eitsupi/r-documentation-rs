@@ -12,7 +12,7 @@ use std::{
 use rd_rds::RObject;
 
 use crate::{
-    Error,
+    DemoIndex, Error, VignetteIndex,
     index::{Index, Record},
     rds::{decode_rdb_record, read_rds_file},
     util::rstr_to_string,
@@ -20,7 +20,7 @@ use crate::{
 
 /// A reader over an installed R package's compiled help database:
 /// `help/<pkg>.rdx` + `help/<pkg>.rdb`, plus the sibling `help/aliases.rds`
-/// and `Meta/hsearch.rds` files.
+/// and `Meta/hsearch.rds`, `Meta/vignette.rds`, and `Meta/demo.rds` files.
 ///
 /// The `.rdx` index is parsed eagerly at [`PackageHelpDb::open`] (it's
 /// small); `.rdb` records are read on demand by seeking into the `.rdb`
@@ -231,6 +231,35 @@ impl PackageHelpDb {
         read_rds_file(&path)
     }
 
+    /// Reads and validates `Meta/vignette.rds`.
+    ///
+    /// Unlike [`PackageHelpDb::aliases`] and [`PackageHelpDb::search_index`],
+    /// a missing file returns `Ok(None)`: packages without vignettes normally
+    /// omit this file. An existing zero-row data frame returns a present,
+    /// empty index, while malformed files and non-`NotFound` I/O failures are
+    /// errors.
+    pub fn vignettes(&self) -> Result<Option<VignetteIndex>, Error> {
+        let path = self.pkg_dir.join("Meta").join("vignette.rds");
+        let Some(root) = read_optional_rds_file(&path)? else {
+            return Ok(None);
+        };
+        VignetteIndex::from_object(&root).map(Some)
+    }
+
+    /// Reads and validates `Meta/demo.rds`.
+    ///
+    /// Unlike [`PackageHelpDb::aliases`] and [`PackageHelpDb::search_index`],
+    /// a missing file returns `Ok(None)`: packages without demos normally omit
+    /// this file. An existing zero-row matrix returns a present, empty index,
+    /// while malformed files and non-`NotFound` I/O failures are errors.
+    pub fn demos(&self) -> Result<Option<DemoIndex>, Error> {
+        let path = self.pkg_dir.join("Meta").join("demo.rds");
+        let Some(root) = read_optional_rds_file(&path)? else {
+            return Ok(None);
+        };
+        DemoIndex::from_object(&root).map(Some)
+    }
+
     fn fetch_record(&self, record: Record) -> Result<RObject, Error> {
         let mut file = File::open(&self.rdb_path).map_err(|err| Error::io(&self.rdb_path, err))?;
         file.seek(SeekFrom::Start(record.offset as u64))
@@ -241,6 +270,16 @@ impl PackageHelpDb {
             .map_err(|err| Error::io(&self.rdb_path, err))?;
 
         decode_rdb_record(&buf)
+    }
+}
+
+fn read_optional_rds_file(path: &Path) -> Result<Option<RObject>, Error> {
+    match read_rds_file(path) {
+        Ok(root) => Ok(Some(root)),
+        Err(Error::Io { ref source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {
+            Ok(None)
+        }
+        Err(error) => Err(error),
     }
 }
 

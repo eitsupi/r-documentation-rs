@@ -4,6 +4,11 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- [rd-rds] Add a validated general character-matrix view with optional dimension names.
+- [rd-helpdb] Add typed readers for installed-package vignette and demo indexes.
+
 ## [0.0.1] - 2026-07-20
 
 ### Added
