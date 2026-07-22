@@ -13,6 +13,8 @@ The API has three layers:
   bzip2, and zstd (when the corresponding feature is enabled).
 - `package` provides validated convenience views for `Meta/package.rds` and
   CRAN-like `PACKAGES.rds` matrices.
+- `matrix::CharacterMatrix` provides a validated, owned view of general R
+  character matrices, including matrices without `dimnames`.
 
 The [`rd-helpdb`](../rd-helpdb/README.md) crate uses the file layer for
 standalone help-database RDS files, and [`rd-ast`](../rd-ast/README.md) can
@@ -31,8 +33,8 @@ input caps.
 `RObject` and `RValue` access is a supported advanced API. Their fields are
 encapsulated and accessed through constructors and accessors. Enum variants
 may be added in minor releases, so consumers must use wildcard match arms;
-the public enums are non-exhaustive. The typed `package` views are the stable
-convenience surface for ordinary consumers.
+the public enums are non-exhaustive. The typed `package` and `matrix` views are
+the stable convenience surface for ordinary consumers.
 
 ## Stability
 

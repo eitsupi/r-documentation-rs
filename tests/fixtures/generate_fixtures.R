@@ -1,7 +1,11 @@
 #!/usr/bin/env Rscript
 #
 # Generates the synthetic binary fixtures used by rd-rds's oracle/regression
-# tests. Run from the repository root:
+# tests, and the rd-helpdb Meta/vignette.rds- and Meta/demo.rds-shaped
+# fixtures copied into crates/rd-helpdb/tests/fixtures/data/ (see the
+# workspace README's "Layout and tests" section for the copy contract: this
+# script is the canonical generator, and crate-local copies are synced by
+# copying, never regenerated in place). Run from the repository root:
 #
 #   Rscript tests/fixtures/generate_fixtures.R
 #
@@ -361,6 +365,105 @@ save_versions_with_refhook(persistsxp_multi, "persistsxp_multi", persist_hook_mu
 write_rdb_entry(rd_minimal, "rd_minimal", version = 2)
 write_rdb_entry(rd_minimal, "rd_minimal", version = 3)
 write_rdb_entry(rd_arguments, "rd_arguments", version = 3)
+
+## 12. Meta/vignette.rds and Meta/demo.rds fixtures (rd-helpdb) ----------
+## rd-helpdb's VignetteIndex/DemoIndex views are validated against these.
+## Only version 3 is written (rd-rds's decoder is format-version-agnostic
+## for the plain list/character/attribute shapes these fixtures use, so a
+## v2 copy would exercise no additional decode path).
+save_v3 <- function(obj, name) {
+  path <- file.path(data_dir, sprintf("%s_v3.rds", name))
+  saveRDS(obj, path, version = 3)
+  message("wrote ", path)
+}
+
+## 12a. A two-row vignette.rds with reordered/extra columns and non-empty
+## list columns -- confirms column lookup is name-based (not positional)
+## and that an unrecognized extra column ("Extra") is tolerated.
+vignette_reordered <- structure(
+  list(
+    Keywords = list("models", ""),
+    Title = c("First vignette", "Second vignette"),
+    Extra = c("ignored-one", "ignored-two"),
+    Depends = list(c("tools", "stats"), character()),
+    File = c("first.Rnw", "second.Rmd"),
+    R = c("first.R", "second.R"),
+    PDF = c("first.pdf", "second.html")
+  ),
+  class = "data.frame",
+  row.names = c(NA_integer_, -2L)
+)
+save_v3(vignette_reordered, "vignette_reordered")
+
+## 12b. A zero-row vignette.rds, matching packages with no vignettes that
+## still ship an (empty) index.
+vignette_empty <- structure(
+  list(
+    File = character(),
+    Title = character(),
+    PDF = character(),
+    R = character(),
+    Depends = list(),
+    Keywords = list()
+  ),
+  class = "data.frame",
+  row.names = integer()
+)
+save_v3(vignette_empty, "vignette_empty")
+
+## 12c. A vignette.rds missing a required column (Keywords) -- must be
+## rejected even though every remaining column is internally consistent.
+vignette_missing_column <- vignette_reordered
+vignette_missing_column$Keywords <- NULL
+save_v3(vignette_missing_column, "vignette_missing_column")
+
+## 12d. A vignette.rds whose row.names attribute disagrees with the
+## columns' own length. All columns here mutually agree on 2 rows, but
+## row.names' compact form (`c(NA, -n)`, the same wire shape a real
+## data.frame's automatic row names serialize as -- see rd_seealso's
+## srcref note above for another R-internal compact-encoding case) claims
+## 3. Column-only cross-checks can't catch this: it must be validated
+## against row.names directly.
+vignette_row_names_mismatch <- structure(
+  list(
+    File = c("only.Rnw", "second.Rnw"),
+    Title = c("Only vignette", "Second vignette"),
+    PDF = c("only.pdf", "second.pdf"),
+    R = c("only.R", "second.R"),
+    Depends = list(character(), character()),
+    Keywords = list(character(), character())
+  ),
+  class = "data.frame",
+  row.names = c(NA_integer_, -3L)
+)
+save_v3(vignette_row_names_mismatch, "vignette_row_names_mismatch")
+
+## 12e. A two-row, two-column demo.rds (Name, Title) with no dimnames --
+## matches the real wire shape of an installed package's Meta/demo.rds.
+demo_valid <- matrix(
+  c("first", "second", "First demo", ""),
+  nrow = 2L,
+  ncol = 2L
+)
+dimnames(demo_valid) <- NULL
+save_v3(demo_valid, "demo_valid")
+
+## 12f. A zero-row demo.rds, matching packages with no demos that still
+## ship an (empty) index.
+demo_empty <- matrix(character(), nrow = 0L, ncol = 2L)
+dimnames(demo_empty) <- NULL
+save_v3(demo_empty, "demo_empty")
+
+## 12g. A demo.rds with three columns -- real demo.rds matrices are always
+## exactly two columns (Name, Title); a reader must reject anything else
+## rather than silently reading the first two.
+demo_three_columns <- matrix(
+  c("first", "First demo", "ignored"),
+  nrow = 1L,
+  ncol = 3L
+)
+dimnames(demo_three_columns) <- NULL
+save_v3(demo_three_columns, "demo_three_columns")
 
 ## Sanity check: every *_v3.rds fixture must round-trip through
 ## saveRDS()/readRDS(), and every *.rdbentry fixture must round-trip
