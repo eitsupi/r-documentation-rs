@@ -82,6 +82,13 @@ impl VignetteIndex {
             }
         }
 
+        let row_names_count = row_names_len(root)?;
+        if row_names_count != nrow {
+            return Err(malformed(format!(
+                "row.names implies {row_names_count} rows, but columns have {nrow}"
+            )));
+        }
+
         let mut entries = Vec::with_capacity(nrow);
         for row in 0..nrow {
             entries.push(VignetteEntry {
@@ -137,6 +144,35 @@ fn require_data_frame_class(root: &RObject) -> Result<(), Error> {
         }
     }
     Err(malformed("class does not include \"data.frame\""))
+}
+
+/// Returns the row count implied by a data frame's `row.names` attribute.
+///
+/// R represents `row.names` either as an explicit vector of length `nrow`
+/// (character labels, or an integer sequence) or, for the common
+/// automatic-row-names case, as a compact two-element integer form
+/// `c(NA, -nrow)` (also written `c(NA, nrow)`; only the magnitude of the
+/// second element matters) -- the same wire shape `nrow()`/`.row_names_info()`
+/// recognize internally. A plain `length()` would misread the compact form
+/// as claiming 2 rows regardless of the data frame's real size, so it must
+/// be special-cased here.
+fn row_names_len(root: &RObject) -> Result<usize, Error> {
+    let row_names = root
+        .attributes()
+        .get("row.names")
+        .ok_or_else(|| malformed("missing row.names attribute"))?;
+    match row_names.value() {
+        RValue::Integer(values) if values.len() == 2 && values[0].is_none() => {
+            let count =
+                values[1].ok_or_else(|| malformed("row.names compact form has an NA row count"))?;
+            Ok(count.unsigned_abs() as usize)
+        }
+        RValue::Integer(values) => Ok(values.len()),
+        RValue::Character(values) => Ok(values.len()),
+        _ => Err(malformed(
+            "row.names attribute is not an integer or character vector",
+        )),
+    }
 }
 
 fn character_column<'a>(
@@ -257,6 +293,17 @@ mod tests {
             error
                 .to_string()
                 .contains("missing required column \"Keywords\"")
+        );
+    }
+
+    #[test]
+    fn rejects_row_names_mismatched_with_column_length() {
+        let error = VignetteIndex::from_object(&fixture("vignette_row_names_mismatch_v3.rds"))
+            .expect_err("row.names/column length mismatch must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("row.names implies 3 rows, but columns have 2")
         );
     }
 }
