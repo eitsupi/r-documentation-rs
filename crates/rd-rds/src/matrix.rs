@@ -157,10 +157,9 @@ impl CharacterMatrix {
         let mut cells = Vec::with_capacity(element_count);
         for row in 0..shape[0] {
             for column in 0..shape[1] {
-                cells.push(decode_string(
-                    &values[row + column * shape[0]],
-                    &format!("CharacterMatrix[row={row},column={column}]"),
-                )?);
+                cells.push(decode_string(&values[row + column * shape[0]], || {
+                    format!("CharacterMatrix[row={row},column={column}]")
+                })?);
             }
         }
 
@@ -246,22 +245,22 @@ fn decode_names(
         .iter()
         .enumerate()
         .map(|(index, value)| {
-            decode_string(
-                value,
-                &format!("CharacterMatrix.attributes.dimnames[{axis}][{index}]"),
-            )
+            decode_string(value, || {
+                format!("CharacterMatrix.attributes.dimnames[{axis}][{index}]")
+            })
         })
         .collect::<Result<Vec<_>, _>>()
         .map(Some)
 }
 
-fn decode_string(value: &RStr, path: &str) -> Result<Option<String>, ViewError> {
+/// Decodes a single matrix or dimnames cell. `path` is only evaluated on the
+/// (rare) invalid-encoding error path, so callers can pass a closure that
+/// builds the path string instead of formatting it eagerly for every cell.
+fn decode_string(value: &RStr, path: impl FnOnce() -> String) -> Result<Option<String>, ViewError> {
     match value.as_str() {
         None => Ok(None),
         Some(Ok(value)) => Ok(Some(value.into_owned())),
-        Some(Err(_)) => Err(ViewError::InvalidStringEncoding {
-            path: path.to_owned(),
-        }),
+        Some(Err(_)) => Err(ViewError::InvalidStringEncoding { path: path() }),
     }
 }
 
