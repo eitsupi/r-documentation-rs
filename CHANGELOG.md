@@ -1,8 +1,8 @@
 # Changelog
 
-This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Entries are prefixed with the affected crate name, and the workspace releases all crates in lockstep.
-
 ## [Unreleased]
+
+## [0.1.0-rc.1] - 2026-07-24
 
 ### Added
 
