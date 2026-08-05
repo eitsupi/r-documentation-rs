@@ -72,23 +72,36 @@ fn truncate_cell(value: &str) -> String {
 }
 
 fn truncate_cell_with_limit(value: &str, limit: usize) -> String {
-    let mut escaped = String::new();
+    let mut fragments = Vec::new();
     let mut escaped_length = 0;
-    let mut characters = value.chars().peekable();
-    let mut truncated = false;
-    while let Some(character) = characters.next() {
+    let mut overflowed = false;
+    for character in value.chars() {
         let fragment_length = escaped_width(character);
-        let ellipsis_length = if characters.peek().is_some() { 3 } else { 0 };
-        if escaped_length + fragment_length + ellipsis_length > limit {
-            truncated = true;
+        if escaped_length + fragment_length > limit {
+            overflowed = true;
             break;
         }
-        escaped.push_str(&escape_character(character));
+        fragments.push((escape_character(character), fragment_length));
         escaped_length += fragment_length;
     }
-    if truncated {
-        escaped.push_str(r"...");
+    if !overflowed {
+        return fragments
+            .into_iter()
+            .map(|(fragment, _)| fragment)
+            .collect();
     }
+
+    while escaped_length + 3 > limit {
+        let (_, fragment_length) = fragments
+            .pop()
+            .expect("the limit must accommodate the ellipsis");
+        escaped_length -= fragment_length;
+    }
+    let mut escaped: String = fragments
+        .into_iter()
+        .map(|(fragment, _)| fragment)
+        .collect();
+    escaped.push_str(r"...");
     escaped
 }
 
@@ -138,7 +151,8 @@ retry with: cargo run -p rd-rds --no-default-features --features {format} --exam
 }
 
 fn shell_quote(path: &str) -> String {
-    // POSIX shells and Windows cmd.exe use different quoting syntax.
+    // POSIX shells and Windows cmd.exe use different quoting syntax. The Windows
+    // branch targets PowerShell; legacy cmd.exe may re-expand a literal '%' in a path.
     if cfg!(windows) {
         format!(r#""{path}""#)
     } else {

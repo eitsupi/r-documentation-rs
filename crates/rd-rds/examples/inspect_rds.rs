@@ -261,28 +261,44 @@ fn display_string(value: &RStr) -> String {
 }
 
 fn truncate_string(value: &str) -> String {
-    let original_length = value.chars().count();
-    let mut prefix = String::new();
+    let mut fragments = Vec::new();
     let mut escaped_length = 0;
-    let mut included = 0;
-    let mut characters = value.chars().peekable();
-    let mut truncated = false;
-    while let Some(character) = characters.next() {
-        let fragment_length = escaped_width(character);
-        let suffix_length = if characters.peek().is_some() { 5 } else { 2 };
-        if escaped_length + fragment_length + suffix_length > DISPLAY_LIMIT {
-            truncated = true;
-            break;
+    let mut original_length = 0;
+    let mut overflowed = false;
+    for character in value.chars() {
+        original_length += 1;
+        if overflowed {
+            continue;
         }
-        prefix.push_str(&escape_character(character));
+        let fragment_length = escaped_width(character);
+        if escaped_length + fragment_length > DISPLAY_LIMIT - 2 {
+            overflowed = true;
+            continue;
+        }
+        fragments.push((escape_character(character), fragment_length));
         escaped_length += fragment_length;
-        included += 1;
     }
-    if !truncated {
+    if !overflowed {
+        let prefix: String = fragments
+            .into_iter()
+            .map(|(fragment, _)| fragment)
+            .collect();
         return format!(r#""{prefix}""#);
     }
+
+    while escaped_length + 5 > DISPLAY_LIMIT {
+        let (_, fragment_length) = fragments
+            .pop()
+            .expect("the limit must accommodate the quotes and ellipsis");
+        escaped_length -= fragment_length;
+    }
+    let included = fragments.len();
+    let prefix: String = fragments
+        .into_iter()
+        .map(|(fragment, _)| fragment)
+        .collect();
     format!(
-        r#""{prefix}..."" (original length: {original_length}, omitted: {})"#,
+        r#""{prefix}..." (original length: {original_length}, omitted: {})"#,
         original_length - included
     )
 }
@@ -347,7 +363,8 @@ retry with: cargo run -p rd-rds --no-default-features --features {format} --exam
 }
 
 fn shell_quote(path: &str) -> String {
-    // POSIX shells and Windows cmd.exe use different quoting syntax.
+    // POSIX shells and Windows cmd.exe use different quoting syntax. The Windows
+    // branch targets PowerShell; legacy cmd.exe may re-expand a literal '%' in a path.
     if cfg!(windows) {
         format!(r#""{path}""#)
     } else {
