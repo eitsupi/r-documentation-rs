@@ -72,26 +72,23 @@ fn truncate_cell(value: &str) -> String {
 }
 
 fn truncate_cell_with_limit(value: &str, limit: usize) -> String {
-    let escaped_length = value
-        .chars()
-        .map(escape_character)
-        .map(|fragment| fragment.chars().count())
-        .sum::<usize>();
-    if escaped_length <= limit {
-        return value.chars().map(escape_character).collect();
-    }
-
     let mut escaped = String::new();
+    let mut escaped_length = 0;
     let mut characters = value.chars().peekable();
+    let mut truncated = false;
     while let Some(character) = characters.next() {
-        let fragment = escape_character(character);
+        let fragment_length = escaped_width(character);
         let ellipsis_length = if characters.peek().is_some() { 3 } else { 0 };
-        if escaped.chars().count() + fragment.chars().count() + ellipsis_length > limit {
+        if escaped_length + fragment_length + ellipsis_length > limit {
+            truncated = true;
             break;
         }
-        escaped.push_str(&fragment);
+        escaped.push_str(&escape_character(character));
+        escaped_length += fragment_length;
     }
-    escaped.push_str(r"...");
+    if truncated {
+        escaped.push_str(r"...");
+    }
     escaped
 }
 
@@ -115,6 +112,15 @@ fn escape_character(character: char) -> String {
     }
 }
 
+// Keep these match arms in sync so the width matches the retained fragment.
+fn escaped_width(character: char) -> usize {
+    match character {
+        '\\' | '"' | '\n' | '\r' | '\t' | '\0' => 2,
+        character if character.is_control() => 5 + (character as u32).ilog(16) as usize,
+        _ => 1,
+    }
+}
+
 fn format_read_error(path: &str, error: file::ReadError) -> String {
     match error {
         file::ReadError::CompressionDisabled { format } => {
@@ -132,5 +138,10 @@ retry with: cargo run -p rd-rds --no-default-features --features {format} --exam
 }
 
 fn shell_quote(path: &str) -> String {
-    format!("'{}'", path.replace('\'', r"'\''"))
+    // POSIX shells and Windows cmd.exe use different quoting syntax.
+    if cfg!(windows) {
+        format!(r#""{path}""#)
+    } else {
+        format!("'{}'", path.replace('\'', r"'\''"))
+    }
 }

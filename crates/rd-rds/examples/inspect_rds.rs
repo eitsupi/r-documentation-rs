@@ -262,27 +262,24 @@ fn display_string(value: &RStr) -> String {
 
 fn truncate_string(value: &str) -> String {
     let original_length = value.chars().count();
-    let escaped_length = value
-        .chars()
-        .map(escape_character)
-        .map(|fragment| fragment.chars().count())
-        .sum::<usize>();
-    if escaped_length + 2 <= DISPLAY_LIMIT {
-        let escaped: String = value.chars().map(escape_character).collect();
-        return format!(r#""{escaped}""#);
-    }
-
     let mut prefix = String::new();
+    let mut escaped_length = 0;
     let mut included = 0;
     let mut characters = value.chars().peekable();
+    let mut truncated = false;
     while let Some(character) = characters.next() {
-        let escaped = escape_character(character);
+        let fragment_length = escaped_width(character);
         let suffix_length = if characters.peek().is_some() { 5 } else { 2 };
-        if prefix.chars().count() + escaped.chars().count() + suffix_length > DISPLAY_LIMIT {
+        if escaped_length + fragment_length + suffix_length > DISPLAY_LIMIT {
+            truncated = true;
             break;
         }
-        prefix.push_str(&escaped);
+        prefix.push_str(&escape_character(character));
+        escaped_length += fragment_length;
         included += 1;
+    }
+    if !truncated {
+        return format!(r#""{prefix}""#);
     }
     format!(
         r#""{prefix}..."" (original length: {original_length}, omitted: {})"#,
@@ -300,6 +297,15 @@ fn escape_character(character: char) -> String {
         '\0' => r"\0".to_string(),
         character if character.is_control() => format!(r"\u{{{:x}}}", character as u32),
         character => character.to_string(),
+    }
+}
+
+// Keep these match arms in sync so the width matches the retained fragment.
+fn escaped_width(character: char) -> usize {
+    match character {
+        '\\' | '"' | '\n' | '\r' | '\t' | '\0' => 2,
+        character if character.is_control() => 5 + (character as u32).ilog(16) as usize,
+        _ => 1,
     }
 }
 
@@ -341,5 +347,10 @@ retry with: cargo run -p rd-rds --no-default-features --features {format} --exam
 }
 
 fn shell_quote(path: &str) -> String {
-    format!("'{}'", path.replace('\'', r"'\''"))
+    // POSIX shells and Windows cmd.exe use different quoting syntax.
+    if cfg!(windows) {
+        format!(r#""{path}""#)
+    } else {
+        format!("'{}'", path.replace('\'', r"'\''"))
+    }
 }
