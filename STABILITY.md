@@ -18,7 +18,7 @@ Supported means intended and covered by tests in the current version. It is not 
 
 ### rd-rds
 
-Supported: typed package-metadata views are the recommended surface. Supported (advanced): the `RObject`/`RValue` object model, with variants subject to addition. Documented scope: unsupported SEXPs are hard errors, with a documented exception for selected environment internals consumed as opaque or discarded wire data.
+Supported: typed package-metadata and repository-index views exercised by deterministic tests are the recommended surface. References to concrete third-party files describe verified interoperability profiles, not guarantees that upstream paths or schemas remain available or unchanged. Supported (advanced): the `RObject`/`RValue` object model, with variants subject to addition. Documented scope: unsupported SEXPs are hard errors, with a documented exception for selected environment internals consumed as opaque or discarded wire data.
 
 ### rd-helpdb
 

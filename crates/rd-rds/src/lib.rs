@@ -1,11 +1,15 @@
-//! Read-only reader for the subset of R's RDS serialization format used by
-//! installed-package help databases.
+//! Read-only reader for installed-package metadata, help databases, and
+//! selected CRAN-like repository indexes in R's RDS serialization format.
 //!
 //! [`parse`] reads a decompressed XDR serialization stream. [`mod@file`] provides
 //! the bounded standalone-file entry layer, including supported compression
 //! envelopes.
 //!
-//! This crate is scoped to installed-R-package information. Unknown SEXP
+//! See the crate README for the concrete repository-index profiles covered by
+//! deterministic fixtures and verified manually against real files.
+//!
+//! This crate is scoped to installed-R-package information and selected
+//! CRAN-like repository indexes. Unknown SEXP
 //! values are hard errors, never silently accepted. `RObject`/`RValue` are a
 //! supported advanced API with encapsulated fields and non-exhaustive enums;
 //! consumers must include wildcard match arms. The typed [`package`] views and
