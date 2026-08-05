@@ -103,7 +103,7 @@ fn render_attributes(object: &RObject, indent: usize, depth: usize, budget: &mut
     let mut omitted = attributes.len() - shown;
     let mut omission_reason = (omitted > 0).then_some("child limit");
     for (index, attribute) in attributes.iter().take(shown).enumerate() {
-        let name = attribute.name().as_str();
+        let name = truncate_string(attribute.name().as_str());
         let label = format!("attribute[{index}] {name}");
         if !render_object(attribute.value(), &label, indent + 2, depth + 1, budget) {
             omitted += shown - index;
@@ -262,18 +262,27 @@ fn display_string(value: &RStr) -> String {
 
 fn truncate_string(value: &str) -> String {
     let original_length = value.chars().count();
+    let escaped_length = value
+        .chars()
+        .map(escape_character)
+        .map(|fragment| fragment.chars().count())
+        .sum::<usize>();
+    if escaped_length + 2 <= DISPLAY_LIMIT {
+        let escaped: String = value.chars().map(escape_character).collect();
+        return format!(r#""{escaped}""#);
+    }
+
     let mut prefix = String::new();
     let mut included = 0;
-    for character in value.chars() {
+    let mut characters = value.chars().peekable();
+    while let Some(character) = characters.next() {
         let escaped = escape_character(character);
-        if prefix.chars().count() + escaped.chars().count() + 5 > DISPLAY_LIMIT {
+        let suffix_length = if characters.peek().is_some() { 5 } else { 2 };
+        if prefix.chars().count() + escaped.chars().count() + suffix_length > DISPLAY_LIMIT {
             break;
         }
         prefix.push_str(&escaped);
         included += 1;
-    }
-    if included == original_length {
-        return format!(r#""{prefix}""#);
     }
     format!(
         r#""{prefix}..."" (original length: {original_length}, omitted: {})"#,
@@ -317,13 +326,20 @@ fn spaces(count: usize) -> String {
 
 fn format_read_error(path: &str, error: file::ReadError) -> String {
     match error {
-        file::ReadError::CompressionDisabled { format } => format!(
-            r"cannot read {path}: {format} compression support is disabled
-retry with: cargo run -p rd-rds --no-default-features --features {format} --example inspect_rds -- {path}"
-        ),
+        file::ReadError::CompressionDisabled { format } => {
+            let quoted_path = shell_quote(path);
+            format!(
+                r"cannot read {path}: {format} compression support is disabled
+retry with: cargo run -p rd-rds --no-default-features --features {format} --example inspect_rds -- {quoted_path}"
+            )
+        }
         file::ReadError::UnknownEnvelope { magic } => {
             format!("cannot read {path}: unrecognized RDS envelope (magic {magic:02x?})")
         }
         error => format!("failed to read {path}: {error}"),
     }
+}
+
+fn shell_quote(path: &str) -> String {
+    format!("'{}'", path.replace('\'', r"'\''"))
 }

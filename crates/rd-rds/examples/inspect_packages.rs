@@ -45,7 +45,7 @@ example: inspect_packages /path/to/PACKAGES.rds"
     );
     println!("columns:");
     for column in &columns {
-        println!("  {column}");
+        println!("  {}", display_label(column));
     }
 
     println!("rows:");
@@ -59,7 +59,7 @@ example: inspect_packages /path/to/PACKAGES.rds"
                 Some(value) => truncate_cell(value),
                 None => r"<NA>".to_string(),
             };
-            println!("    {column}: {value}");
+            println!("    {}: {value}", display_label(column));
         }
     }
     println!("omitted rows: {}", matrix.len().saturating_sub(ROW_LIMIT));
@@ -68,20 +68,38 @@ example: inspect_packages /path/to/PACKAGES.rds"
 }
 
 fn truncate_cell(value: &str) -> String {
+    truncate_cell_with_limit(value, DISPLAY_LIMIT)
+}
+
+fn truncate_cell_with_limit(value: &str, limit: usize) -> String {
+    let escaped_length = value
+        .chars()
+        .map(escape_character)
+        .map(|fragment| fragment.chars().count())
+        .sum::<usize>();
+    if escaped_length <= limit {
+        return value.chars().map(escape_character).collect();
+    }
+
     let mut escaped = String::new();
-    let mut truncated = false;
-    for character in value.chars() {
+    let mut characters = value.chars().peekable();
+    while let Some(character) = characters.next() {
         let fragment = escape_character(character);
-        if escaped.chars().count() + fragment.chars().count() + 3 > DISPLAY_LIMIT {
-            truncated = true;
+        let ellipsis_length = if characters.peek().is_some() { 3 } else { 0 };
+        if escaped.chars().count() + fragment.chars().count() + ellipsis_length > limit {
             break;
         }
         escaped.push_str(&fragment);
     }
-    if truncated {
-        escaped.push_str(r"...");
-    }
+    escaped.push_str(r"...");
     escaped
+}
+
+fn display_label(value: &str) -> String {
+    format!(
+        r#""{}""#,
+        truncate_cell_with_limit(value, DISPLAY_LIMIT - 2)
+    )
 }
 
 fn escape_character(character: char) -> String {
@@ -99,13 +117,20 @@ fn escape_character(character: char) -> String {
 
 fn format_read_error(path: &str, error: file::ReadError) -> String {
     match error {
-        file::ReadError::CompressionDisabled { format } => format!(
-            r"cannot read {path}: {format} compression support is disabled
-retry with: cargo run -p rd-rds --no-default-features --features {format} --example inspect_packages -- {path}"
-        ),
+        file::ReadError::CompressionDisabled { format } => {
+            let quoted_path = shell_quote(path);
+            format!(
+                r"cannot read {path}: {format} compression support is disabled
+retry with: cargo run -p rd-rds --no-default-features --features {format} --example inspect_packages -- {quoted_path}"
+            )
+        }
         file::ReadError::UnknownEnvelope { magic } => {
             format!("cannot read {path}: unrecognized RDS envelope (magic {magic:02x?})")
         }
         error => format!("failed to read {path}: {error}"),
     }
+}
+
+fn shell_quote(path: &str) -> String {
+    format!("'{}'", path.replace('\'', r"'\''"))
 }
