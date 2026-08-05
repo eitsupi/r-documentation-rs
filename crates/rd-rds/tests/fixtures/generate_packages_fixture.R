@@ -34,3 +34,86 @@ values <- matrix(
 
 saveRDS(values, "data/packages/packages-cran-gzip.rds", compress = "gzip", version = 3)
 saveRDS(values, "data/packages/packages-cran-xz.rds", compress = "xz", version = 3)
+
+# PACKAGES.rds main-index variation: a four-row, 17-column version-2 matrix
+# wrapped in xz. It deliberately contains R NA, literal "NA", and a newline
+# in a Suggests cell.
+cran_values <- matrix(
+    c(
+        "alpha", "beta", "gamma", "delta",
+        "1.0.0", "2.0.0", "0.9.0", "1.10.0",
+        "recommended", "optional", NA_character_, "NA",
+        "R (>= 4.0)", NA_character_, "R (>= 3.6)", "R (>= 4.2)",
+        "utils", "curl", NA_character_, "NA",
+        NA_character_, "Rcpp", NA_character_, NA_character_,
+        "testthat", "knitr,\n  rmarkdown", NA_character_, "NA",
+        NA_character_, NA_character_, "alphaTools", NA_character_,
+        "MIT", "GPL-3", "Apache License (>= 2)", "BSD-3-Clause",
+        "TRUE", "TRUE", "TRUE", "FALSE",
+        "FALSE", "FALSE", "FALSE", "TRUE",
+        "unix", "unix", NA_character_, "windows",
+        NA_character_, "x86_64", "x86_64", NA_character_,
+        "11111111111111111111111111111111", "22222222222222222222222222222222",
+        "33333333333333333333333333333333", "44444444444444444444444444444444",
+        "yes", "no", "yes", NA_character_,
+        "alpha_1.0.0.tar.gz", "beta_2.0.0.tar.gz", NA_character_, "delta_1.10.0.tar.gz",
+        "2020-01-02", "2020-02-03", "2020-03-04", NA_character_
+    ),
+    nrow = 4,
+    dimnames = list(
+        c("alpha", "beta", "gamma", "delta"),
+        c(
+            "Package", "Version", "Priority", "Depends", "Imports", "LinkingTo",
+            "Suggests", "Enhances", "License", "License_is_FOSS",
+            "License_restricts_use", "OS_type", "Archs", "MD5sum",
+            "NeedsCompilation", "File", "Published"
+        )
+    )
+)
+
+archive_values <- matrix(
+    c(
+        "samplepkg", "samplepkg", "samplepkg",
+        "1.10.0", "1.2.0", "1.2.1",
+        "optional", "optional", "optional",
+        "R (>= 4.0)", "R (>= 4.0)", "R (>= 4.0)",
+        "utils", "utils", "utils",
+        NA_character_, NA_character_, NA_character_,
+        enc2utf8("José"), "NA", NA_character_,
+        NA_character_, "helper,\n  another", NA_character_,
+        "MIT", "MIT", "MIT",
+        "TRUE", "TRUE", "TRUE",
+        "FALSE", "FALSE", "FALSE",
+        "unix", "unix", "unix",
+        "x86_64", "x86_64", "x86_64",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "cccccccccccccccccccccccccccccccc",
+        "no", "no", "no"
+    ),
+    nrow = 3,
+    dimnames = list(
+        c("samplepkg-1.10.0", "samplepkg-1.2.0", "samplepkg-1.2.1"),
+        c(
+            "Package", "Version", "Priority", "Depends", "Imports", "LinkingTo",
+            "Suggests", "Enhances", "License", "License_is_FOSS",
+            "License_restricts_use", "OS_type", "Archs", "MD5sum",
+            "NeedsCompilation"
+        )
+    )
+)
+
+saveRDS(
+    cran_values,
+    "data/packages/packages-cran-v2-xz.rds",
+    compress = "xz",
+    version = 2
+)
+
+# PACKAGES.rds per-package-archive variation: a three-row, 15-column version-3
+# matrix in non-semver row order, with one explicitly UTF-8-encoded cell.
+saveRDS(
+    archive_values,
+    "data/packages/packages-archive-v3-gzip.rds",
+    compress = "gzip",
+    version = 3
+)
