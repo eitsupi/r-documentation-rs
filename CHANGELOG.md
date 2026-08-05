@@ -6,6 +6,7 @@
 
 - [rd-rds] Document CRAN and manually verified R-universe repository-index interoperability profiles, including package-index schema and envelope variations.
 - [rd-rds] Add deterministic fixtures and tests for `PACKAGES.rds` envelope and schema variations and `Meta/archive.rds` archive-metadata format variation.
+- [rd-rds] Add the `inspect_packages` and `inspect_rds` examples for inspecting supported `.rds` files from the command line.
 
 ## [0.1.0] - 2026-07-26
 
