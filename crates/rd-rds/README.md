@@ -20,6 +20,17 @@ The [`rd-helpdb`](../rd-helpdb/README.md) crate uses the file layer for
 standalone help-database RDS files, and [`rd-ast`](../rd-ast/README.md) can
 lower supported decoded documentation objects into the common document model.
 
+## Runnable examples
+
+```text
+cargo run -p rd-rds --example inspect_packages -- /path/to/PACKAGES.rds
+cargo run -p rd-rds --example inspect_rds -- /path/to/archive.rds
+```
+
+`inspect_packages` demonstrates the typed, stable package-index view.
+`inspect_rds` provides a bounded advanced inspection of unfamiliar decoded
+objects, including shapes that are not package matrices.
+
 ## Repository-index interoperability
 
 The supported contract is the tested decoding behaviour described in the
