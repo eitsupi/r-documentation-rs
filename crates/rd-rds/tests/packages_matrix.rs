@@ -100,7 +100,7 @@ fn cran_v2_xz_matrix_preserves_schema_and_cells() {
         "Archs",
         "MD5sum",
         "NeedsCompilation",
-        "File",
+        "Path",
         "Published",
     ];
     assert_eq!(matrix.column_names().collect::<Vec<_>>(), columns);
@@ -144,6 +144,12 @@ fn cran_v2_xz_matrix_preserves_schema_and_cells() {
 fn archive_v3_gzip_matrix_preserves_schema_order_and_utf8() {
     let object = rd_rds::file::from_bytes(&fixture("packages", "packages-archive-v3-gzip.rds"))
         .expect("archive v3 gzip");
+
+    let RValue::List(dimnames) = object.attributes().get("dimnames").unwrap().value() else {
+        panic!("expected dimnames list")
+    };
+    // Real CRAN archive indexes have NULL row names, so this exercises the accepted path.
+    assert!(matches!(dimnames[0].value(), RValue::Null));
     let matrix = PackagesMatrix::from_object(&object).expect("typed archive matrix");
     let columns = [
         "Package",

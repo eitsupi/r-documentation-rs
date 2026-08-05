@@ -38,6 +38,7 @@ saveRDS(values, "data/packages/packages-cran-xz.rds", compress = "xz", version =
 # PACKAGES.rds main-index variation: a four-row, 17-column version-2 matrix
 # wrapped in xz. It deliberately contains R NA, literal "NA", and a newline
 # in a Suggests cell.
+# Its row names mirror the Package column, as real CRAN main indexes do.
 cran_values <- matrix(
     c(
         "alpha", "beta", "gamma", "delta",
@@ -66,7 +67,7 @@ cran_values <- matrix(
             "Package", "Version", "Priority", "Depends", "Imports", "LinkingTo",
             "Suggests", "Enhances", "License", "License_is_FOSS",
             "License_restricts_use", "OS_type", "Archs", "MD5sum",
-            "NeedsCompilation", "File", "Published"
+            "NeedsCompilation", "Path", "Published"
         )
     )
 )
@@ -92,7 +93,8 @@ archive_values <- matrix(
     ),
     nrow = 3,
     dimnames = list(
-        c("samplepkg-1.10.0", "samplepkg-1.2.0", "samplepkg-1.2.1"),
+        # Real CRAN archive indexes carry dimnames = list(NULL, ...); verified 2026-08-05.
+        NULL,
         c(
             "Package", "Version", "Priority", "Depends", "Imports", "LinkingTo",
             "Suggests", "Enhances", "License", "License_is_FOSS",
