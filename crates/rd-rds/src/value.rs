@@ -224,6 +224,9 @@ impl RStr {
         }
     }
 
+    /// Reports the CHARSXP encoding flag recorded in the serialized data.
+    /// R's `Encoding()` normalizes ASCII strings to "unknown" after reading,
+    /// so the two can differ while the decoded string contents agree.
     pub fn encoding(&self) -> Option<REncoding> {
         match self {
             Self::Na => None,

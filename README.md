@@ -12,7 +12,7 @@ See the [stability policy](STABILITY.md), [changelog](CHANGELOG.md), and [releas
 
 | Crate | Scope |
 | --- | --- |
-| [`rd-rds`](crates/rd-rds/README.md) | Scoped, read-only RDS reader: decompressed parsing, a bounded file layer for gzip, xz, bzip2, and zstd envelopes, and typed package-metadata views. |
+| [`rd-rds`](crates/rd-rds/README.md) | Scoped, read-only RDS reader: decompressed parsing, a bounded file layer for gzip, xz, bzip2, and zstd envelopes, and typed package-metadata and selected repository-index views. |
 | [`rd-helpdb`](crates/rd-helpdb/README.md) | Reader for installed help databases: `aliases.rds`, `.rdx`/`.rdb`, and `hsearch`. |
 | [`rd-ast`](crates/rd-ast/README.md) | Canonical, producer-agnostic Rd document model and semantic views. |
 | [`rd-source`](crates/rd-source/README.md) | Rd source parser producing `rd_ast::RdDocument`, conformant to `tools::parse_Rd`, with diagnostics and recovery. |

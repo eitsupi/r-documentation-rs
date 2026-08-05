@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- [rd-rds] Document CRAN and manually verified R-universe repository-index interoperability profiles, including package-index schema and envelope variations.
+- [rd-rds] Add deterministic fixtures and tests for `PACKAGES.rds` envelope and schema variations and `Meta/archive.rds` archive-metadata format variation.
+
 ## [0.1.0] - 2026-07-26
 
 ### Added
