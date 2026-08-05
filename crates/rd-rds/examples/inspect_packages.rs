@@ -137,25 +137,17 @@ fn escaped_width(character: char) -> usize {
 fn format_read_error(path: &str, error: file::ReadError) -> String {
     match error {
         file::ReadError::CompressionDisabled { format } => {
-            let quoted_path = shell_quote(path);
+            // Keep this as a shell-neutral template. Path quoting depends on the user's
+            // shell, which cannot be inferred from the target operating system.
             format!(
                 r"cannot read {path}: {format} compression support is disabled
-retry with: cargo run -p rd-rds --no-default-features --features {format} --example inspect_packages -- {quoted_path}"
+retry with {format} enabled (replace <PATH> with the input path):
+  cargo run -p rd-rds --no-default-features --features {format} --example inspect_packages -- <PATH>"
             )
         }
         file::ReadError::UnknownEnvelope { magic } => {
             format!("cannot read {path}: unrecognized RDS envelope (magic {magic:02x?})")
         }
         error => format!("failed to read {path}: {error}"),
-    }
-}
-
-fn shell_quote(path: &str) -> String {
-    // POSIX shells and Windows cmd.exe use different quoting syntax. The Windows
-    // branch targets PowerShell; legacy cmd.exe may re-expand a literal '%' in a path.
-    if cfg!(windows) {
-        format!(r#""{path}""#)
-    } else {
-        format!("'{}'", path.replace('\'', r"'\''"))
     }
 }
