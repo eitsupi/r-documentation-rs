@@ -66,7 +66,7 @@ impl FrameState {
             .map(|(state, _)| state.clone())
             .unwrap_or(super::RLikeState::Normal {
                 raw_prefix: false,
-                raw_delimiter_dashes: None,
+                raw_delimiter: None,
                 comment: false,
             });
         Self {

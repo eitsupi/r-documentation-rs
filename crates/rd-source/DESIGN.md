@@ -136,6 +136,10 @@ Section 7. Braces after that `%` still update depth and may close the owning
 argument (pinned by `rlike-hash-comment-percent` and
 `rlike-hash-comment-percent-owning-brace`).
 
+R raw strings begin with `r` or `R` followed by either `'` or `"`. Their
+closer uses the matching opening quote after the bracket and any delimiter
+dashes; the other quote character remains raw-string content.
+
 Warning-producing recovery cells (quoted `\href` inside `\code`, and unknown
 `l`-prefixed macros inside quotes) remain provisional and are excluded from
 the canonical corpus.
