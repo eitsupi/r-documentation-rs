@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
@@ -11,10 +11,10 @@ repository = "https://github.com/eitsupi/r-documentation-rs"
 
 [workspace.dependencies]
 thiserror = "2"
-rd-ast = { version = "0.1.0", path = "crates/rd-ast" }
-rd-rds = { version = "0.1.0", path = "crates/rd-rds" }
-rd-source = { version = "0.1.0", path = "crates/rd-source" }
-rd-writer = { version = "0.1.0", path = "crates/rd-writer" }
+rd-ast = { version = "0.2.0", path = "crates/rd-ast" }
+rd-rds = { version = "0.2.0", path = "crates/rd-rds" }
+rd-source = { version = "0.2.0", path = "crates/rd-source" }
+rd-writer = { version = "0.2.0", path = "crates/rd-writer" }
 flate2 = "1"
 xz2 = "0.1"
 bzip2 = "0.6"

@@ -27,7 +27,7 @@ Views are borrowed interpretations of the canonical tree; they do not replace it
 
 The optional `serde` feature enables serde derives for AST values. The optional `rds` feature enables lowering from the `rd-rds` object model. The serde representation is not a stable interchange format: it is a same-version implementation detail, as documented by [CONTRACT.md](CONTRACT.md), and should not be treated as cross-version wire compatibility.
 
-See the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md) for the 0.1.x compatibility and support commitments.
+See the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md) for the compatibility and support commitments.
 
 ## License
 

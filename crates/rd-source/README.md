@@ -22,7 +22,7 @@ RD_SOURCE_CORPUS=/path/to/R/src/library cargo test -p rd-source --test corpus_di
 
 ## Stability
 
-Current-version parsing behavior and the fatal-versus-recoverable split are specified by [`CONTRACT.md`](CONTRACT.md). Diagnostic codes, message wording, and exact spans and recovery positions may change in a minor release, but are preserved by patch releases; see the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md).
+Parsing behavior and the fatal-versus-recoverable split are specified by [`CONTRACT.md`](CONTRACT.md), which requires parity with the pinned `tools::parse_Rd` oracle for grammar-native Rd syntax within the documented scope. Patch releases preserve parse results, diagnostic codes, spans, and recovery positions that already conformed to the previous release's contract, and may correct them where the previous behavior violated it. Diagnostic message text is not a machine-readable contract and may change in any release. See the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md).
 
 ## License
 
