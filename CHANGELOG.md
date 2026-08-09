@@ -2,16 +2,29 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-09
+
+This is a minor release because [rd-source] now requires oracle parity for
+grammar-native Rd syntax, which its contract previously left open, and because
+three inputs consequently parse differently. There are no breaking source or
+public API changes. Under the revised policy, later corrections of this kind
+may ship in patch releases.
+
 ### Changed
 
-- Correct the versioning and stability policy for the `0.1.x` release series: breaking changes require a minor version bump, while patch releases preserve compatibility.
-- Share the R-like lexical transition engine between [rd-source] and [rd-writer] through the new `#[doc(hidden)]` `unstable_rlike` surface on [rd-source].
+- [rd-source] Require a parser implementation to match the pinned `tools::parse_Rd` oracle on acceptance and recovery for grammar-native Rd syntax within the documented scope. The contract previously described the oracle as evidence rather than a requirement, which left the three parse-behavior corrections below formally unspecified.
+- Revise the stability policy accordingly: a patch release may correct behavior that violated the normative contract published with the previous release, provided the pinned oracle is unchanged and no contract rule is added or revised. Changing a contract, changing the pinned oracle version, or resolving previously unspecified behavior still requires a minor release (#15).
+- Share the R-like lexical transition engine between [rd-source] and [rd-writer] through the new `unstable_rlike` implementation-sharing surface on [rd-source]. The two crates previously carried separate copies of it, which is why the raw-string defect below was present in both and invisible to the round-trip tests. This surface is excluded from every stability guarantee and must not be used by external consumers (#16).
 
 ### Fixed
 
-- [rd-source] and [rd-writer] Preserve single-quoted R raw strings, including dashed and uppercase forms, without treating their contents as Rd syntax.
-- [rd-source] and [rd-writer] End a pending backslash escape at a newline inside an ordinary quoted string, matching R: the quote closes at the following quote character instead of leaving the group unterminated.
-- [rd-source] and [rd-writer] Reset partial raw-string closer progress at a newline, matching R's requirement that a closer be contiguous: `)-` before a newline no longer combines with `--"` after it.
+Each of these was verified against R 4.6.1. Affected documents parse to
+different nodes or produce different diagnostics after upgrading.
+
+- [rd-source] Treat single-quoted R raw strings (`r'(...)'`, `R'[...]'`, and their dashed forms) as opaque, like the double-quoted forms. A bare `%` inside such a string previously started an Rd comment and a backslash sequence could be read as Rd syntax (#14).
+- [rd-source] End a pending backslash escape at a newline inside an ordinary quoted string. A backslash at end of line inside a quoted string previously produced a spurious `UnclosedGroup` diagnostic, and the input now parses without it (#16).
+- [rd-source] Reset partial raw-string closer progress at a newline, because R requires a closer to be contiguous. A closer split across a newline previously terminated the raw string, and such input now produces `UnclosedGroup` (#16).
+- [rd-writer] Preserve the contents of single-quoted R raw strings instead of escaping them as ordinary quoted content. `f(x = r'(100%\q)')` was emitted as `f(x = r'(100\%\\q)')`, which recovers the R value `100\%\\q` instead of `100%\q` when parsed back, because the Rd layer never unescapes raw-string contents (#14).
 
 ### Added
 

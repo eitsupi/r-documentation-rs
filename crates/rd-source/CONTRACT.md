@@ -13,11 +13,22 @@ normative RFC-style keywords.
 ## 1. Scope and status
 
 The conformance oracle is `tools::parse_Rd(..., encoding = "UTF-8", permissive
-= FALSE)`, with the pinned R version used by the fixture suite. The oracle is
-evidence about accepted syntax and recovery, not the complete AST contract.
-When oracle recovery conflicts with the `rd-ast` contract, `rd-ast`
-conformance wins. Every such difference MUST be pinned by a fixture and
-described in the differential metadata.
+= FALSE)`, with the pinned R version used by the fixture suite.
+
+For grammar-native Rd syntax within the documented scope, a parser
+implementation **MUST** match the oracle on whether input is accepted and on
+where recovery is triggered. Producing a result the oracle does not produce is
+a contract violation, whether or not this document enumerates the specific
+input. Behavior outside that rule is normative only where stated here: the
+oracle does not by itself determine the shape of the resulting AST, and when
+oracle recovery conflicts with the `rd-ast` contract, `rd-ast` conformance
+wins. Every such difference **MUST** be pinned by a fixture and described in
+the differential metadata.
+
+Correcting an implementation to satisfy this rule, against an unchanged pinned
+oracle version, is a conformance correction rather than a change to this
+contract; see [STABILITY.md](../../STABILITY.md). Changing the pinned oracle
+version is a contract change.
 
 This is a v1 contract for a public source parser. Syntax recovery MUST be
 deterministic, and a parser implementation MUST satisfy the acceptance
