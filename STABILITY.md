@@ -4,7 +4,7 @@ This policy applies to all five workspace crates, which release in lockstep at t
 
 ## 0.1.x compatibility
 
-Breaking changes bump the minor version: changes that break source, API, or serialized-representation compatibility move from `0.1.x` to `0.2.0`. Patch releases within `0.1.x` preserve those compatibility guarantees. Each release documents the behavior it intends and tests as its documented contract. Breaking changes, MSRV raises, and feature or default changes are recorded in [CHANGELOG.md](CHANGELOG.md). Enums marked `#[non_exhaustive]` require wildcard match arms, and adding variants to them is not treated as a breaking change.
+Breaking changes bump the minor version: changes that break source or API compatibility move from `0.1.x` to `0.2.0`, and patch releases within `0.1.x` preserve that compatibility. Serialized representations are not covered by this rule and carry only the guarantees stated per crate below; `rd-ast`'s serde representation in particular is same-version round-trip only. Each release documents the behavior it intends and tests as its documented contract. Breaking changes, MSRV raises, and feature or default changes are recorded in [CHANGELOG.md](CHANGELOG.md). Enums marked `#[non_exhaustive]` require wildcard match arms, and adding variants to them is not treated as a breaking change.
 
 ## Minimum supported Rust version
 
