@@ -6,6 +6,10 @@
 
 - Correct the versioning and stability policy for the `0.1.x` release series: breaking changes require a minor version bump, while patch releases preserve compatibility.
 
+### Fixed
+
+- [rd-source] and [rd-writer] Preserve single-quoted R raw strings, including dashed and uppercase forms, without treating their contents as Rd syntax.
+
 ### Added
 
 - [rd-rds] Document CRAN and manually verified R-universe repository-index interoperability profiles, including package-index schema and envelope variations.

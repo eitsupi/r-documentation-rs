@@ -1043,6 +1043,39 @@ fn raw_strings_reexamine_byte_after_failed_partial_closer() {
 }
 
 #[test]
+fn single_quote_raw_strings_preserve_boundaries_and_mixed_delimiters() {
+    for source in [
+        r#"\code{r'(body } ] ) " % \ \} near )x)'; after()}"#,
+        r#"\code{r'---(near )x)---'; after()}"#,
+        r#"\code{R'-[upper ] ) " % \ \} x]-'; after()}"#,
+        r#"\code{r'(a)"b)'}"#,
+        r#"\code{r"(a)'b)"}"#,
+    ] {
+        let parsed = crate::parse(source.as_bytes()).unwrap();
+        assert_eq!(parsed.diagnostics(), &[]);
+        let expected = source
+            .strip_prefix(r"\code{")
+            .unwrap()
+            .strip_suffix('}')
+            .unwrap();
+        assert_eq!(
+            parsed.document().nodes()[0].as_tagged().unwrap().children(),
+            &[RdNode::RCode(expected.into())]
+        );
+    }
+}
+
+#[test]
+fn backtick_after_raw_prefix_is_an_ordinary_quote() {
+    let parsed = crate::parse(br"\code{r`100%`}").unwrap();
+    assert_eq!(parsed.diagnostics(), &[]);
+    assert_eq!(
+        parsed.document().nodes()[0].as_tagged().unwrap().children(),
+        &[RdNode::RCode("r`100%`".into())]
+    );
+}
+
+#[test]
 fn long_raw_strings_do_not_consume_relex_budget() {
     let body = "x".repeat(100_000);
     let input = format!(r#"\code{{r"---({})---"; after()}}"#, body);

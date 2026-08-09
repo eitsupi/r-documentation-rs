@@ -2,11 +2,17 @@
 
 use crate::spec::Mode;
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RawDelimiter {
+    dashes: usize,
+    quote: char,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum RLikeState {
     Normal {
         raw_prefix: bool,
-        raw_delimiter_dashes: Option<usize>,
+        raw_delimiter: Option<RawDelimiter>,
         comment: bool,
     },
     OrdinaryQuote {
@@ -23,7 +29,7 @@ impl Default for RLikeState {
     fn default() -> Self {
         Self::Normal {
             raw_prefix: false,
-            raw_delimiter_dashes: None,
+            raw_delimiter: None,
             comment: false,
         }
     }
@@ -48,13 +54,13 @@ impl RLikeState {
     pub(crate) fn clear_transient_opener(&mut self) {
         if let Self::Normal {
             raw_prefix,
-            raw_delimiter_dashes,
+            raw_delimiter,
             ..
         } = self
-            && (*raw_prefix || raw_delimiter_dashes.is_some())
+            && (*raw_prefix || raw_delimiter.is_some())
         {
             *raw_prefix = false;
-            *raw_delimiter_dashes = None;
+            *raw_delimiter = None;
         }
     }
 }
@@ -106,7 +112,7 @@ pub(crate) fn escape(input: &str, mode: Mode, state: &mut RLikeState) -> (String
                     if *matched == closer.chars().count() {
                         *state = RLikeState::Normal {
                             raw_prefix: false,
-                            raw_delimiter_dashes: None,
+                            raw_delimiter: None,
                             comment: false,
                         };
                     }
@@ -147,7 +153,7 @@ pub(crate) fn escape(input: &str, mode: Mode, state: &mut RLikeState) -> (String
                     out.push(ch);
                     *state = RLikeState::Normal {
                         raw_prefix: false,
-                        raw_delimiter_dashes: None,
+                        raw_delimiter: None,
                         comment: false,
                     };
                 } else {
@@ -157,7 +163,7 @@ pub(crate) fn escape(input: &str, mode: Mode, state: &mut RLikeState) -> (String
             }
             RLikeState::Normal {
                 raw_prefix,
-                raw_delimiter_dashes,
+                raw_delimiter,
                 comment,
             } => {
                 if *comment {
@@ -165,10 +171,10 @@ pub(crate) fn escape(input: &str, mode: Mode, state: &mut RLikeState) -> (String
                     i += 1;
                     continue;
                 }
-                if let Some(dashes) = raw_delimiter_dashes {
+                if let Some(raw_delimiter) = raw_delimiter {
                     if ch == '-' {
                         out.push(ch);
-                        *dashes += 1;
+                        raw_delimiter.dashes += 1;
                         i += 1;
                         continue;
                     }
@@ -182,28 +188,30 @@ pub(crate) fn escape(input: &str, mode: Mode, state: &mut RLikeState) -> (String
                         out.push(ch);
                         let mut closer = String::new();
                         closer.push(closing);
-                        closer.push_str(&"-".repeat(*dashes));
-                        closer.push('"');
+                        closer.push_str(&"-".repeat(raw_delimiter.dashes));
+                        closer.push(raw_delimiter.quote);
                         *state = RLikeState::RawString { closer, matched: 0 };
                         i += 1;
                         continue;
                     }
                     *state = RLikeState::OrdinaryQuote {
-                        delimiter: '"',
+                        delimiter: raw_delimiter.quote,
                         escaped: false,
                     };
                     continue;
                 }
                 if *raw_prefix {
-                    if ch == '"' {
+                    if matches!(ch, '"' | '\'') {
                         out.push(ch);
                         *raw_prefix = false;
-                        *raw_delimiter_dashes = Some(0);
+                        *raw_delimiter = Some(RawDelimiter {
+                            dashes: 0,
+                            quote: ch,
+                        });
                         i += 1;
                         continue;
                     }
                     *raw_prefix = false;
-                    continue;
                 }
                 match ch {
                     'r' | 'R' => {
@@ -250,7 +258,7 @@ mod tests {
         assert!(
             RLikeState::Normal {
                 raw_prefix: true,
-                raw_delimiter_dashes: None,
+                raw_delimiter: None,
                 comment: false
             }
             .closure_compatible()
@@ -258,7 +266,10 @@ mod tests {
         assert!(
             RLikeState::Normal {
                 raw_prefix: false,
-                raw_delimiter_dashes: Some(3),
+                raw_delimiter: Some(RawDelimiter {
+                    dashes: 3,
+                    quote: '\'',
+                }),
                 comment: false
             }
             .closure_compatible()
@@ -266,7 +277,7 @@ mod tests {
         assert!(
             RLikeState::Normal {
                 raw_prefix: false,
-                raw_delimiter_dashes: None,
+                raw_delimiter: None,
                 comment: true
             }
             .closure_compatible()
@@ -299,6 +310,30 @@ mod tests {
             escape(r#"r"---(a%{})---" %%"#, Mode::RLike, &mut state).0,
             r#"r"---(a%{})---" \%\%"#
         );
+    }
+
+    #[test]
+    fn single_quote_raw_strings_are_opaque() {
+        for (input, expected) in [
+            (r#"r'(a%{\q})'"#, r#"r'(a%{\q})'"#),
+            (r#"r'---(a%{\q})---'"#, r#"r'---(a%{\q})---'"#),
+            (r#"R'-[a%{\q}]-'"#, r#"R'-[a%{\q}]-'"#),
+            (r#"r'(a)"b)'"#, r#"r'(a)"b)'"#),
+            (r#"r"(a)'b)""#, r#"r"(a)'b)""#),
+        ] {
+            let mut state = RLikeState::default();
+            assert_eq!(
+                escape(input, Mode::RLike, &mut state).0,
+                expected,
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn backtick_after_raw_prefix_remains_an_ordinary_quote() {
+        let mut state = RLikeState::default();
+        assert_eq!(escape("r`100%`", Mode::RLike, &mut state).0, r"r`100\%`");
     }
 
     #[test]

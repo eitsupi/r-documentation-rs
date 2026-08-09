@@ -343,7 +343,7 @@ impl<'a> Parser<'a> {
                         && matches!(
                             state.rlike_state,
                             RLikeState::Normal {
-                                raw_delimiter_dashes: None,
+                                raw_delimiter: None,
                                 ..
                             }
                         ) =>
@@ -463,7 +463,7 @@ impl<'a> Parser<'a> {
                             || matches!(
                                 state.rlike_state,
                                 RLikeState::Normal {
-                                    raw_delimiter_dashes: Some(_),
+                                    raw_delimiter: Some(_),
                                     ..
                                 }
                             ))
