@@ -1,68 +1,12 @@
 //! Inverse lexical escaping for Rd leaves.
 
 use crate::spec::Mode;
+use rd_source::unstable_rlike::{ConsumedIn, State, Unit};
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct RawDelimiter {
-    dashes: usize,
-    quote: char,
-}
+pub(crate) type RLikeState = State;
 
-#[derive(Debug, Clone)]
-pub(crate) enum RLikeState {
-    Normal {
-        raw_prefix: bool,
-        raw_delimiter: Option<RawDelimiter>,
-        comment: bool,
-    },
-    OrdinaryQuote {
-        delimiter: char,
-        escaped: bool,
-    },
-    RawString {
-        closer: String,
-        matched: usize,
-    },
-}
-
-impl Default for RLikeState {
-    fn default() -> Self {
-        Self::Normal {
-            raw_prefix: false,
-            raw_delimiter: None,
-            comment: false,
-        }
-    }
-}
-
-impl RLikeState {
-    pub(crate) fn closure_compatible(&self) -> bool {
-        matches!(self, Self::Normal { .. })
-    }
-
-    pub(crate) fn is_ordinary_quote(&self) -> bool {
-        matches!(self, Self::OrdinaryQuote { .. })
-    }
-
-    pub(crate) fn is_raw_string_or_comment(&self) -> bool {
-        matches!(
-            self,
-            Self::RawString { .. } | Self::Normal { comment: true, .. }
-        )
-    }
-
-    pub(crate) fn clear_transient_opener(&mut self) {
-        if let Self::Normal {
-            raw_prefix,
-            raw_delimiter,
-            ..
-        } = self
-            && (*raw_prefix || raw_delimiter.is_some())
-        {
-            *raw_prefix = false;
-            *raw_delimiter = None;
-        }
-    }
+pub(crate) fn is_raw_string_or_comment(state: &RLikeState) -> bool {
+    state.is_raw_string() || state.is_comment()
 }
 
 /// Escape one leaf while advancing the lexical state shared by its frame.
@@ -82,49 +26,30 @@ pub(crate) fn escape(input: &str, mode: Mode, state: &mut RLikeState) -> (String
             i += 1;
             continue;
         }
+        let consumed_in = state.step(if ch.is_ascii() {
+            Unit::Ascii(ch as u8)
+        } else {
+            Unit::Other
+        });
         if ch == '\n' {
-            if matches!(state, RLikeState::RawString { .. }) {
+            if matches!(consumed_in, ConsumedIn::RawString) {
                 raw_newline = true;
             } else if i + 1 < chars.len() {
                 nonraw_interior_newline = true;
             }
             out.push(ch);
-            match state {
-                RLikeState::Normal {
-                    raw_prefix,
-                    comment,
-                    ..
-                } => {
-                    *raw_prefix = false;
-                    *comment = false;
-                }
-                RLikeState::RawString { .. } | RLikeState::OrdinaryQuote { .. } => {}
-            }
             i += 1;
             continue;
         }
-        match state {
-            RLikeState::RawString { closer, matched } => {
+        match consumed_in {
+            ConsumedIn::RawString => {
                 out.push(ch);
-                let expected = closer.chars().nth(*matched).expect("valid closer progress");
-                if ch == expected {
-                    *matched += 1;
-                    if *matched == closer.chars().count() {
-                        *state = RLikeState::Normal {
-                            raw_prefix: false,
-                            raw_delimiter: None,
-                            comment: false,
-                        };
-                    }
-                } else if *matched > 0 {
-                    // The current byte was already emitted; retain it as a possible
-                    // beginning of an overlapping closer.
-                    *matched = usize::from(ch == closer.chars().next().expect("non-empty closer"));
-                }
-                i += 1;
             }
-            RLikeState::OrdinaryQuote { delimiter, escaped } => {
-                if *escaped {
+            ConsumedIn::OrdinaryQuote {
+                delimiter,
+                escaped_before,
+            } => {
+                if escaped_before {
                     if ch == '\\' {
                         out.push_str(r"\\");
                     } else if ch == '%' {
@@ -134,107 +59,29 @@ pub(crate) fn escape(input: &str, mode: Mode, state: &mut RLikeState) -> (String
                     } else {
                         out.push(ch);
                     }
-                    *escaped = false;
                 } else if ch == '\\' {
-                    if chars
-                        .get(i + 1)
-                        .is_some_and(|next| *next == *delimiter || matches!(next, '{' | '}'))
-                    {
+                    if chars.get(i + 1).is_some_and(|next| {
+                        *next == char::from(delimiter) || matches!(next, '{' | '}')
+                    }) {
                         out.push('\\');
                     } else {
                         out.push_str(r"\\");
                     }
-                    *escaped = true;
                 } else if ch == '%' {
                     // R's Rd parser comments at a bare % even inside quoted
                     // strings, so the Rd-escape spelling is required.
                     out.push_str(r"\%");
-                } else if ch == *delimiter {
-                    out.push(ch);
-                    *state = RLikeState::Normal {
-                        raw_prefix: false,
-                        raw_delimiter: None,
-                        comment: false,
-                    };
                 } else {
                     out.push(ch);
                 }
-                i += 1;
             }
-            RLikeState::Normal {
-                raw_prefix,
-                raw_delimiter,
-                comment,
-            } => {
-                if *comment {
-                    push_escaped(&mut out, ch);
-                    i += 1;
-                    continue;
-                }
-                if let Some(raw_delimiter) = raw_delimiter {
-                    if ch == '-' {
-                        out.push(ch);
-                        raw_delimiter.dashes += 1;
-                        i += 1;
-                        continue;
-                    }
-                    let closing = match ch {
-                        '(' => ')',
-                        '[' => ']',
-                        '{' => '}',
-                        _ => '\0',
-                    };
-                    if closing != '\0' {
-                        out.push(ch);
-                        let mut closer = String::new();
-                        closer.push(closing);
-                        closer.push_str(&"-".repeat(raw_delimiter.dashes));
-                        closer.push(raw_delimiter.quote);
-                        *state = RLikeState::RawString { closer, matched: 0 };
-                        i += 1;
-                        continue;
-                    }
-                    *state = RLikeState::OrdinaryQuote {
-                        delimiter: raw_delimiter.quote,
-                        escaped: false,
-                    };
-                    continue;
-                }
-                if *raw_prefix {
-                    if matches!(ch, '"' | '\'') {
-                        out.push(ch);
-                        *raw_prefix = false;
-                        *raw_delimiter = Some(RawDelimiter {
-                            dashes: 0,
-                            quote: ch,
-                        });
-                        i += 1;
-                        continue;
-                    }
-                    *raw_prefix = false;
-                }
-                match ch {
-                    'r' | 'R' => {
-                        out.push(ch);
-                        *raw_prefix = true;
-                    }
-                    '\\' | '%' | '{' | '}' => push_escaped(&mut out, ch),
-                    '#' => {
-                        out.push(ch);
-                        *comment = true;
-                    }
-                    '\'' | '"' | '\x60' => {
-                        out.push(ch);
-                        *state = RLikeState::OrdinaryQuote {
-                            delimiter: ch,
-                            escaped: false,
-                        };
-                    }
-                    _ => out.push(ch),
-                }
-                i += 1;
-            }
+            ConsumedIn::Comment => push_escaped(&mut out, ch),
+            ConsumedIn::Normal => match ch {
+                '\\' | '%' | '{' | '}' => push_escaped(&mut out, ch),
+                _ => out.push(ch),
+            },
         }
+        i += 1;
     }
     (out, raw_newline, nonraw_interior_newline)
 }
@@ -255,47 +102,27 @@ mod tests {
 
     #[test]
     fn closure_compatibility_matches_parser_states() {
-        assert!(
-            RLikeState::Normal {
-                raw_prefix: true,
-                raw_delimiter: None,
-                comment: false
-            }
-            .closure_compatible()
-        );
-        assert!(
-            RLikeState::Normal {
-                raw_prefix: false,
-                raw_delimiter: Some(RawDelimiter {
-                    dashes: 3,
-                    quote: '\'',
-                }),
-                comment: false
-            }
-            .closure_compatible()
-        );
-        assert!(
-            RLikeState::Normal {
-                raw_prefix: false,
-                raw_delimiter: None,
-                comment: true
-            }
-            .closure_compatible()
-        );
-        assert!(
-            !RLikeState::OrdinaryQuote {
-                delimiter: '"',
-                escaped: false
-            }
-            .closure_compatible()
-        );
-        assert!(
-            !RLikeState::RawString {
-                closer: ")".into(),
-                matched: 0
-            }
-            .closure_compatible()
-        );
+        assert!(RLikeState::default().closure_compatible());
+
+        let mut state = RLikeState::default();
+        state.step(Unit::Ascii(b'r'));
+        assert!(state.closure_compatible());
+        state.step(Unit::Ascii(b'"'));
+        assert!(state.closure_compatible());
+
+        let mut state = RLikeState::default();
+        state.step(Unit::Ascii(b'#'));
+        assert!(state.closure_compatible());
+
+        let mut state = RLikeState::default();
+        state.step(Unit::Ascii(b'"'));
+        assert!(!state.closure_compatible());
+
+        let mut state = RLikeState::default();
+        for byte in br#"r"("# {
+            state.step(Unit::Ascii(*byte));
+        }
+        assert!(!state.closure_compatible());
     }
 
     #[test]

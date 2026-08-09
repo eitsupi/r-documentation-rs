@@ -1043,6 +1043,30 @@ fn raw_strings_reexamine_byte_after_failed_partial_closer() {
 }
 
 #[test]
+fn newline_ends_a_pending_backslash_escape_inside_an_ordinary_quote() {
+    // R closes the quote at the newline-following `"`, so the group closes too:
+    // `tools::parse_Rd` accepts this input and reports no error.
+    let parsed = crate::parse(b"\\examples{\"a\\\n\"}").unwrap();
+    assert_eq!(parsed.diagnostics(), &[]);
+}
+
+#[test]
+fn newline_resets_partial_raw_closer_progress() {
+    // A raw-string closer must be contiguous. R rejects this input with
+    // "Unexpected end of input (in \" quoted string ...)", so `)-` before the
+    // newline must not combine with `--"` after it.
+    let parsed = crate::parse(b"\\examples{r\"---(x)-\n--\"}").unwrap();
+    assert_eq!(
+        parsed
+            .diagnostics()
+            .iter()
+            .map(|diagnostic| diagnostic.code())
+            .collect::<Vec<_>>(),
+        vec![&crate::DiagnosticCode::UnclosedGroup]
+    );
+}
+
+#[test]
 fn single_quote_raw_strings_preserve_boundaries_and_mixed_delimiters() {
     for source in [
         r#"\code{r'(body } ] ) " % \ \} near )x)'; after()}"#,

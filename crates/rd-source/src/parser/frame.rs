@@ -64,11 +64,7 @@ impl FrameState {
             .initial_rlike_state
             .as_ref()
             .map(|(state, _)| state.clone())
-            .unwrap_or(super::RLikeState::Normal {
-                raw_prefix: false,
-                raw_delimiter: None,
-                comment: false,
-            });
+            .unwrap_or_default();
         Self {
             out: Vec::new(),
             buf: String::new(),
