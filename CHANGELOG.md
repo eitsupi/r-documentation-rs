@@ -5,10 +5,13 @@
 ### Changed
 
 - Correct the versioning and stability policy for the `0.1.x` release series: breaking changes require a minor version bump, while patch releases preserve compatibility.
+- Share the R-like lexical transition engine between [rd-source] and [rd-writer] through the new `#[doc(hidden)]` `unstable_rlike` surface on [rd-source].
 
 ### Fixed
 
 - [rd-source] and [rd-writer] Preserve single-quoted R raw strings, including dashed and uppercase forms, without treating their contents as Rd syntax.
+- [rd-source] and [rd-writer] End a pending backslash escape at a newline inside an ordinary quoted string, matching R: the quote closes at the following quote character instead of leaving the group unterminated.
+- [rd-source] and [rd-writer] Reset partial raw-string closer progress at a newline, matching R's requirement that a closer be contiguous: `)-` before a newline no longer combines with `--"` after it.
 
 ### Added
 

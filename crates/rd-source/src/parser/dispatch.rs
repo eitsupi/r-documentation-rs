@@ -1,7 +1,6 @@
 use super::{
     Parser,
     frame::{Frame, FrameRequest, FrameState, ItemPolicy, Mode},
-    rlike::RLikeState,
     spec::{self, Context, tag_spec},
 };
 use crate::{
@@ -24,7 +23,7 @@ impl<'a> Parser<'a> {
                 TokenKind::IfDef | TokenKind::IfNDef
                     if request.frame.mode != Mode::Equation
                         && !request.bracket
-                        && !matches!(state.rlike_state, RLikeState::RawString { .. }) =>
+                        && !state.rlike_state.is_raw_string() =>
                 {
                     self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
                     let tag = if token.kind == TokenKind::IfDef {
@@ -44,7 +43,7 @@ impl<'a> Parser<'a> {
                 TokenKind::EndIf
                     if request.bracket
                         && request.frame.mode != Mode::Equation
-                        && !matches!(state.rlike_state, RLikeState::RawString { .. }) =>
+                        && !state.rlike_state.is_raw_string() =>
                 {
                     let value = self.canonical(token).to_string();
                     self.append_content(
@@ -57,7 +56,7 @@ impl<'a> Parser<'a> {
                 }
                 TokenKind::EndIf
                     if request.frame.mode != Mode::Equation
-                        && !matches!(state.rlike_state, RLikeState::RawString { .. }) =>
+                        && !state.rlike_state.is_raw_string() =>
                 {
                     if request.stop_at_endif {
                         self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
@@ -118,10 +117,7 @@ impl<'a> Parser<'a> {
                         && (request.frame.mode != Mode::RLike
                             || state.rlike_state.is_normal()
                             || state.rlike_state.is_transient_opener()
-                            || matches!(
-                                state.rlike_state,
-                                RLikeState::Normal { comment: true, .. }
-                            )) =>
+                            || state.rlike_state.is_comment()) =>
                 {
                     self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
                     self.warn(
@@ -142,10 +138,7 @@ impl<'a> Parser<'a> {
                         Mode::RLike
                             if (state.rlike_state.is_normal()
                                 || state.rlike_state.is_transient_opener()
-                                || matches!(
-                                    state.rlike_state,
-                                    RLikeState::Normal { comment: true, .. }
-                                ))
+                                || state.rlike_state.is_comment())
                                 && state.brace_depth == 0 =>
                         {
                             state.rlike_state.clear_transient_opener();
@@ -164,10 +157,7 @@ impl<'a> Parser<'a> {
                             if request.frame.mode == Mode::RLike
                                 && state.rlike_state.is_active()
                                 && !state.rlike_state.is_transient_opener()
-                                && !matches!(
-                                    state.rlike_state,
-                                    RLikeState::Normal { comment: true, .. }
-                                )
+                                && !state.rlike_state.is_comment()
                             {
                                 self.append_content(
                                     &mut state.buf,
@@ -190,7 +180,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 TokenKind::Newline => {
-                    let raw_body = matches!(state.rlike_state, RLikeState::RawString { .. });
+                    let raw_body = state.rlike_state.is_raw_string();
                     self.append_content(
                         &mut state.buf,
                         "\n",
@@ -205,11 +195,9 @@ impl<'a> Parser<'a> {
                 TokenKind::Escape(kind) => {
                     let preserve = request.frame.mode == Mode::Equation
                         || (request.frame.mode == Mode::RLike
-                            && (matches!(state.rlike_state, RLikeState::RawString { .. })
-                                || (matches!(
-                                    state.rlike_state,
-                                    RLikeState::OrdinaryQuote { .. }
-                                ) && matches!(kind, EscapeKind::LBrace | EscapeKind::RBrace))));
+                            && (state.rlike_state.is_raw_string()
+                                || (state.rlike_state.is_ordinary_quote()
+                                    && matches!(kind, EscapeKind::LBrace | EscapeKind::RBrace))));
                     let value = if preserve {
                         self.text(token).to_owned()
                     } else {
@@ -233,12 +221,10 @@ impl<'a> Parser<'a> {
                     let name = self.text(token).to_string();
                     if matches!(request.frame.mode, Mode::Verbatim | Mode::Equation)
                         || (request.frame.mode == Mode::RLike
-                            && (matches!(
-                                state.rlike_state,
-                                RLikeState::Normal { comment: true, .. }
-                            ) || (state.rlike_state.is_active()
-                                && !matches!(state.rlike_state, RLikeState::OrdinaryQuote { .. })
-                                && !state.rlike_state.is_transient_opener())))
+                            && (state.rlike_state.is_comment()
+                                || (state.rlike_state.is_active()
+                                    && !state.rlike_state.is_ordinary_quote()
+                                    && !state.rlike_state.is_transient_opener())))
                     {
                         let spelling = self.text(token).to_string();
                         self.append_content(
@@ -250,8 +236,8 @@ impl<'a> Parser<'a> {
                         self.index += 1;
                         continue;
                     }
-                    let quoted = request.frame.mode == Mode::RLike
-                        && matches!(state.rlike_state, RLikeState::OrdinaryQuote { .. });
+                    let quoted =
+                        request.frame.mode == Mode::RLike && state.rlike_state.is_ordinary_quote();
                     if quoted && !spec::recognized_in_ordinary_quote(&name) {
                         self.append_content(
                             &mut state.buf,
@@ -315,11 +301,7 @@ impl<'a> Parser<'a> {
                 }
                 // A bare raw prefix is still normal for comment recognition; only a scan/body is active.
                 TokenKind::Comment
-                    if request.frame.mode == Mode::RLike
-                        && matches!(
-                            state.rlike_state,
-                            RLikeState::Normal { comment: true, .. }
-                        ) =>
+                    if request.frame.mode == Mode::RLike && state.rlike_state.is_comment() =>
                 {
                     // Once R has recognized a hash comment, an Rd percent is
                     // ordinary comment text. Re-lex the token tail so braces
@@ -340,13 +322,10 @@ impl<'a> Parser<'a> {
                 }
                 TokenKind::Comment
                     if request.frame.comments_enabled
-                        && matches!(
-                            state.rlike_state,
-                            RLikeState::Normal {
-                                raw_delimiter: None,
-                                ..
-                            }
-                        ) =>
+                        && (state.rlike_state.is_normal()
+                            || (state.rlike_state.is_transient_opener()
+                                && !state.rlike_state.is_raw_delimiter())
+                            || state.rlike_state.is_comment()) =>
                 {
                     state.rlike_state.clear_raw_prefix();
                     self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
@@ -444,9 +423,7 @@ impl<'a> Parser<'a> {
                     state.out.extend(result.nodes);
                 }
                 TokenKind::LBrace => {
-                    if request.frame.mode == Mode::RLike
-                        && matches!(state.rlike_state, RLikeState::Normal { comment: true, .. })
-                    {
+                    if request.frame.mode == Mode::RLike && state.rlike_state.is_comment() {
                         state.brace_depth += 1;
                         self.append_content(
                             &mut state.buf,
@@ -460,13 +437,7 @@ impl<'a> Parser<'a> {
                     if request.frame.mode == Mode::RLike
                         && state.rlike_state.is_active()
                         && (!state.rlike_state.is_transient_opener()
-                            || matches!(
-                                state.rlike_state,
-                                RLikeState::Normal {
-                                    raw_delimiter: Some(_),
-                                    ..
-                                }
-                            ))
+                            || state.rlike_state.is_raw_delimiter())
                     {
                         self.append_content(
                             &mut state.buf,

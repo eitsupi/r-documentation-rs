@@ -194,7 +194,7 @@ impl Context {
         let spelling = tagged.tag().as_rd_tag();
         let conditional = spelling == "#ifdef" || spelling == "#ifndef";
         let quoted = parent_mode == Mode::RLike && parent_rlike.is_ordinary_quote();
-        if parent_mode == Mode::RLike && parent_rlike.is_raw_string_or_comment() {
+        if parent_mode == Mode::RLike && escape::is_raw_string_or_comment(parent_rlike) {
             // The parser treats markup in raw strings and comments as literal R code.
             return self.fail(path, UnserializableKind::TagNotAllowedInContext);
         }

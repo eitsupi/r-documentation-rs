@@ -5,6 +5,9 @@ mod lexer;
 mod parser;
 mod source_map;
 
+#[doc(hidden)]
+pub mod unstable_rlike;
+
 /// v1 implementation limit for the complete UTF-8 input, in bytes.
 pub const MAX_INPUT_SIZE: usize = 64 * 1024 * 1024;
 

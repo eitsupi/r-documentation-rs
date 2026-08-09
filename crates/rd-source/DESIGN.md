@@ -17,6 +17,15 @@ The accepted lexer contract, implemented in `crates/rd-source/src/lexer.rs`, is 
 
 The parser owns meaning. `Comment`, brace, and bracket tokens are not final semantics: the active parser frame may reinterpret them. In particular, a percent token is a comment in comment-enabled modes but literal content in an equation frame, and a bracket is an option only when the relevant `TagSpec` allows one. Leaf segmentation follows oracle flush boundaries, not token classification. The parser therefore preserves each token's source slice until it has enough frame and syntactic context to emit an AST node.
 
+The byte-oriented R-like lexical transition is implemented in
+`rd-source::unstable_rlike`. This is an implementation-sharing surface for
+the lockstep workspace crates, not a stable public API. The parser keeps a thin
+adapter around that state, while `rd-writer` consumes the same transitions so
+its escaping decisions cannot structurally drift from parser recognition.
+`crates/rd-source/CONTRACT.md` remains the normative specification of the
+parser behaviour; frame boundaries, brace depth, comment-tail relexing, and
+leaf flushing remain parser dispatch decisions.
+
 ## 3. Parser frames and mode definitions
 
 The parser uses recursive descent with a mode stack. The minimum mode set is:
