@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- [rd-source] and [rd-writer] Preserve single-quoted R raw strings, including dashed and uppercase forms, without treating their contents as Rd syntax.
+
 ### Added
 
 - [rd-rds] Document CRAN and manually verified R-universe repository-index interoperability profiles, including package-index schema and envelope variations.

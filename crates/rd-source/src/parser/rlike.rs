@@ -1,10 +1,16 @@
 use super::frame::Mode;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct RawDelimiter {
+    dashes: usize,
+    quote: u8,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum RLikeState {
     Normal {
         raw_prefix: bool,
-        raw_delimiter_dashes: Option<usize>,
+        raw_delimiter: Option<RawDelimiter>,
         comment: bool,
     },
     OrdinaryQuote {
@@ -23,7 +29,7 @@ impl RLikeState {
             self,
             Self::Normal {
                 raw_prefix: false,
-                raw_delimiter_dashes: None,
+                raw_delimiter: None,
                 comment: false,
             }
         )
@@ -37,7 +43,7 @@ impl RLikeState {
                 ..
             } | Self::Normal {
                 raw_prefix: false,
-                raw_delimiter_dashes: Some(_),
+                raw_delimiter: Some(_),
                 ..
             }
         )
@@ -48,7 +54,7 @@ impl RLikeState {
             let comment = matches!(self, Self::Normal { comment: true, .. });
             *self = Self::Normal {
                 raw_prefix: false,
-                raw_delimiter_dashes: None,
+                raw_delimiter: None,
                 comment,
             };
         }
@@ -89,7 +95,7 @@ impl RLikeState {
                         if *matched == closer.len() {
                             *self = Self::Normal {
                                 raw_prefix: false,
-                                raw_delimiter_dashes: None,
+                                raw_delimiter: None,
                                 comment: false,
                             };
                         }
@@ -108,29 +114,29 @@ impl RLikeState {
                     } else if bytes[i] == *delimiter {
                         *self = Self::Normal {
                             raw_prefix: false,
-                            raw_delimiter_dashes: None,
+                            raw_delimiter: None,
                             comment: false,
                         };
                     }
                 }
                 Self::Normal {
                     raw_prefix,
-                    raw_delimiter_dashes,
+                    raw_delimiter,
                     comment,
                 } => {
                     if *comment {
                         i += 1;
                         continue;
                     }
-                    if bytes[i] == b'#' && raw_delimiter_dashes.is_none() {
+                    if bytes[i] == b'#' && raw_delimiter.is_none() {
                         *raw_prefix = false;
                         *comment = true;
                         i += 1;
                         continue;
                     }
-                    if let Some(dashes) = raw_delimiter_dashes {
+                    if let Some(raw_delimiter) = raw_delimiter {
                         if bytes[i] == b'-' {
-                            *dashes += 1;
+                            raw_delimiter.dashes += 1;
                             i += 1;
                             continue;
                         }
@@ -142,21 +148,24 @@ impl RLikeState {
                         };
                         if closing != 0 {
                             let mut closer = vec![closing];
-                            closer.extend(std::iter::repeat_n(b'-', *dashes));
-                            closer.push(b'"');
+                            closer.extend(std::iter::repeat_n(b'-', raw_delimiter.dashes));
+                            closer.push(raw_delimiter.quote);
                             *self = Self::RawString { closer, matched: 0 };
                             i += 1;
                             continue;
                         }
                         *self = Self::OrdinaryQuote {
-                            delimiter: b'"',
+                            delimiter: raw_delimiter.quote,
                             escaped: false,
                         };
                         continue;
                     }
                     if *raw_prefix {
-                        if bytes[i] == b'"' {
-                            *raw_delimiter_dashes = Some(0);
+                        if matches!(bytes[i], b'"' | b'\'') {
+                            *raw_delimiter = Some(RawDelimiter {
+                                dashes: 0,
+                                quote: bytes[i],
+                            });
                             *raw_prefix = false;
                             i += 1;
                             continue;

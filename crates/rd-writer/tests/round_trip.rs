@@ -121,6 +121,10 @@ fn confirmed_lexical_regressions_round_trip() {
         "\\examples{x <- r\"(a)\" %% 2\n}\n",
         "\\examples{x <- r\"(a)\" \\%\\% 2\n}\n",
         "\\examples{x <- r\"---(a\\%{)---\" \\% y\n}\n",
+        r#"\examples{f(x = r'(100%\q)')
+}"#,
+        r#"\examples{f(x = R'[100%\q]')
+}"#,
         "\\usage{f(\"a\\\"b\\{\")\n}\n",
         "\\examples{\"\\value{x}\"\n}",
         "\\examples{\"\\ldots{} \\link[pkg]{x} \\linkS4class{x} \\value{x} \\var{x} \\verb{x}\"\n}",
