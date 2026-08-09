@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Correct the versioning and stability policy for the `0.1.x` release series: breaking changes require a minor version bump, while patch releases preserve compatibility.
+
 ### Added
 
 - [rd-rds] Document CRAN and manually verified R-universe repository-index interoperability profiles, including package-index schema and envelope variations.
