@@ -8,6 +8,7 @@ Releases are performed from CI. Pushing a version tag runs the [Publish to crate
 - [ ] Confirm the most recent R Corpus run succeeded; that workflow is weekly/manual and is not a PR gate.
 - [ ] Update `CHANGELOG.md`: date the release entry and leave `Unreleased` empty.
 - [ ] Bump the workspace version in lockstep.
+- [ ] When changing the release series, grep tracked Markdown for the previous series string and update every remaining prose reference.
 
 ## Pre-tag verification
 
@@ -20,5 +21,5 @@ Releases are performed from CI. Pushing a version tag runs the [Publish to crate
 
 ## Publish
 
-- [ ] Push the version tag (`v<version>`, e.g. `v0.0.1`) to run the publish workflow.
+- [ ] Push the version tag (`v<version>`, e.g. `v0.1.0`) to run the publish workflow.
 - [ ] Verify the docs.rs builds and the crates.io README rendering afterwards; crate READMEs link the stability policy by absolute URL for this reason.
