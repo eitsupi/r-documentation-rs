@@ -5,10 +5,12 @@
 ## [0.3.1] - 2026-08-11
 
 A consumer that does not disable default features is unaffected by this
-release: the effective default codec set of every crate is unchanged. A
-consumer that does disable them is affected, because these crates previously
-had no codec features of their own to disable and passed [rd-rds]'s defaults
-through regardless. Both such configurations are recorded under Changed below.
+release: the effective default codec set of every crate is unchanged. Two
+configurations do change, both recorded under Changed below: [rd-helpdb] with
+default features disabled, and [rd-ast] with default features disabled plus
+`rds`. Before this release neither crate had codec features of its own, so
+disabling defaults on them did not stop [rd-rds]'s defaults from passing
+through.
 
 ### Fixed
 
