@@ -1,6 +1,6 @@
 # Stability policy
 
-This policy applies to all five workspace crates, which release in lockstep at the same `0.2.x` version.
+This policy applies to all five workspace crates, which release in lockstep at the same version.
 
 ## Compatibility
 
