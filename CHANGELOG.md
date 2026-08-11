@@ -2,19 +2,30 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-11
+
+A consumer that does not disable default features is unaffected by this
+release: the effective default codec set of every crate is unchanged. Two
+configurations do change, both recorded under Changed below: [rd-helpdb] with
+default features disabled, and [rd-ast] with default features disabled plus
+`rds`. Before this release neither crate had codec features of its own, so
+disabling defaults on them did not stop [rd-rds]'s defaults from passing
+through.
+
 ### Fixed
 
-- [rd-helpdb] and [rd-ast] depended on [rd-rds] with its default features enabled, so a consumer could not exclude a codec even by disabling default features on its own `rd-rds` dependency: Cargo unions features, and either of these crates re-enabled all four. A binary that never needed xz was therefore linked against the system liblzma and failed to start where that library was absent. Both crates now take `rd-rds` with default features disabled and forward the codec selection instead, so disabling default features on every edge a consumer depends on now excludes the codec.
+- [rd-helpdb] and [rd-ast] depended on [rd-rds] with its default features enabled, so a consumer could not exclude a codec even by disabling default features on its own `rd-rds` dependency: Cargo unions features, and either of these crates re-enabled all four. A binary that never needed xz was therefore linked against the system liblzma and failed to start where that library was absent. Both crates now take `rd-rds` with default features disabled and forward the codec selection instead, so disabling default features on every edge a consumer depends on now excludes the codec (#25).
 
 ### Added
 
-- [rd-helpdb] Add `gzip`, `xz`, `bzip2`, and `zstd` features forwarding to [rd-rds]. They select the compression envelopes accepted for standalone `.rds` files only; `.rdb` record zlib decompression is required by the help-database format and remains unconditional, so `--no-default-features` does not drop the `flate2` dependency.
-- [rd-ast] Add the same four codec features. They forward only when the `rds` feature is enabled, so a plain AST build still has no [rd-rds] dependency.
+- [rd-helpdb] Add `gzip`, `xz`, `bzip2`, and `zstd` features forwarding to [rd-rds]. They select the compression envelopes accepted for standalone `.rds` files only; `.rdb` record zlib decompression is required by the help-database format and remains unconditional, so `--no-default-features` does not drop the `flate2` dependency (#25).
+- [rd-ast] Add the same four codec features. They forward only when the `rds` feature is enabled, so a plain AST build still has no [rd-rds] dependency (#25).
 
 ### Changed
 
-- [rd-helpdb] and [rd-ast] keep all four codec features in `default`, so a consumer that does not disable default features is unaffected.
-- [rd-ast] A consumer that previously used `default-features = false, features = ["rds"]` received all four codecs transitively and now receives none. Such a consumer must name the codecs it needs; otherwise a compressed standalone `.rds` file is reported as an unsupported envelope at runtime.
+- [rd-helpdb] and [rd-ast] keep all four codec features in `default`, so a consumer that does not disable default features is unaffected (#25).
+- [rd-helpdb] A consumer that previously used `default-features = false` received all four codecs transitively, because the crate had no features of its own and the setting was a no-op. It now receives none and must name the codecs it needs (#25).
+- [rd-ast] A consumer that previously used `default-features = false, features = ["rds"]` received all four codecs transitively and now receives none. Such a consumer must name the codecs it needs; otherwise a compressed standalone `.rds` file is reported as an unsupported envelope at runtime (#25).
 
 ## [0.3.0] - 2026-08-11
 

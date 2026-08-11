@@ -14,7 +14,7 @@ The `gzip`, `xz`, `bzip2`, and `zstd` features are enabled by default. They cont
 
 ```toml
 [dependencies]
-rd-helpdb = { version = "0.3.0", default-features = false, features = ["gzip"] }
+rd-helpdb = { version = "0.3.1", default-features = false, features = ["gzip"] }
 ```
 
 The `gzip` feature is unrelated to the zlib record stream inside `<pkg>.rdb`. `.rdb` record decompression is mandatory for this format and is always compiled in, so `--no-default-features` does not remove the `flate2` dependency.
