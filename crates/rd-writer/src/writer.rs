@@ -546,6 +546,14 @@ impl Context {
         out: &mut String,
         path: RdPath,
     ) -> Result<(), WriteError> {
+        if tagged.option().is_some() {
+            return self.fail(
+                path.with_option(),
+                UnserializableKind::InvalidTagShape {
+                    tag: "\\item".into(),
+                },
+            );
+        }
         let argument_context = matches!(
             context,
             Some("\\arguments") | Some("\\value") | Some("\\describe")
