@@ -2,17 +2,25 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-11
+
+This is a minor release because the value of [rd-writer]'s already-published
+`WriteError::Unserializable.path` changed. There are no breaking source or
+public API changes: code that compiles against 0.2.0 still compiles, but code
+that resolves a write error's `path` against its own document must be updated.
+
 ### Changed
 
-- [rd-writer] Report `WriteError::Unserializable`'s `path` as a location in the input document rather than in the writer's traversal. A consumer that resolves these paths against its own `RdDocument` must update: a top-level node is now `TopLevel(i)` instead of `Child(i)`, and the virtual `Child(0)` the writer previously interposed when entering the single argument of a tag whose group the parser flattened is gone, so such a child is now `Child(i)` instead of `Child(0)/Child(i)`. Errors are also anchored to the narrowest responsible node instead of an enclosing container: an invalid option now reports the offending option descendant rather than the option as a whole, a tag carrying an option it does not accept now reports the option location, a wrong-kind positional child reports that child rather than its tag, and a conditional whose body leaves `#endif` off a line start reports the body group. For failures that were already `WriteError::Unserializable`, the reported `UnserializableKind` is unchanged; the `\item` correction below is the only error reclassification. The set of documents that fail to serialize and the bytes emitted for documents that succeed are unchanged.
+- [rd-writer] Report `WriteError::Unserializable`'s `path` as a location in the input document rather than in the writer's traversal. A consumer that resolves these paths against its own `RdDocument` must update: a top-level node is now `TopLevel(i)` instead of `Child(i)`, and the virtual `Child(0)` the writer previously interposed when entering the single argument of a tag whose group the parser flattened is gone, so such a child is now `Child(i)` instead of `Child(0)/Child(i)`. Errors are also anchored to the narrowest responsible node instead of an enclosing container: an invalid option now reports the offending option descendant rather than the option as a whole, a tag carrying an option it does not accept now reports the option location, a wrong-kind positional child reports that child rather than its tag, and a conditional whose body leaves `#endif` off a line start reports the body group. For failures that were already `WriteError::Unserializable`, the reported `UnserializableKind` is unchanged; the `\item` correction below is the only error reclassification. The set of documents that fail to serialize and the bytes emitted for documents that succeed are unchanged (#21).
+- [rd-writer] State the canonical path grammar and the error-anchoring rules in [STABILITY.md](STABILITY.md): a path may end in a bare `Option` segment, which identifies the option itself and does not denote an `RdNode`, and `UnrepresentableLeafBoundary` is anchored at the later of the two adjacent leaves. For the 0.3.x series only, the classification of a failed write between `WriteError::Verification` and `WriteError::Unserializable` is declared provisional: a patch release may reclassify `Verification` as `Unserializable` when the input has no faithful Rd source representation, but not the reverse. Several unrepresentable inputs still reach `Verification`, where `ast_path()` returns `None` (#23).
 
 ### Fixed
 
-- [rd-writer] A `\item` that was otherwise serializable but carried an option previously had that option silently dropped and failed with `WriteError::Verification` without an AST location. It is now rejected as `WriteError::Unserializable` with `UnserializableKind::InvalidTagShape` at the bare `Option` path. R rejects `\item[...]` in the two-group contexts and treats the brackets as ordinary sibling text in itemize context, so the shape is unrepresentable.
+- [rd-writer] A `\item` that was otherwise serializable but carried an option previously had that option silently dropped and failed with `WriteError::Verification` without an AST location. It is now rejected as `WriteError::Unserializable` with `UnserializableKind::InvalidTagShape` at the bare `Option` path. R rejects `\item[...]` in the two-group contexts and treats the brackets as ordinary sibling text in itemize context, so the shape is unrepresentable (#22).
 
 ### Added
 
-- [rd-writer] Add `WriteError::ast_path()`, returning the canonical location in the input document for `WriteError::Unserializable` and `None` for `WriteError::Io` and `WriteError::Verification`. This is the supported way to consume an `Unserializable` path without reconstructing the writer's traversal rules from the tag it happens to be writing.
+- [rd-writer] Add `WriteError::ast_path()`, returning the canonical location in the input document for `WriteError::Unserializable` and `None` for `WriteError::Io` and `WriteError::Verification`. This is the supported way to consume an `Unserializable` path without reconstructing the writer's traversal rules from the tag it happens to be writing (#21).
 
 ## [0.2.0] - 2026-08-09
 
