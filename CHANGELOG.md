@@ -5,8 +5,10 @@
 ## [0.3.1] - 2026-08-11
 
 A consumer that does not disable default features is unaffected by this
-release: the effective default codec set of every crate is unchanged. The one
-configuration whose behavior changes is recorded under Changed below.
+release: the effective default codec set of every crate is unchanged. A
+consumer that does disable them is affected, because these crates previously
+had no codec features of their own to disable and passed [rd-rds]'s defaults
+through regardless. Both such configurations are recorded under Changed below.
 
 ### Fixed
 
@@ -20,6 +22,7 @@ configuration whose behavior changes is recorded under Changed below.
 ### Changed
 
 - [rd-helpdb] and [rd-ast] keep all four codec features in `default`, so a consumer that does not disable default features is unaffected (#25).
+- [rd-helpdb] A consumer that previously used `default-features = false` received all four codecs transitively, because the crate had no features of its own and the setting was a no-op. It now receives none and must name the codecs it needs (#25).
 - [rd-ast] A consumer that previously used `default-features = false, features = ["rds"]` received all four codecs transitively and now receives none. Such a consumer must name the codecs it needs; otherwise a compressed standalone `.rds` file is reported as an unsupported envelope at runtime (#25).
 
 ## [0.3.0] - 2026-08-11
