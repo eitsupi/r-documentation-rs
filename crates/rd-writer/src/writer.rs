@@ -662,14 +662,14 @@ fn balanced_equation(s: &str) -> bool {
 }
 fn invalid_option_path(nodes: &[RdNode], path: &RdPath) -> Option<RdPath> {
     for (index, node) in nodes.iter().enumerate() {
-        let node_path = path.with_child(index);
         match node {
             RdNode::Text(s) | RdNode::RCode(s) | RdNode::Verb(s) | RdNode::Comment(s) => {
                 if s.contains(']') {
-                    return Some(node_path);
+                    return Some(path.with_child(index));
                 }
             }
             RdNode::Tagged(tagged) => {
+                let node_path = path.with_child(index);
                 if let Some(option) = tagged.option()
                     && let Some(path) = invalid_option_path(option, &node_path.with_option())
                 {
@@ -680,12 +680,13 @@ fn invalid_option_path(nodes: &[RdNode], path: &RdPath) -> Option<RdPath> {
                 }
             }
             RdNode::Group(group) => {
+                let node_path = path.with_child(index);
                 if let Some(path) = invalid_option_path(group.children(), &node_path) {
                     return Some(path);
                 }
             }
-            RdNode::Raw(_) => return Some(node_path),
-            _ => return Some(node_path),
+            RdNode::Raw(_) => return Some(path.with_child(index)),
+            _ => return Some(path.with_child(index)),
         }
     }
     None

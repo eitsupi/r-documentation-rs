@@ -443,6 +443,29 @@ fn reports_first_invalid_option_sibling() {
 }
 
 #[test]
+fn reports_nested_tag_option_before_children_in_invalid_option() {
+    assert_kind_path(
+        RdNode::tagged(
+            RdTag::Link,
+            Some(vec![RdNode::tagged(
+                RdTag::Link,
+                Some(vec![RdNode::Text("]".into())]),
+                vec![RdNode::Text("]".into())],
+            )]),
+            vec![RdNode::Text("x".into())],
+        ),
+        UnserializableKind::InvalidOptionContent,
+        path(vec![
+            RdPathSegment::TopLevel(0),
+            RdPathSegment::Option,
+            RdPathSegment::Child(0),
+            RdPathSegment::Option,
+            RdPathSegment::Child(0),
+        ]),
+    );
+}
+
+#[test]
 fn rejects_contextual_tag_shapes() {
     let item = |children| RdNode::tagged(RdTag::Item, None, children);
     let group = |text: &str| RdNode::Group(rd_ast::RdGroup::from(vec![RdNode::Text(text.into())]));
