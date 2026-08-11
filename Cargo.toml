@@ -11,8 +11,10 @@ repository = "https://github.com/eitsupi/r-documentation-rs"
 
 [workspace.dependencies]
 thiserror = "2"
-rd-ast = { version = "0.3.0", path = "crates/rd-ast" }
-rd-rds = { version = "0.3.0", path = "crates/rd-rds" }
+# Defaults off so members opt into codecs explicitly; leaving them on here is
+# what made downstream unable to escape xz (see CHANGELOG 0.3.1).
+rd-ast = { version = "0.3.0", path = "crates/rd-ast", default-features = false }
+rd-rds = { version = "0.3.0", path = "crates/rd-rds", default-features = false }
 rd-source = { version = "0.3.0", path = "crates/rd-source" }
 rd-writer = { version = "0.3.0", path = "crates/rd-writer" }
 flate2 = "1"

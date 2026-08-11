@@ -23,9 +23,20 @@ Views are borrowed interpretations of the canonical tree; they do not replace it
 - System-macro views recognize the documented sibling sequences for curated system macros.
 - Generation-header views recognize roxygen generation comments and preserve the generator name and source paths.
 
-## Features and stability
+## Features
 
-The optional `serde` feature enables serde derives for AST values. The optional `rds` feature enables lowering from the `rd-rds` object model. The serde representation is not a stable interchange format: it is a same-version implementation detail, as documented by [CONTRACT.md](CONTRACT.md), and should not be treated as cross-version wire compatibility.
+The `serde` feature enables serde derives for AST values. The `rds` feature enables lowering from the `rd-rds` object model. The `gzip`, `xz`, `bzip2`, and `zstd` features select the compression envelopes available to that lowering, but apply only when `rds` is enabled. A plain `rd-ast` build has no `rd-rds` dependency regardless of those codec features.
+
+For example:
+
+```toml
+[dependencies]
+rd-ast = { version = "0.3.0", default-features = false, features = ["rds", "gzip"] }
+```
+
+## Stability
+
+The serde representation is not a stable interchange format: it is a same-version implementation detail, as documented by [CONTRACT.md](CONTRACT.md), and should not be treated as cross-version wire compatibility.
 
 See the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md) for the compatibility and support commitments.
 

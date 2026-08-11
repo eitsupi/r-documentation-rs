@@ -16,6 +16,8 @@ rd-ast = { workspace = true }
 
 [dev-dependencies]
 rd-ast = { workspace = true, features = ["rds"] }
-rd-rds.workspace = true
+# `gzip` is explicit because the workspace edge disables rd-rds defaults and
+# the differential corpus reads a gzip-compressed R-generated `.rds` fixture.
+rd-rds = { workspace = true, features = ["gzip"] }
 serde = { version = "1", features = ["derive"] }
 toml = "1"

@@ -162,6 +162,17 @@ jobs:
             flags: "--no-default-features --features serde,rds"
           - crate: rd-ast
             flags: "--all-features"
+          - crate: rd-helpdb
+            flags: ""
+          - crate: rd-helpdb
+            flags: "--all-features"
+          - crate: rd-helpdb
+            flags: "--no-default-features"
+            cmd: check
+          - crate: rd-helpdb
+            flags: "--no-default-features --features gzip"
+          - crate: rd-ast
+            flags: "--no-default-features --features rds,gzip"
           - crate: rd-rds
             flags: ""
           - crate: rd-rds
@@ -176,15 +187,24 @@ jobs:
             flags: "--no-default-features --features zstd"
           - crate: rd-rds
             flags: "--all-features"
-    name: test-features (${{ matrix.crate }} ${{ matrix.flags }})
+    name: test-features (${{ matrix.crate }} ${{ matrix.flags || 'default-features' }}; ${{ matrix.cmd || 'test' }})
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Cache Rust
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - name: Run tests
+      - name: Run feature check
         run: |
-          cargo test -p ${{ matrix.crate }} ${{ matrix.flags }} --locked
+          cargo ${{ matrix.cmd || 'test' }} -p ${{ matrix.crate }} ${{ matrix.flags }} --locked
+
+  codec-feature-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Check gzip-only dependency graphs
+        run: .github/scripts/check_codec_feature_graph.sh
 
   r-oracle:
     runs-on: ubuntu-latest

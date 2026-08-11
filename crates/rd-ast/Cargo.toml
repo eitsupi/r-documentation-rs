@@ -18,8 +18,13 @@ serde = { version = "1", features = ["derive"], optional = true }
 rd-rds = { workspace = true, optional = true }
 
 [features]
+default = ["gzip", "xz", "bzip2", "zstd"]
 serde = ["dep:serde"]
 rds = ["dep:rd-rds"]
+gzip = ["rd-rds?/gzip"]
+xz = ["rd-rds?/xz"]
+bzip2 = ["rd-rds?/bzip2"]
+zstd = ["rd-rds?/zstd"]
 
 [dev-dependencies]
 serde_json = "1"

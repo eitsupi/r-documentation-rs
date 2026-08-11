@@ -15,5 +15,16 @@ flate2.workspace = true
 rd-rds.workspace = true
 thiserror.workspace = true
 
+[features]
+default = ["gzip", "xz", "bzip2", "zstd"]
+# These forward to rd-rds and control only the compression envelopes accepted
+# for standalone `.rds` files. The direct `flate2` dependency above is
+# unconditional: `.rdb` records are a raw zlib stream, which the format always
+# requires, so `--no-default-features` does not drop flate2.
+gzip = ["rd-rds/gzip"]
+xz = ["rd-rds/xz"]
+bzip2 = ["rd-rds/bzip2"]
+zstd = ["rd-rds/zstd"]
+
 [dev-dependencies]
 rd-ast = { workspace = true, features = ["rds"] }
