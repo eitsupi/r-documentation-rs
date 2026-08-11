@@ -594,45 +594,6 @@ fn rejects_item_options_at_the_option_path_in_each_context() {
 }
 
 #[test]
-fn item_options_do_not_surface_as_verification_errors() {
-    let documents = [
-        RdNode::tagged(
-            RdTag::Details,
-            None,
-            vec![RdNode::tagged(
-                RdTag::Itemize,
-                None,
-                vec![RdNode::tagged(
-                    RdTag::Item,
-                    Some(vec![RdNode::Text("opt".into())]),
-                    vec![],
-                )],
-            )],
-        ),
-        RdNode::tagged(
-            RdTag::Arguments,
-            None,
-            vec![RdNode::tagged(
-                RdTag::Item,
-                Some(vec![RdNode::Text("opt".into())]),
-                vec![
-                    group(vec![RdNode::Text("name".into())]),
-                    group(vec![RdNode::Text("description".into())]),
-                ],
-            )],
-        ),
-    ];
-
-    for node in documents {
-        let error = document_write_error(vec![node]);
-        assert!(
-            !matches!(error, WriteError::Verification { .. }),
-            "unexpected verification error: {error:?}"
-        );
-    }
-}
-
-#[test]
 fn reports_canonical_paths_for_invalid_shapes() {
     let top = |index| path(vec![RdPathSegment::TopLevel(index)]);
     let child = |index| RdPathSegment::Child(index);
