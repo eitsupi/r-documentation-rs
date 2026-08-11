@@ -51,3 +51,10 @@ Diagnostic message text is not a machine-readable contract and may change in any
 Supported: strict, faithful serialization of serializable `rd_ast::RdDocument` values, including its conditional parse-back equality guarantee. Documents with unsupported or unrepresentable shapes are reported as errors; formatting and byte identity are not guaranteed.
 
 Patch releases may change emitted spelling and formatting, and may correct output that was not a faithful representation of the input document. Making a previously supported, contract-conforming document unserializable, or weakening the documented parse-back equality guarantee, requires a minor release.
+
+For `WriteError::Unserializable`, `WriteError::ast_path()` returns the canonical
+location in the input `RdDocument`. Document nodes use `TopLevel(i)`, tagged and
+group children use `Child(i)`, and option children use `Option` followed by
+`Child(i)`. Errors are anchored to the narrowest responsible AST node, or to the
+containing document, tagged node, group, or option when no single child is
+responsible.
