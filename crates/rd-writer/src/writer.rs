@@ -1,4 +1,4 @@
-use rd_ast::{RdDocument, RdNode, RdPath};
+use rd_ast::{RdDocument, RdNode, RdPath, RdPathSegment};
 
 use crate::{
     error::{UnserializableKind, WriteError},
@@ -86,7 +86,11 @@ impl Context {
     ) -> Result<(), WriteError> {
         let mut previous_leaf: Option<(&'static str, bool)> = None;
         for (index, node) in nodes.iter().enumerate() {
-            let node_path = path.with_child(index);
+            let node_path = if document {
+                RdPath::new(vec![RdPathSegment::TopLevel(index)])
+            } else {
+                path.with_child(index)
+            };
             if let RdNode::Comment(comment) = node {
                 if mode == Mode::Equation {
                     return self.fail(node_path, UnserializableKind::InvalidComment);
@@ -239,14 +243,21 @@ impl Context {
             if !out.is_empty() && !out.ends_with('\n') {
                 return self.fail(path, UnserializableKind::ConditionalNotAtLineStart);
             }
-            if tagged.children().len() != 2
-                || !tagged
-                    .children()
-                    .iter()
-                    .all(|node| matches!(node, RdNode::Group(_)))
-            {
+            if tagged.children().len() != 2 {
                 return self.fail(
                     path,
+                    UnserializableKind::InvalidTagShape {
+                        tag: spelling.into(),
+                    },
+                );
+            }
+            if let Some(index) = tagged
+                .children()
+                .iter()
+                .position(|node| !matches!(node, RdNode::Group(_)))
+            {
+                return self.fail(
+                    path.with_child(index),
                     UnserializableKind::InvalidTagShape {
                         tag: spelling.into(),
                     },
@@ -254,7 +265,7 @@ impl Context {
             }
             if tagged.option().is_some() {
                 return self.fail(
-                    path,
+                    path.with_option(),
                     UnserializableKind::InvalidTagShape {
                         tag: spelling.into(),
                     },
@@ -262,12 +273,20 @@ impl Context {
             }
             let target = tagged.children()[0].as_group().expect("checked");
             let body = tagged.children()[1].as_group().expect("checked");
-            if target.children().len() != 1
-                || !matches!(target.children()[0], RdNode::Text(_))
+            let target_path = path.with_child(0);
+            if target.children().len() != 1 {
+                return self.fail(
+                    target_path,
+                    UnserializableKind::InvalidTagShape {
+                        tag: spelling.into(),
+                    },
+                );
+            }
+            if !matches!(target.children()[0], RdNode::Text(_))
                 || !matches!(target.children()[0], RdNode::Text(ref s) if !s.contains('\r') && s.matches('\n').count() == 1 && s.ends_with('\n'))
             {
                 return self.fail(
-                    path.with_child(0),
+                    target_path.with_child(0),
                     UnserializableKind::InvalidTagShape {
                         tag: spelling.into(),
                     },
@@ -288,7 +307,10 @@ impl Context {
                 parent_rlike,
             )?;
             if !out.ends_with('\n') {
-                return self.fail(path, UnserializableKind::ConditionalNotAtLineStart);
+                return self.fail(
+                    path.with_child(1),
+                    UnserializableKind::ConditionalNotAtLineStart,
+                );
             }
             out.push_str("#endif");
             self.newline(out);
@@ -328,17 +350,16 @@ impl Context {
         }
         if tagged.option().is_some() && !spec.optional {
             return self.fail(
-                path,
+                path.with_option(),
                 UnserializableKind::InvalidTagShape {
                     tag: spelling.into(),
                 },
             );
         }
-        if tagged
-            .option()
-            .is_some_and(|nodes| nodes.iter().any(contains_option_terminator))
+        if let Some(option) = tagged.option()
+            && let Some(option_path) = invalid_option_path(option, &path.with_option())
         {
-            return self.fail(path.with_option(), UnserializableKind::InvalidOptionContent);
+            return self.fail(option_path, UnserializableKind::InvalidOptionContent);
         }
         if tagged
             .children()
@@ -347,13 +368,7 @@ impl Context {
             .count()
             > 0
         {
-            if tagged
-                .children()
-                .iter()
-                .any(|n| !matches!(n, RdNode::Group(_)))
-                || tagged.children().len() < required
-                || tagged.children().len() > args.len()
-            {
+            if tagged.children().len() < required || tagged.children().len() > args.len() {
                 return self.fail(
                     path,
                     UnserializableKind::InvalidTagShape {
@@ -361,8 +376,21 @@ impl Context {
                     },
                 );
             }
+            if let Some(index) = tagged
+                .children()
+                .iter()
+                .position(|node| !matches!(node, RdNode::Group(_)))
+            {
+                return self.fail(
+                    path.with_child(index),
+                    UnserializableKind::InvalidTagShape {
+                        tag: spelling.into(),
+                    },
+                );
+            }
         } else if tagged.children().len() < required
             || (tagged.children().is_empty() && required > 0)
+            || (args.len() >= 2 && tagged.children().len() > args.len())
         {
             return self.fail(
                 path,
@@ -373,13 +401,14 @@ impl Context {
         }
         if args.len() >= 2
             && tagged.children().len() >= 2
-            && tagged
+            && tagged.children().len() <= args.len()
+            && let Some(index) = tagged
                 .children()
                 .iter()
-                .any(|n| !matches!(n, RdNode::Group(_)))
+                .position(|node| !matches!(node, RdNode::Group(_)))
         {
             return self.fail(
-                path,
+                path.with_child(index),
                 UnserializableKind::InvalidTagShape {
                     tag: spelling.into(),
                 },
@@ -473,8 +502,13 @@ impl Context {
                     .iter()
                     .any(|n| matches!(n, RdNode::Group(_)))
                 {
+                    let index = tagged
+                        .children()
+                        .iter()
+                        .position(|node| matches!(node, RdNode::Group(_)))
+                        .expect("checked");
                     return self.fail(
-                        path,
+                        path.with_child(index),
                         UnserializableKind::InvalidTagShape {
                             tag: spelling.into(),
                         },
@@ -486,7 +520,7 @@ impl Context {
                     tagged.children(),
                     args[0],
                     out,
-                    path.with_child(0),
+                    path.clone(),
                     false,
                     Some(spelling),
                     if args[0] == Mode::RLike {
@@ -497,10 +531,7 @@ impl Context {
                     &mut child_rlike,
                 )?;
                 if args[0] == Mode::RLike && !child_rlike.closure_compatible() {
-                    return self.fail(
-                        path.with_child(0),
-                        UnserializableKind::UnterminatedRLikeState,
-                    );
+                    return self.fail(path, UnserializableKind::UnterminatedRLikeState);
                 }
                 out.push('}');
             }
@@ -515,6 +546,24 @@ impl Context {
         out: &mut String,
         path: RdPath,
     ) -> Result<(), WriteError> {
+        let argument_context = matches!(
+            context,
+            Some("\\arguments") | Some("\\value") | Some("\\describe")
+        );
+        if argument_context
+            && tagged.children().len() == 2
+            && let Some(index) = tagged
+                .children()
+                .iter()
+                .position(|node| !matches!(node, RdNode::Group(_)))
+        {
+            return self.fail(
+                path.with_child(index),
+                UnserializableKind::InvalidTagShape {
+                    tag: "\\item".into(),
+                },
+            );
+        }
         match context {
             Some("\\itemize") | Some("\\enumerate") if tagged.children().is_empty() => {
                 out.push_str("\\item");
@@ -611,18 +660,33 @@ fn balanced_equation(s: &str) -> bool {
     }
     depth == 0 && !escaped
 }
-fn contains_option_terminator(node: &RdNode) -> bool {
-    match node {
-        RdNode::Text(s) | RdNode::RCode(s) | RdNode::Verb(s) | RdNode::Comment(s) => {
-            s.contains(']')
+fn invalid_option_path(nodes: &[RdNode], path: &RdPath) -> Option<RdPath> {
+    for (index, node) in nodes.iter().enumerate() {
+        let node_path = path.with_child(index);
+        match node {
+            RdNode::Text(s) | RdNode::RCode(s) | RdNode::Verb(s) | RdNode::Comment(s) => {
+                if s.contains(']') {
+                    return Some(node_path);
+                }
+            }
+            RdNode::Tagged(tagged) => {
+                if let Some(option) = tagged.option()
+                    && let Some(path) = invalid_option_path(option, &node_path.with_option())
+                {
+                    return Some(path);
+                }
+                if let Some(path) = invalid_option_path(tagged.children(), &node_path) {
+                    return Some(path);
+                }
+            }
+            RdNode::Group(group) => {
+                if let Some(path) = invalid_option_path(group.children(), &node_path) {
+                    return Some(path);
+                }
+            }
+            RdNode::Raw(_) => return Some(node_path),
+            _ => return Some(node_path),
         }
-        RdNode::Tagged(t) => {
-            t.option()
-                .is_some_and(|o| o.iter().any(contains_option_terminator))
-                || t.children().iter().any(contains_option_terminator)
-        }
-        RdNode::Group(g) => g.children().iter().any(contains_option_terminator),
-        RdNode::Raw(_) => true,
-        _ => true,
     }
+    None
 }

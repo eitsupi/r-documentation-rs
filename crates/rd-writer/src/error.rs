@@ -6,10 +6,10 @@ use rd_ast::RdPath;
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum WriteError {
-    /// The node at `path` has no faithful Rd source representation.
+    /// The AST value at `path` has no faithful Rd source representation.
     #[error("{path}: document is not serializable: {kind}")]
     Unserializable {
-        /// Location of the offending node.
+        /// Canonical location of the serialization error in the input AST.
         path: RdPath,
         /// Reason serialization is impossible.
         kind: UnserializableKind,
@@ -23,6 +23,22 @@ pub enum WriteError {
     /// The writer's output failed its parser round-trip safety check.
     #[error("writer verification failed: {reason}")]
     Verification { reason: String },
+}
+
+impl WriteError {
+    /// Returns the canonical location of this error in the input AST.
+    ///
+    /// Returns `Some` for [`WriteError::Unserializable`] and `None` for errors
+    /// that are not associated with an AST location. Top-level nodes use
+    /// [`rd_ast::RdPathSegment::TopLevel`]; tagged and group children use
+    /// [`rd_ast::RdPathSegment::Child`], and option contents use
+    /// [`rd_ast::RdPathSegment::Option`] followed by `Child`.
+    pub fn ast_path(&self) -> Option<&rd_ast::RdPath> {
+        match self {
+            Self::Unserializable { path, .. } => Some(path),
+            Self::Io { .. } | Self::Verification { .. } => None,
+        }
+    }
 }
 
 /// Reasons a canonical AST value cannot be represented as Rd source.

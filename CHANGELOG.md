@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- [rd-writer] Report `WriteError::Unserializable`'s `path` as a location in the input document rather than in the writer's traversal. A consumer that resolves these paths against its own `RdDocument` must update: a top-level node is now `TopLevel(i)` instead of `Child(i)`, and the virtual `Child(0)` the writer previously interposed when entering the single argument of a tag whose group the parser flattened is gone, so such a child is now `Child(i)` instead of `Child(0)/Child(i)`. Errors are also anchored to the narrowest responsible node instead of an enclosing container: an invalid option now reports the offending option descendant rather than the option as a whole, a tag carrying an option it does not accept now reports the option location, a wrong-kind positional child reports that child rather than its tag, and a conditional whose body leaves `#endif` off a line start reports the body group. The set of documents that fail to serialize, the reported `UnserializableKind`, and the bytes emitted for documents that succeed are all unchanged.
+
+### Added
+
+- [rd-writer] Add `WriteError::ast_path()`, returning the canonical location of an error in the input document, or `None` for errors with no such location. This is the supported way to relate a write failure back to the document that caused it; it exists so that a consumer does not have to reconstruct the writer's traversal rules from the tag it happens to be writing.
+
 ## [0.2.0] - 2026-08-09
 
 This is a minor release because [rd-source] now requires oracle parity for
