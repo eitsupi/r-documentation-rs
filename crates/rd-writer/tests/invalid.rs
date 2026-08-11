@@ -866,6 +866,51 @@ fn reports_canonical_paths_for_invalid_shapes() {
 }
 
 #[test]
+fn reports_unrepresentable_leaf_boundary_at_later_leaf() {
+    let kind = UnserializableKind::UnrepresentableLeafBoundary;
+
+    assert_document_kind_path(
+        vec![RdNode::Text("a".into()), RdNode::Text("b".into())],
+        kind.clone(),
+        path(vec![RdPathSegment::TopLevel(1)]),
+    );
+    assert_kind_path(
+        RdNode::tagged(
+            RdTag::Title,
+            None,
+            vec![RdNode::Text("a".into()), RdNode::Text("b".into())],
+        ),
+        kind.clone(),
+        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(1)]),
+    );
+    assert_kind_path(
+        RdNode::tagged(
+            RdTag::Section,
+            None,
+            vec![
+                group(vec![RdNode::Text("a".into()), RdNode::Text("b".into())]),
+                group(vec![RdNode::Text("c".into())]),
+            ],
+        ),
+        kind.clone(),
+        path(vec![
+            RdPathSegment::TopLevel(0),
+            RdPathSegment::Child(0),
+            RdPathSegment::Child(1),
+        ]),
+    );
+    assert_kind_path(
+        RdNode::tagged(
+            RdTag::Examples,
+            None,
+            vec![RdNode::RCode("a".into()), RdNode::RCode("b".into())],
+        ),
+        kind,
+        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(1)]),
+    );
+}
+
+#[test]
 fn ast_path_is_only_available_for_unserializable_errors() {
     assert!(write_error(raw()).ast_path().is_some());
     assert!(
