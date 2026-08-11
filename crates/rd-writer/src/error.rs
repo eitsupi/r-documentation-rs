@@ -28,11 +28,13 @@ pub enum WriteError {
 impl WriteError {
     /// Returns the canonical location of this error in the input AST.
     ///
-    /// Returns `Some` for [`WriteError::Unserializable`] and `None` for errors
-    /// that are not associated with an AST location. Top-level nodes use
+    /// Returns `Some` for [`WriteError::Unserializable`] and `None` for
+    /// [`WriteError::Io`] and [`WriteError::Verification`]. Top-level nodes use
     /// [`rd_ast::RdPathSegment::TopLevel`]; tagged and group children use
     /// [`rd_ast::RdPathSegment::Child`], and option contents use
-    /// [`rd_ast::RdPathSegment::Option`] followed by `Child`.
+    /// [`rd_ast::RdPathSegment::Option`] followed by `Child`. A path may instead
+    /// end in `Option`; such a path identifies the option itself and does not
+    /// denote an [`rd_ast::RdNode`].
     pub fn ast_path(&self) -> Option<&rd_ast::RdPath> {
         match self {
             Self::Unserializable { path, .. } => Some(path),

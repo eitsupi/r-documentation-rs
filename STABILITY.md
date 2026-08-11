@@ -55,6 +55,18 @@ Patch releases may change emitted spelling and formatting, and may correct outpu
 For `WriteError::Unserializable`, `WriteError::ast_path()` returns the canonical
 location in the input `RdDocument`. Document nodes use `TopLevel(i)`, tagged and
 group children use `Child(i)`, and option children use `Option` followed by
-`Child(i)`. Errors are anchored to the narrowest responsible AST node, or to the
-containing document, tagged node, group, or option when no single child is
-responsible.
+`Child(i)`. A path may instead end in `Option`; such a path identifies the
+option itself and does not denote an `RdNode`.
+
+Errors are anchored to the narrowest responsible AST node, or to the containing
+document, tagged node, group, or option when no single child is responsible.
+For `UnrepresentableLeafBoundary`, the later of the two adjacent leaves is the
+location.
+
+As a specific exception for the 0.3.x series, classification of a failed write
+between `WriteError::Verification` and `WriteError::Unserializable` is
+provisional. A patch release may reclassify `Verification` as `Unserializable`
+when the input has no faithful Rd source representation; this may change
+`WriteError::ast_path()` from `None` to `Some`. This exception does not permit
+the reverse reclassification or weaken the successful-write parse-back equality
+guarantee.
