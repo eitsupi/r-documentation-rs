@@ -22,8 +22,8 @@ Each of these was verified against R 4.6.1. Affected documents parse to
 different nodes or produce different diagnostics after upgrading.
 
 - [rd-source] Treat single-quoted R raw strings (`r'(...)'`, `R'[...]'`, and their dashed forms) as opaque, like the double-quoted forms. A bare `%` inside such a string previously started an Rd comment and a backslash sequence could be read as Rd syntax (#14).
-- [rd-source] End a pending backslash escape at a newline inside an ordinary quoted string. A backslash at end of line inside a quoted string previously produced a spurious `UnclosedGroup` diagnostic, and the input now parses without it (#16).
-- [rd-source] Reset partial raw-string closer progress at a newline, because R requires a closer to be contiguous. A closer split across a newline previously terminated the raw string, and such input now produces `UnclosedGroup` (#16).
+- [rd-source] and [rd-writer] End a pending backslash escape at a newline inside an ordinary quoted string. A backslash at end of line inside a quoted string previously produced a spurious `UnclosedGroup` diagnostic, and the input now parses without it. For [rd-writer], a document that previously failed to serialize with `UnterminatedRLikeState` now serializes successfully (#16).
+- [rd-source] and [rd-writer] Reset partial raw-string closer progress at a newline, because R requires a closer to be contiguous. A closer split across a newline previously terminated the raw string, and such input now produces `UnclosedGroup`. For [rd-writer], a document that previously serialized is now correctly rejected with `UnterminatedRLikeState` (#16).
 - [rd-writer] Preserve the contents of single-quoted R raw strings instead of escaping them as ordinary quoted content. `f(x = r'(100%\q)')` was emitted as `f(x = r'(100\%\\q)')`, which recovers the R value `100\%\\q` instead of `100%\q` when parsed back, because the Rd layer never unescapes raw-string contents (#14).
 
 ### Added
