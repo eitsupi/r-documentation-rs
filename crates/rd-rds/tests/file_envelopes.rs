@@ -214,3 +214,63 @@ fn corrupted_zstd_payload_reports_decompression_error() {
         })
     ));
 }
+
+#[cfg(feature = "xz")]
+#[test]
+fn truncated_xz_stream_reports_decompression_error() {
+    let source = fixture("packages-small-xz.rds");
+    let truncated = &source[..source.len() - 1];
+
+    assert!(matches!(
+        file::from_bytes(truncated),
+        Err(file::ReadError::Decompression {
+            format: file::Compression::Xz,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "xz")]
+#[test]
+fn corrupted_xz_payload_reports_decompression_error() {
+    let mut corrupted = fixture("packages-small-xz.rds");
+    let payload_offset = corrupted.len() / 2;
+    corrupted[payload_offset] ^= 0x01;
+
+    assert!(matches!(
+        file::from_bytes(&corrupted),
+        Err(file::ReadError::Decompression {
+            format: file::Compression::Xz,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "xz")]
+#[test]
+fn corrupted_xz_header_reports_decompression_error() {
+    let mut corrupted = fixture("packages-small-xz.rds");
+    corrupted[6] ^= 0x01;
+
+    assert!(matches!(
+        file::from_bytes(&corrupted),
+        Err(file::ReadError::Decompression {
+            format: file::Compression::Xz,
+            ..
+        })
+    ));
+}
+
+#[cfg(feature = "xz")]
+#[test]
+fn xz_decompression_limit_is_enforced() {
+    let source = fixture("packages-small-xz.rds");
+
+    assert!(matches!(
+        file::from_bytes_with_options(
+            &source,
+            &file::ReadOptions::default().max_decompressed_bytes(1),
+        ),
+        Err(file::ReadError::DecompressedSizeLimitExceeded { limit: 1 })
+    ));
+}

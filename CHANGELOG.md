@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- [rd-rds] The xz decoder is now pure Rust, replacing the `xz2` bindings to the
+  system `liblzma`. `rd-rds` links no C library at all, so building it needs no
+  C toolchain and running it needs no `liblzma` present on the host. Decode
+  output is unchanged: every xz fixture in the repository and inputs generated
+  across R's `saveRDS` and the `xz` CLI's compression levels decode
+  byte-identically to the previous decoder. In release builds decode speed is
+  comparable on realistic inputs, and up to roughly 3x slower on incompressible
+  data, where decoding is a few tens of milliseconds either way.
+
 ## [0.3.1] - 2026-08-11
 
 A consumer that does not disable default features is unaffected by this

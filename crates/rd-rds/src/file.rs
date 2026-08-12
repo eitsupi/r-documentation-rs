@@ -231,7 +231,11 @@ fn decompress_gzip(_: &[u8], _: usize) -> Result<Vec<u8>, ReadError> {
 
 #[cfg(feature = "xz")]
 fn decompress_xz(bytes: &[u8], limit: usize) -> Result<Vec<u8>, ReadError> {
-    read_limited(xz2::read::XzDecoder::new(bytes), limit, Compression::Xz)
+    read_limited(
+        lzma_rust2::XzReader::new(bytes, false),
+        limit,
+        Compression::Xz,
+    )
 }
 
 #[cfg(not(feature = "xz"))]
