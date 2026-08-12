@@ -2,7 +2,8 @@
 
 `rd-rds` is a scoped, read-only reader for installed-R-package information and
 selected CRAN-like repository indexes. It is not a general R serialization
-library and never silently accepts an unknown SEXP. See the [workspace
+library and never silently accepts an unknown SEXP. Its compression support is
+implemented in pure Rust, so the crate links no C library. See the [workspace
 README](../../README.md) for repository status and crate relationships.
 
 The API has three layers:

@@ -27,7 +27,7 @@ check_graph() {
   fi
 
   local codec
-  for codec in xz2 lzma-sys bzip2 ruzstd; do
+  for codec in lzma-rust2 bzip2 ruzstd; do
     if grep -Eq "(^|[[:space:]])${codec} v" "$output"; then
       printf 'FAIL: %s gzip-only graph contains unwanted codec %s\n' \
         "$crate" "$codec" >&2
@@ -44,6 +44,17 @@ check_graph() {
 
 check_graph rd-helpdb --no-default-features --features gzip
 check_graph rd-ast --no-default-features --features rds,gzip
+
+all_features_output="$work_dir/rd-rds-all-features.tree"
+if ! cargo tree -p rd-rds --all-features -e normal,build --locked >"$all_features_output"; then
+  printf 'FAIL: cargo tree could not inspect rd-rds with all features\n' >&2
+  failed=1
+elif grep -Eq '(^|[[:space:]])lzma-sys v' "$all_features_output"; then
+  printf 'FAIL: rd-rds all-features graph contains forbidden native dependency lzma-sys\n' >&2
+  failed=1
+else
+  printf 'OK: rd-rds all-features graph contains no lzma-sys.\n'
+fi
 
 if (( failed )); then
   exit 1

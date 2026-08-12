@@ -14,14 +14,14 @@ exclude = ["tests/fixtures/generate_*.R"]
 [dependencies]
 thiserror.workspace = true
 flate2 = { workspace = true, optional = true }
-xz2 = { workspace = true, optional = true }
+lzma-rust2 = { workspace = true, optional = true }
 bzip2 = { workspace = true, optional = true }
 ruzstd = { workspace = true, optional = true }
 
 [features]
 default = ["gzip", "xz", "bzip2", "zstd"]
 gzip = ["dep:flate2"]
-xz = ["dep:xz2"]
+xz = ["dep:lzma-rust2"]
 bzip2 = ["dep:bzip2"]
 zstd = ["dep:ruzstd"]
 

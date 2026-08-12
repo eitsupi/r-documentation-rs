@@ -1,7 +1,8 @@
 # Keep this allow-list limited to licenses present in the resolved workspace
 # graph. The entries are justified by cargo metadata for the current lockfile:
-# 0BSD (adler2), Apache-2.0 and MIT (most dependencies), bzip2-1.0.6
-# (libbz2-rs-sys), Unicode-3.0 (unicode-ident), and Zlib (miniz_oxide).
+# 0BSD (adler2), Apache-2.0 and MIT (most dependencies, including
+# lzma-rust2 and its SHA-2 dependency chain), bzip2-1.0.6 (libbz2-rs-sys),
+# Unicode-3.0 (unicode-ident), and Zlib (miniz_oxide).
 # memchr is Unlicense OR MIT and resolves to MIT.
 
 [graph]
