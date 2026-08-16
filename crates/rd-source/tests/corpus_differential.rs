@@ -594,7 +594,7 @@ mod adapter_tests {
             .replace('\\', r"\\")
             .replace('"', r#"\""#);
         let r_code = format!(
-            r#"x <- tools::parse_Rd(textConnection('\\doi{{10.1000/xyz}}, \\CRANpkg{{cli}}, one\\sspace two, \\I{{x}}'), macros = file.path(R.home('share'), 'Rd/macros/system.Rd'), fragment = TRUE); saveRDS(x, "{escaped_rds_path}", version = 3)"#
+            r#"x <- tools::parse_Rd(textConnection('\\\\doi{{10.1000/xyz}}, \\\\CRANpkg{{cli}}, one\\\\sspace two, \\\\I{{x}}'), macros = file.path(R.home('share'), 'Rd/macros/system.Rd'), fragment = TRUE); saveRDS(x, "{escaped_rds_path}", version = 3)"#
         );
         let r_code = format!("suppressWarnings({{{r_code}}})");
         let status = Command::new("Rscript").args(["-e", &r_code]).status();
