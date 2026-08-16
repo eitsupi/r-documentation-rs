@@ -13,6 +13,14 @@
   comparable on realistic inputs, and up to roughly 3x slower on incompressible
   data, where decoding is a few tens of milliseconds either way.
 
+### Added
+
+- [rd-rds] Add an explicit `NativeEncodingPolicy` for callers that have an
+  external UTF-8 contract for format-2 RDS streams. The default remains
+  fail-closed for non-ASCII Native strings when the header has no encoding;
+  `AssumeUtf8` validates the bytes as UTF-8, and format-3 header evidence always
+  takes precedence.
+
 ## [0.3.1] - 2026-08-11
 
 A consumer that does not disable default features is unaffected by this

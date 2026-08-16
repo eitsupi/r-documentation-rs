@@ -1,9 +1,10 @@
 use std::{io::Read, path::PathBuf};
 
 use flate2::read::GzDecoder;
-#[cfg(feature = "gzip")]
-use rd_rds::REncoding;
-use rd_rds::{RValue, package::PackagesMatrix, parse};
+use rd_rds::{
+    Error, Limits, NativeEncodingPolicy, REncoding, RValue, file::ReadOptions,
+    package::PackagesMatrix, parse, parse_with_options,
+};
 
 fn fixture(directory: &str, name: &str) -> Vec<u8> {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -76,6 +77,100 @@ fn typed_view_accepts_decompressed_stream_without_file_layer() {
     let object = parse(&bytes).expect("parse XDR");
     let matrix = PackagesMatrix::from_object(&object).expect("typed matrix");
     assert_eq!(matrix.row(0).unwrap().get("Package"), Some(Some("cli")));
+}
+
+#[test]
+fn format2_native_utf8_requires_explicit_opt_in_and_format3_header_decodes() {
+    let format2 = fixture("packages", "packages-native-utf8-v2.rds");
+    let default_decoded = rd_rds::file::from_bytes(&format2).expect("lazy format 2 decode");
+    let RValue::Character(default_values) = default_decoded.value() else {
+        panic!("expected character matrix")
+    };
+    assert!(matches!(
+        default_values[0].as_str(),
+        Some(Err(Error::InvalidStringEncoding))
+    ));
+
+    let options = ReadOptions::default().native_encoding_policy(NativeEncodingPolicy::AssumeUtf8);
+    let opted_in = rd_rds::file::from_bytes_with_options(&format2, &options)
+        .expect("format 2 native UTF-8 with opt-in");
+    let RValue::Character(values) = opted_in.value() else {
+        panic!("expected character matrix")
+    };
+    assert_eq!(values[0].encoding(), Some(REncoding::Native));
+    assert_eq!(values[1].encoding(), Some(REncoding::Native));
+    assert_eq!(values[0].as_str().unwrap().unwrap().as_ref(), "QuPath™");
+    assert_eq!(values[1].as_str().unwrap().unwrap().as_ref(), "Różański");
+
+    let parsed_directly = parse_with_options(
+        &format2,
+        Limits::default(),
+        NativeEncodingPolicy::AssumeUtf8,
+    )
+    .expect("decompressed parser opt-in");
+    let RValue::Character(values) = parsed_directly.value() else {
+        panic!("expected character matrix")
+    };
+    assert_eq!(values[0].as_str().unwrap().unwrap().as_ref(), "QuPath™");
+
+    let format3 = fixture("packages", "packages-native-utf8-v3.rds");
+    let mut cursor = rd_rds::ByteCursor::new(&format3);
+    assert_eq!(
+        rd_rds::Header::parse(&mut cursor)
+            .expect("format 3 header")
+            .native_encoding
+            .as_deref(),
+        Some("UTF-8")
+    );
+    let header_encoded =
+        rd_rds::file::from_bytes_with_options(&format3, &options).expect("format 3 UTF-8 header");
+    let RValue::Character(values) = header_encoded.value() else {
+        panic!("expected character matrix")
+    };
+    assert_eq!(values[0].encoding(), Some(REncoding::Native));
+    assert_eq!(values[1].encoding(), Some(REncoding::Native));
+    assert_eq!(values[0].as_str().unwrap().unwrap().as_ref(), "QuPath™");
+    assert_eq!(values[1].as_str().unwrap().unwrap().as_ref(), "Różański");
+}
+
+#[test]
+fn format3_header_encoding_overrides_native_utf8_fallback() {
+    let mut format3 = fixture("packages", "packages-native-utf8-v3.rds");
+    let matches = format3
+        .windows(b"UTF-8".len())
+        .enumerate()
+        .filter(|(_, bytes)| *bytes == b"UTF-8")
+        .map(|(offset, _)| offset)
+        .collect::<Vec<_>>();
+    assert_eq!(matches.len(), 1);
+    let header_offset = matches[0];
+    format3[header_offset..header_offset + b"UTF-8".len()].copy_from_slice(b"ASCII");
+
+    let options = ReadOptions::default().native_encoding_policy(NativeEncodingPolicy::AssumeUtf8);
+    let decoded =
+        rd_rds::file::from_bytes_with_options(&format3, &options).expect("lazy format 3 decode");
+    let RValue::Character(values) = decoded.value() else {
+        panic!("expected character matrix")
+    };
+    assert!(matches!(
+        values[0].as_str(),
+        Some(Err(Error::InvalidStringEncoding))
+    ));
+}
+
+#[test]
+fn native_utf8_opt_in_still_rejects_invalid_bytes() {
+    let input = fixture("packages", "packages-invalid-utf8-v2.rds");
+    let options = ReadOptions::default().native_encoding_policy(NativeEncodingPolicy::AssumeUtf8);
+    let decoded =
+        rd_rds::file::from_bytes_with_options(&input, &options).expect("lazy invalid UTF-8 decode");
+    let RValue::Character(values) = decoded.value() else {
+        panic!("expected character matrix")
+    };
+    assert!(matches!(
+        values[0].as_str(),
+        Some(Err(Error::InvalidStringEncoding))
+    ));
 }
 
 #[cfg(feature = "xz")]

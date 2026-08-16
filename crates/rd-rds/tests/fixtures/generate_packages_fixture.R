@@ -119,3 +119,42 @@ saveRDS(
     compress = "gzip",
     version = 3
 )
+
+# Format 2 has no native-encoding field in its header. These cells retain
+# valid UTF-8 bytes while their CHARSXP flags remain Native/unknown, which is
+# ambiguous to a decoder without an external repository contract.
+native_utf8_values <- c("QuPath™", "Różański")
+Encoding(native_utf8_values) <- "unknown"
+native_utf8_matrix <- matrix(
+    native_utf8_values,
+    nrow = 1,
+    dimnames = list(NULL, c("first", "second"))
+)
+saveRDS(
+    native_utf8_matrix,
+    "data/packages/packages-native-utf8-v2.rds",
+    compress = FALSE,
+    version = 2
+)
+saveRDS(
+    native_utf8_matrix,
+    "data/packages/packages-native-utf8-v3.rds",
+    compress = FALSE,
+    version = 3
+)
+
+# A deliberately invalid UTF-8 byte sequence verifies that the opt-in policy
+# validates bytes rather than applying lossy replacement.
+invalid_utf8 <- rawToChar(as.raw(c(0xc3, 0x28)), multiple = FALSE)
+Encoding(invalid_utf8) <- "unknown"
+invalid_utf8_matrix <- matrix(
+    invalid_utf8,
+    nrow = 1,
+    dimnames = list(NULL, "invalid")
+)
+saveRDS(
+    invalid_utf8_matrix,
+    "data/packages/packages-invalid-utf8-v2.rds",
+    compress = FALSE,
+    version = 2
+)

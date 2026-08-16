@@ -52,9 +52,30 @@ pub fn parse(bytes: &[u8]) -> Result<RObject, Error> {
 }
 
 pub fn parse_with_limits(bytes: &[u8], limits: Limits) -> Result<RObject, Error> {
+    parse_with_options(bytes, limits, NativeEncodingPolicy::RejectUnknown)
+}
+
+/// Controls how a native CHARSXP is interpreted when the RDS header does not
+/// identify the native encoding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum NativeEncodingPolicy {
+    /// Reject non-ASCII native strings when no header encoding is available.
+    RejectUnknown,
+    /// Validate native bytes as UTF-8 when no header encoding is available.
+    /// This is intended for callers that have an external UTF-8 contract.
+    AssumeUtf8,
+}
+
+/// Parses a decompressed XDR stream with an explicit native-encoding policy.
+pub fn parse_with_options(
+    bytes: &[u8],
+    limits: Limits,
+    native_encoding_policy: NativeEncodingPolicy,
+) -> Result<RObject, Error> {
     let mut cursor = ByteCursor::new(bytes);
     let header = Header::parse(&mut cursor)?;
-    Decoder::new(limits, header.native_encoding).decode_root(&mut cursor)
+    Decoder::new(limits, header.native_encoding, native_encoding_policy).decode_root(&mut cursor)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,12 +180,21 @@ struct Decoder {
 }
 
 impl Decoder {
-    fn new(limits: Limits, native_encoding: Option<String>) -> Self {
+    fn new(
+        limits: Limits,
+        native_encoding: Option<String>,
+        native_encoding_policy: NativeEncodingPolicy,
+    ) -> Self {
         Self {
             refs: RefTable::default(),
             limits,
             total_elements: 0,
-            native_encoding: native_encoding.map(Arc::from),
+            native_encoding: native_encoding
+                .or_else(|| match native_encoding_policy {
+                    NativeEncodingPolicy::RejectUnknown => None,
+                    NativeEncodingPolicy::AssumeUtf8 => Some("UTF-8".to_owned()),
+                })
+                .map(Arc::from),
         }
     }
 
@@ -732,7 +762,7 @@ mod tests {
 
     fn item_with_limits(bytes: &[u8], limits: Limits) -> Result<RObject, Error> {
         let mut cursor = ByteCursor::new(bytes);
-        Decoder::new(limits, None).decode_root(&mut cursor)
+        Decoder::new(limits, None, NativeEncodingPolicy::RejectUnknown).decode_root(&mut cursor)
     }
 
     fn fixture_dir() -> PathBuf {
@@ -880,7 +910,7 @@ mod tests {
         ] {
             let bytes = [0, 0, 0, byte];
             let mut cursor = ByteCursor::new(&bytes);
-            let value = Decoder::new(Limits::default(), None)
+            let value = Decoder::new(Limits::default(), None, NativeEncodingPolicy::RejectUnknown)
                 .decode_root(&mut cursor)
                 .unwrap();
             assert_eq!(value.value(), &RValue::Environment(expected));
