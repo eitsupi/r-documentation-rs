@@ -33,7 +33,7 @@ jobs:
           Rscript --version
           Rscript -e 'stopifnot(identical(as.character(getRversion()), "4.6.1")); loadNamespace("utils"); loadNamespace("tools")'
       - name: Cache Rust
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Download R source corpus
         run: |
           # The pinned hash is authoritative; the CDN-backed cloud mirror is
