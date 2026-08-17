@@ -30,9 +30,9 @@ To accept gzip-enveloped `.rds` files while keeping the other codec dependencies
 
 ```toml
 [dependencies]
-rd-rds = { version = "0.3.1", default-features = false, features = ["gzip"] }
-rd-helpdb = { version = "0.3.1", default-features = false, features = ["gzip"] }
-rd-ast = { version = "0.3.1", default-features = false, features = ["rds", "gzip"] }
+rd-rds = { version = "0.4.0", default-features = false, features = ["gzip"] }
+rd-helpdb = { version = "0.4.0", default-features = false, features = ["gzip"] }
+rd-ast = { version = "0.4.0", default-features = false, features = ["rds", "gzip"] }
 ```
 
 All three settings are needed because Cargo unions features across dependency edges. Leaving even one of these crates at its defaults re-enables every codec in the unified dependency graph.

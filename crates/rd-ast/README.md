@@ -31,7 +31,7 @@ For example:
 
 ```toml
 [dependencies]
-rd-ast = { version = "0.3.1", default-features = false, features = ["rds", "gzip"] }
+rd-ast = { version = "0.4.0", default-features = false, features = ["rds", "gzip"] }
 ```
 
 ## Stability
