@@ -128,37 +128,37 @@ fn lowers_character_options_as_text() {
 
 #[test]
 fn lowers_tagged_list_options_as_tagged_nodes() {
-    let option = RObject::from_parts(RValue::List(vec![RObject::from_parts(RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(&b"pkg"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }]), Attributes::new(vec![attribute(
+    let option = RObject::from_parts(RValue::List(vec![RObject::from_parts(RValue::Character(vec![RStr::new(
+                &b"pkg"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )]), Attributes::new(vec![attribute(
                 "Rd_tag",
-                RValue::Character(vec![RStr::Value {
-                    bytes: Arc::from(&b"TEXT"[..]),
-                    encoding: REncoding::Utf8,
-                    native_encoding: None,
-                }]),
+                RValue::Character(vec![RStr::new(
+                    &b"TEXT"[..],
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                )]),
             )]))]), Attributes::new(vec![attribute(
             "Rd_tag",
-            RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(&br"\emph"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }]),
+            RValue::Character(vec![RStr::new(
+                &br"\emph"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )]),
         )]));
-    let link = RObject::from_parts(RValue::List(vec![bare(RValue::Character(vec![RStr::Value {
-            bytes: Arc::from(&b"target"[..]),
-            encoding: REncoding::Utf8,
-            native_encoding: None,
-        }]))]), Attributes::new(vec![
+    let link = RObject::from_parts(RValue::List(vec![bare(RValue::Character(vec![RStr::new(
+            &b"target"[..],
+            REncoding::Utf8,
+            NativeEncodingSource::Unknown,
+        )]))]), Attributes::new(vec![
             attribute(
                 "Rd_tag",
-                RValue::Character(vec![RStr::Value {
-                    bytes: Arc::from(&br"\link"[..]),
-                    encoding: REncoding::Utf8,
-                    native_encoding: None,
-                }]),
+                RValue::Character(vec![RStr::new(
+                    &br"\link"[..],
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                )]),
             ),
             Attribute::new(rd_rds::Symbol::from("Rd_option"), option),
         ]));

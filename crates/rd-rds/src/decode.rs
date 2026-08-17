@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Attribute, Attributes, ByteCursor, EnvHandle, Error, Header, Limits, Persisted, REncoding,
-    RObject, RStr, RValue, SexpKind, Symbol,
+    Attribute, Attributes, ByteCursor, EnvHandle, Error, Header, Limits, NativeEncodingSource,
+    Persisted, REncoding, RObject, RStr, RValue, SexpKind, Symbol,
 };
 
 const TYPE_MASK: u32 = 0xff;
@@ -48,13 +48,77 @@ const NA_INTEGER: i32 = i32::MIN;
 const NA_REAL_BITS: u64 = 0x7ff0_0000_0000_07a2;
 
 pub fn parse(bytes: &[u8]) -> Result<RObject, Error> {
-    parse_with_limits(bytes, Limits::default())
+    parse_with_options(bytes, ParseOptions::default())
 }
 
 pub fn parse_with_limits(bytes: &[u8], limits: Limits) -> Result<RObject, Error> {
+    parse_with_options(bytes, ParseOptions::default().limits(limits))
+}
+
+/// Options controlling decompressed RDS parsing.
+#[derive(Debug, Clone, Copy, Default)]
+#[must_use]
+pub struct ParseOptions {
+    limits: Limits,
+    native_encoding_policy: NativeEncodingPolicy,
+}
+
+impl ParseOptions {
+    /// Sets the resource limits used while decoding.
+    pub fn limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// Sets the policy for native strings when the header field is absent,
+    /// which means format 2; retained `RStr` values are validated when
+    /// converted, while `SYMSXP` print names are converted during parsing.
+    pub fn native_encoding_policy(mut self, policy: NativeEncodingPolicy) -> Self {
+        self.native_encoding_policy = policy;
+        self
+    }
+
+    pub(crate) fn limits_value(self) -> Limits {
+        self.limits
+    }
+
+    pub(crate) fn native_encoding_policy_value(self) -> NativeEncodingPolicy {
+        self.native_encoding_policy
+    }
+}
+
+/// Controls how a native CHARSXP is interpreted when the RDS header field is
+/// absent, which means format 2. Parsing retains bytes lazily for `RStr` values:
+/// conversion by [`crate::RStr::as_str`] or a typed view then performs validation
+/// or rejection. A `SYMSXP` print name is converted during parsing instead, so a
+/// symbol name that cannot be decoded fails immediately with
+/// [`crate::Error::InvalidSymbolName`] under either policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum NativeEncodingPolicy {
+    /// Preserve bytes for retained `RStr` values without assuming an encoding;
+    /// conversion later rejects non-ASCII native strings in format 2 when no
+    /// header encoding is available. `SYMSXP` print names are decoded during
+    /// parsing.
+    #[default]
+    RejectUnknown,
+    /// Treat native strings as UTF-8 in format 2 when the header has no
+    /// encoding, for callers with an external UTF-8 contract. Conversion later
+    /// validates retained `RStr` bytes without lossy replacement; `SYMSXP`
+    /// print names are decoded during parsing.
+    AssumeUtf8,
+}
+
+/// Parses a decompressed XDR stream with explicit options.
+pub fn parse_with_options(bytes: &[u8], options: ParseOptions) -> Result<RObject, Error> {
     let mut cursor = ByteCursor::new(bytes);
     let header = Header::parse(&mut cursor)?;
-    Decoder::new(limits, header.native_encoding).decode_root(&mut cursor)
+    Decoder::new(
+        options.limits_value(),
+        header.native_encoding,
+        options.native_encoding_policy_value(),
+    )
+    .decode_root(&mut cursor)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -155,16 +219,26 @@ struct Decoder {
     refs: RefTable,
     limits: Limits,
     total_elements: usize,
-    native_encoding: Option<Arc<str>>,
+    native_encoding_source: NativeEncodingSource,
 }
 
 impl Decoder {
-    fn new(limits: Limits, native_encoding: Option<String>) -> Self {
+    fn new(
+        limits: Limits,
+        native_encoding: Option<String>,
+        native_encoding_policy: NativeEncodingPolicy,
+    ) -> Self {
         Self {
             refs: RefTable::default(),
             limits,
             total_elements: 0,
-            native_encoding: native_encoding.map(Arc::from),
+            native_encoding_source: match native_encoding {
+                Some(name) => NativeEncodingSource::Header(Arc::from(name)),
+                None => match native_encoding_policy {
+                    NativeEncodingPolicy::RejectUnknown => NativeEncodingSource::Unknown,
+                    NativeEncodingPolicy::AssumeUtf8 => NativeEncodingSource::AssumedUtf8,
+                },
+            },
         }
     }
 
@@ -484,7 +558,11 @@ impl Decoder {
 
         let encoding = decode_encoding(flags);
         let bytes = cursor.read_exact(len as usize)?;
-        Ok(RStr::new(bytes, encoding, self.native_encoding.clone()))
+        Ok(RStr::new(
+            bytes,
+            encoding,
+            self.native_encoding_source.clone(),
+        ))
     }
 
     fn decode_symbol_with_flags(
@@ -732,7 +810,7 @@ mod tests {
 
     fn item_with_limits(bytes: &[u8], limits: Limits) -> Result<RObject, Error> {
         let mut cursor = ByteCursor::new(bytes);
-        Decoder::new(limits, None).decode_root(&mut cursor)
+        Decoder::new(limits, None, NativeEncodingPolicy::RejectUnknown).decode_root(&mut cursor)
     }
 
     fn fixture_dir() -> PathBuf {
@@ -845,6 +923,39 @@ mod tests {
     }
 
     #[test]
+    fn native_symbol_names_are_decoded_during_format_v2_parsing() {
+        // Handwritten because R cannot easily serialize a non-ASCII Native
+        // symbol deterministically for a fixture.
+        fn stream(print_name: &[u8]) -> Vec<u8> {
+            let mut bytes = vec![b'X', b'\n', 0, 0, 0, 2, 0, 4, 6, 1, 0, 3, 5, 0];
+            bytes.extend_from_slice(&u32::from(SYMSXP).to_be_bytes());
+            bytes.extend_from_slice(&u32::from(CHARSXP).to_be_bytes());
+            bytes.extend_from_slice(&(print_name.len() as i32).to_be_bytes());
+            bytes.extend_from_slice(print_name);
+            bytes
+        }
+
+        let valid_utf8 = stream("é".as_bytes());
+        assert_eq!(parse(&valid_utf8), Err(Error::InvalidSymbolName));
+
+        let symbol = parse_with_options(
+            &valid_utf8,
+            ParseOptions::default().native_encoding_policy(NativeEncodingPolicy::AssumeUtf8),
+        )
+        .expect("AssumeUtf8 should decode a valid Native symbol name");
+        assert_eq!(symbol_name(&symbol), "é");
+
+        let invalid_utf8 = stream(&[0xff]);
+        assert_eq!(
+            parse_with_options(
+                &invalid_utf8,
+                ParseOptions::default().native_encoding_policy(NativeEncodingPolicy::AssumeUtf8),
+            ),
+            Err(Error::InvalidSymbolName)
+        );
+    }
+
+    #[test]
     fn untagged_attribute_cell_with_nested_attributes_reports_cell_offset() {
         let mut bytes = Vec::new();
         // Root: logical vector carrying an attribute pairlist.
@@ -880,7 +991,7 @@ mod tests {
         ] {
             let bytes = [0, 0, 0, byte];
             let mut cursor = ByteCursor::new(&bytes);
-            let value = Decoder::new(Limits::default(), None)
+            let value = Decoder::new(Limits::default(), None, NativeEncodingPolicy::RejectUnknown)
                 .decode_root(&mut cursor)
                 .unwrap();
             assert_eq!(value.value(), &RValue::Environment(expected));

@@ -29,10 +29,12 @@ pub mod package;
 mod value;
 
 pub use cursor::ByteCursor;
-pub use decode::{parse, parse_with_limits};
+pub use decode::{
+    NativeEncodingPolicy, ParseOptions, parse, parse_with_limits, parse_with_options,
+};
 pub use error::Error;
 pub use header::{Header, RVersion};
 pub use value::{
-    Attribute, Attributes, EnvHandle, Limits, Persisted, REncoding, RObject, RStr, RValue,
-    SexpKind, Symbol,
+    Attribute, Attributes, EnvHandle, Limits, NativeEncodingSource, Persisted, REncoding, RObject,
+    RStr, RStrValue, RValue, SexpKind, Symbol,
 };

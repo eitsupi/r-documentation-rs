@@ -165,11 +165,11 @@ fn fixture_attribute(name: &str) -> Attribute {
 }
 
 fn invalid_string() -> RStr {
-    RStr::Value {
-        bytes: Arc::from(&b"\xff"[..]),
-        encoding: REncoding::Bytes,
-        native_encoding: None,
-    }
+    RStr::new(
+        &b"\xff"[..],
+        REncoding::Bytes,
+        NativeEncodingSource::Unknown,
+    )
 }
 
 fn attribute(name: &str, value: RValue) -> Attribute {

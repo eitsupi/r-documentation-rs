@@ -879,7 +879,7 @@ impl ValueKindName for RValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Attribute, Attributes, REncoding, Symbol};
+    use crate::{Attribute, Attributes, NativeEncodingSource, REncoding, Symbol};
 
     #[test]
     fn package_version_displays_components() {
@@ -923,7 +923,13 @@ mod tests {
             RValue::Character(
                 values
                     .iter()
-                    .map(|value| RStr::new(value.as_bytes(), REncoding::Native, None))
+                    .map(|value| {
+                        RStr::new(
+                            value.as_bytes(),
+                            REncoding::Native,
+                            NativeEncodingSource::Unknown,
+                        )
+                    })
                     .collect(),
             ),
             Attributes::default(),
@@ -960,7 +966,11 @@ mod tests {
             matrix(
                 vec![Some(1), Some(1)],
                 vec![names(&["row"]), names(&["Package"])],
-                vec![RStr::new(b"x", REncoding::Native, None)],
+                vec![RStr::new(
+                    b"x",
+                    REncoding::Native,
+                    NativeEncodingSource::Unknown,
+                )],
             )
         };
         assert!(
@@ -1049,7 +1059,11 @@ mod tests {
             matches!(PackagesMatrix::from_object(&object), Err(ViewError::UnexpectedLength { path, .. }) if path == "PACKAGES")
         );
         let object = RObject::from_parts(
-            RValue::Character(vec![RStr::new(b"x", REncoding::Native, None)]),
+            RValue::Character(vec![RStr::new(
+                b"x",
+                REncoding::Native,
+                NativeEncodingSource::Unknown,
+            )]),
             Attributes::new(vec![Attribute::new(
                 Symbol::new("dim"),
                 RObject::from_parts(
@@ -1092,8 +1106,8 @@ mod tests {
             vec![Some(1), Some(2)],
             vec![names(&["row"]), names(&["Package", "Package"])],
             vec![
-                RStr::new(b"x", REncoding::Native, None),
-                RStr::new(b"y", REncoding::Native, None),
+                RStr::new(b"x", REncoding::Native, NativeEncodingSource::Unknown),
+                RStr::new(b"y", REncoding::Native, NativeEncodingSource::Unknown),
             ],
         );
         assert!(
@@ -1106,7 +1120,7 @@ mod tests {
                 RObject::from_parts(
                     RValue::Character(vec![
                         RStr::Na,
-                        RStr::new(b"Version", REncoding::Native, None),
+                        RStr::new(b"Version", REncoding::Native, NativeEncodingSource::Unknown),
                     ]),
                     Attributes::default(),
                 ),

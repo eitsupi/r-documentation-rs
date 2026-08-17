@@ -16,7 +16,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{Limits, RObject};
+use crate::{Limits, NativeEncodingPolicy, ParseOptions, RObject};
 
 const XDR_MARKER: &[u8; 2] = b"X\n";
 const ZSTD_MAGIC: &[u8; 4] = &[0x28, 0xb5, 0x2f, 0xfd];
@@ -25,7 +25,7 @@ const DEFAULT_CAP: usize = 256 * 1024 * 1024;
 /// Options controlling standalone-file size limits and RDS decoding limits.
 #[derive(Debug, Clone, Copy)]
 pub struct ReadOptions {
-    limits: Limits,
+    parse_options: ParseOptions,
     max_compressed_bytes: usize,
     max_decompressed_bytes: usize,
 }
@@ -33,7 +33,7 @@ pub struct ReadOptions {
 impl Default for ReadOptions {
     fn default() -> Self {
         Self {
-            limits: Limits::default(),
+            parse_options: ParseOptions::default(),
             max_compressed_bytes: DEFAULT_CAP,
             max_decompressed_bytes: DEFAULT_CAP,
         }
@@ -42,7 +42,13 @@ impl Default for ReadOptions {
 
 impl ReadOptions {
     pub fn limits(mut self, limits: Limits) -> Self {
-        self.limits = limits;
+        self.parse_options = self.parse_options.limits(limits);
+        self
+    }
+
+    /// Replaces the complete decompressed-stream parsing configuration.
+    pub fn parse_options(mut self, options: ParseOptions) -> Self {
+        self.parse_options = options;
         self
     }
 
@@ -53,6 +59,14 @@ impl ReadOptions {
 
     pub fn max_decompressed_bytes(mut self, limit: usize) -> Self {
         self.max_decompressed_bytes = limit;
+        self
+    }
+
+    /// Selects the native-string policy used when the RDS header has no
+    /// encoding, which means format 2; retained `RStr` values are validated
+    /// when converted, while `SYMSXP` print names are converted during parsing.
+    pub fn native_encoding_policy(mut self, policy: NativeEncodingPolicy) -> Self {
+        self.parse_options = self.parse_options.native_encoding_policy(policy);
         self
     }
 }
@@ -176,7 +190,7 @@ pub fn from_bytes_with_options(bytes: &[u8], options: &ReadOptions) -> Result<RO
         }
         Some(format) => decompress(bytes, format, options.max_decompressed_bytes)?,
     };
-    Ok(crate::parse_with_limits(&decoded, options.limits)?)
+    Ok(crate::parse_with_options(&decoded, options.parse_options)?)
 }
 
 /// Returns whether `bytes` begins with the decompressed XDR stream marker.

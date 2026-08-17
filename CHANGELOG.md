@@ -4,6 +4,11 @@
 
 ### Changed
 
+- [rd-rds] Reshape `RStr::Value` to wrap an opaque `RStrValue` with accessors.
+  `NativeEncodingSource` now records whether native-encoding context came from
+  the stream header or a caller assumption, and consumers constructing `RStr`
+  values use the now-public `RStr::new`.
+
 - [rd-rds] The xz decoder is now pure Rust, replacing the `xz2` bindings to the
   system `liblzma`. `rd-rds` links no C library at all, so building it needs no
   C toolchain and running it needs no `liblzma` present on the host. Decode
@@ -12,6 +17,15 @@
   byte-identically to the previous decoder. In release builds decode speed is
   comparable on realistic inputs, and up to roughly 3x slower on incompressible
   data, where decoding is a few tens of milliseconds either way.
+
+### Added
+
+- [rd-rds] Add `ParseOptions` and an explicit `NativeEncodingPolicy` for
+  callers that have an external UTF-8 contract for format-2 RDS streams.
+  Native-string bytes remain available for lazy conversion: the default
+  provides unknown native-encoding provenance, while `AssumeUtf8` supplies an
+  assumed UTF-8 context and conversion validates the bytes. Format-3 header
+  evidence remains authoritative.
 
 ## [0.3.1] - 2026-08-11
 

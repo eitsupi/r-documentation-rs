@@ -2,7 +2,7 @@ use super::lower_r_object;
 use super::*;
 use crate::{RawRdEnvironment, RawRdReal, RawRdValue, RdNode, RdTag};
 
-use std::{fs, io::Read, path::PathBuf, sync::Arc};
+use std::{fs, io::Read, path::PathBuf};
 
 use super::attributes::{
     AttributeDisposition, classify_attribute, valid_expanded_fragment_class,
@@ -11,7 +11,9 @@ use super::attributes::{
 use super::context::{LowerContext, NodeContext};
 use super::raw::lower_raw_value;
 use flate2::read::GzDecoder;
-use rd_rds::{Attribute, Attributes, EnvHandle, REncoding, RObject, RStr, RValue, parse};
+use rd_rds::{
+    Attribute, Attributes, EnvHandle, NativeEncodingSource, REncoding, RObject, RStr, RValue, parse,
+};
 fn fixture_dir() -> PathBuf {
     // These crate-local copies originate from crates/rd-rds/tests/fixtures/data/ and committed
     // R generator scripts; keep them byte-identical so packaged rd-ast tests run standalone.
@@ -193,11 +195,11 @@ fn fixture_attribute(name: &str) -> Attribute {
 }
 
 fn invalid_string() -> RStr {
-    RStr::Value {
-        bytes: Arc::from(&b"\xff"[..]),
-        encoding: REncoding::Bytes,
-        native_encoding: None,
-    }
+    RStr::new(
+        &b"\xff"[..],
+        REncoding::Bytes,
+        NativeEncodingSource::Unknown,
+    )
 }
 
 fn attribute(name: &str, value: RValue) -> Attribute {
@@ -260,11 +262,11 @@ fn lower_single_node(node: RObject) -> RdNode {
 }
 
 fn tagged_raw_value(value: RValue) -> RObject {
-    let tag = RStr::Value {
-        bytes: Arc::from(&b"\\opaque"[..]),
-        encoding: REncoding::Utf8,
-        native_encoding: None,
-    };
+    let tag = RStr::new(
+        &b"\\opaque"[..],
+        REncoding::Utf8,
+        NativeEncodingSource::Unknown,
+    );
     let mut tag_attribute = fixture_attribute("Rd_tag");
     tag_attribute = Attribute::new(
         tag_attribute.name().clone(),

@@ -77,6 +77,22 @@ while R's `Encoding()` reports those strings as `"unknown"` after `readRDS()`.
 Encoding labels can therefore differ even when decoded string contents are
 identical; this is not a decoding incompatibility.
 
+R serialization format 2 has no native-encoding field in its header. A
+non-ASCII CHARSXP marked Native is therefore ambiguous. The reader preserves
+the bytes lazily for retained `RStr` values rather than guessing a locale: with
+the default policy, conversion by `RStr::as_str()` or a typed view rejects the
+value. A `SYMSXP` print name is converted during parsing instead, so a symbol
+name that cannot be decoded fails with `Error::InvalidSymbolName` at parse time
+under either policy. A caller with an independent UTF-8 contract may opt in with
+`ReadOptions::native_encoding_policy(NativeEncodingPolicy::AssumeUtf8)` (or the
+corresponding `parse_with_options` API with `ParseOptions`). The opt-in still
+validates retained `RStr` bytes with `str::from_utf8` when conversion occurs and
+never performs lossy replacement. The policy applies only when the header
+field is absent, which means format 2; a format-3 header value is always
+authoritative. `RStrValue::native_encoding_source()` distinguishes a
+header-declared encoding from a caller assumption, while
+`RStrValue::header_native_encoding()` reports header evidence only.
+
 Unknown or unsupported SEXP values reachable from the decoded result are
 hard decode errors; they are never silently converted to a known value. The
 one exception is environment internals: environments are collapsed to opaque

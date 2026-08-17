@@ -46,11 +46,11 @@ fn raw_nodes_preserve_non_child_payloads_and_metadata() {
     for value in [
         RValue::Character(vec![
             RStr::Na,
-            RStr::Value {
-                bytes: Arc::from(&b"text"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            },
+            RStr::new(
+                &b"text"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            ),
         ]),
         RValue::List(vec![bare(RValue::Null)]),
     ] {
@@ -67,11 +67,11 @@ fn malformed_scalar_option_survives_as_raw_option_payload() {
     let node = RObject::from_parts(RValue::List(Vec::new()), Attributes::new(vec![
             attribute(
                 "Rd_tag",
-                RValue::Character(vec![RStr::Value {
-                    bytes: Arc::from(&br"\link"[..]),
-                    encoding: REncoding::Utf8,
-                    native_encoding: None,
-                }]),
+                RValue::Character(vec![RStr::new(
+                    &br"\link"[..],
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                )]),
             ),
             attribute("Rd_option", RValue::Integer(vec![Some(9), None])),
         ]));
@@ -264,16 +264,16 @@ fn malformed_rd_tag_values_are_raw_and_lossless() {
 
     let tag_template = fixture_attribute("Rd_tag");
     let duplicate = lower_single_node(RObject::from_parts(RValue::List(Vec::new()), Attributes::new(vec![
-            tag_attribute(RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(&b"TEXT"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }])),
-            tag_attribute(RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(&b"OTHER"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }])),
+            tag_attribute(RValue::Character(vec![RStr::new(
+                &b"TEXT"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )])),
+            tag_attribute(RValue::Character(vec![RStr::new(
+                &b"OTHER"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )])),
             attribute("class", RValue::Null),
         ])));
     let RdNode::Raw(raw) = duplicate else {
@@ -295,19 +295,22 @@ fn malformed_rd_tag_values_are_raw_and_lossless() {
     let tag_value = |value: &str| {
         attribute_with_value(
             &tag_template,
-            RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(value.as_bytes()),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }]),
+            RValue::Character(vec![RStr::new(
+                value.as_bytes(),
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )]),
         )
     };
     for (first, second) in [("TEXT", "RCODE"), ("RCODE", "TEXT")] {
-        let lowered = lower_single_node(RObject::from_parts(RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(&b"payload"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }]), Attributes::new(vec![tag_value(first), tag_value(second)])));
+        let lowered = lower_single_node(RObject::from_parts(
+            RValue::Character(vec![RStr::new(
+                &b"payload"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )]),
+            Attributes::new(vec![tag_value(first), tag_value(second)]),
+        ));
         let RdNode::Raw(raw) = lowered else {
             panic!("duplicate Rd_tag should force Raw")
         };
@@ -340,11 +343,11 @@ fn malformed_rd_tag_on_list_option_is_raw_and_lossless() {
     let node = RObject::from_parts(RValue::List(Vec::new()), Attributes::new(vec![
             attribute(
                 "Rd_tag",
-                RValue::Character(vec![RStr::Value {
-                    bytes: Arc::from(&br"\link"[..]),
-                    encoding: REncoding::Utf8,
-                    native_encoding: None,
-                }]),
+                RValue::Character(vec![RStr::new(
+                    &br"\link"[..],
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                )]),
             ),
             Attribute::new(rd_rds::Symbol::from("Rd_option"), option),
         ]));
@@ -368,20 +371,20 @@ fn malformed_rd_tag_on_list_option_is_raw_and_lossless() {
 fn nested_rd_option_on_list_option_is_raw_and_lossless() {
     let option = RObject::from_parts(RValue::List(Vec::new()), Attributes::new(vec![attribute(
             "Rd_option",
-            RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(&b"nested"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }]),
+            RValue::Character(vec![RStr::new(
+                &b"nested"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )]),
         )]));
     let node = RObject::from_parts(RValue::List(Vec::new()), Attributes::new(vec![
             attribute(
                 "Rd_tag",
-                RValue::Character(vec![RStr::Value {
-                    bytes: Arc::from(&br"\link"[..]),
-                    encoding: REncoding::Utf8,
-                    native_encoding: None,
-                }]),
+                RValue::Character(vec![RStr::new(
+                    &br"\link"[..],
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                )]),
             ),
             Attribute::new(rd_rds::Symbol::from("Rd_option"), option),
         ]));

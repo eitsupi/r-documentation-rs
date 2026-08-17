@@ -310,13 +310,17 @@ fn kind_name(value: &RValue) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Attribute, Attributes, REncoding, Symbol};
+    use crate::{Attribute, Attributes, NativeEncodingSource, REncoding, Symbol};
 
     fn strings(values: &[Option<&str>]) -> Vec<RStr> {
         values
             .iter()
             .map(|value| match value {
-                Some(value) => RStr::new(value.as_bytes(), REncoding::Utf8, None),
+                Some(value) => RStr::new(
+                    value.as_bytes(),
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                ),
                 None => RStr::Na,
             })
             .collect()
