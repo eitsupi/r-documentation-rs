@@ -170,7 +170,7 @@ fn list_label(object: &RObject, index: usize) -> String {
 fn display_name(value: &RStr) -> String {
     match value {
         RStr::Na => r"<NA>".to_string(),
-        RStr::Value { .. } => match value.as_str() {
+        RStr::Value(_) => match value.as_str() {
             Some(Ok(value)) => truncate_string(&value),
             Some(Err(_)) => r"<invalid string>".to_string(),
             None => r"<NA>".to_string(),
@@ -251,7 +251,7 @@ fn describe_vector(kind: &str, length: usize, values: impl FnOnce() -> Vec<Strin
 fn display_string(value: &RStr) -> String {
     match value {
         RStr::Na => r"<NA>".to_string(),
-        RStr::Value { .. } => match value.as_str() {
+        RStr::Value(_) => match value.as_str() {
             Some(Ok(value)) => truncate_string(&value),
             Some(Err(_)) => r"<invalid string>".to_string(),
             None => r"<NA>".to_string(),

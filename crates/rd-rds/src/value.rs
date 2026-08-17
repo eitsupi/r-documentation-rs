@@ -176,51 +176,60 @@ impl Persisted {
 #[non_exhaustive]
 pub enum RStr {
     Na,
-    Value {
-        bytes: Arc<[u8]>,
-        encoding: REncoding,
-        native_encoding: Option<Arc<str>>,
-    },
+    Value(RStrValue),
+}
+
+/// The source of native-encoding context used to interpret an R string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum NativeEncodingSource {
+    /// The stream header declared this native encoding name (format 3 only).
+    Header(Arc<str>),
+    /// The header carried no native encoding and the caller opted into
+    /// [`crate::NativeEncodingPolicy::AssumeUtf8`].
+    AssumedUtf8,
+    /// The header carried no native encoding and the caller made no
+    /// assumption.
+    Unknown,
+}
+
+impl NativeEncodingSource {
+    pub(crate) fn decodes_as_utf8(&self) -> bool {
+        match self {
+            Self::Header(name) => is_utf8_native_encoding(Some(name)),
+            Self::AssumedUtf8 => true,
+            Self::Unknown => false,
+        }
+    }
+}
+
+/// The opaque payload of an [`RStr::Value`] string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RStrValue {
+    bytes: Arc<[u8]>,
+    encoding: REncoding,
+    native_encoding_source: NativeEncodingSource,
 }
 
 impl RStr {
-    pub(crate) fn new(
+    /// Constructs an R string value from its serialized bytes and encoding
+    /// context.
+    pub fn new(
         bytes: &[u8],
         encoding: REncoding,
-        native_encoding: Option<Arc<str>>,
+        native_encoding_source: NativeEncodingSource,
     ) -> Self {
-        Self::Value {
+        Self::Value(RStrValue {
             bytes: Arc::from(bytes),
             encoding,
-            native_encoding,
-        }
+            native_encoding_source,
+        })
     }
 
     pub fn as_str(&self) -> Option<Result<Cow<'_, str>, Error>> {
         match self {
             Self::Na => None,
-            Self::Value {
-                bytes,
-                encoding,
-                native_encoding,
-            } => Some(match encoding {
-                REncoding::Native => {
-                    if bytes.is_ascii() || is_utf8_native_encoding(native_encoding.as_deref()) {
-                        std::str::from_utf8(bytes)
-                            .map(Cow::Borrowed)
-                            .map_err(|_| Error::InvalidStringEncoding)
-                    } else {
-                        Err(Error::InvalidStringEncoding)
-                    }
-                }
-                REncoding::Utf8 => std::str::from_utf8(bytes)
-                    .map(Cow::Borrowed)
-                    .map_err(|_| Error::InvalidStringEncoding),
-                REncoding::Latin1 => {
-                    Ok(Cow::Owned(bytes.iter().map(|&byte| byte as char).collect()))
-                }
-                REncoding::Bytes => Err(Error::InvalidStringEncoding),
-            }),
+            Self::Value(value) => Some(value.as_str()),
         }
     }
 
@@ -230,7 +239,57 @@ impl RStr {
     pub fn encoding(&self) -> Option<REncoding> {
         match self {
             Self::Na => None,
-            Self::Value { encoding, .. } => Some(*encoding),
+            Self::Value(value) => Some(value.encoding()),
+        }
+    }
+}
+
+impl RStrValue {
+    fn as_str(&self) -> Result<Cow<'_, str>, Error> {
+        match self.encoding {
+            REncoding::Native => {
+                if self.bytes.is_ascii() || self.native_encoding_source.decodes_as_utf8() {
+                    std::str::from_utf8(&self.bytes)
+                        .map(Cow::Borrowed)
+                        .map_err(|_| Error::InvalidStringEncoding)
+                } else {
+                    Err(Error::InvalidStringEncoding)
+                }
+            }
+            REncoding::Utf8 => std::str::from_utf8(&self.bytes)
+                .map(Cow::Borrowed)
+                .map_err(|_| Error::InvalidStringEncoding),
+            REncoding::Latin1 => Ok(Cow::Owned(
+                self.bytes.iter().map(|&byte| byte as char).collect(),
+            )),
+            REncoding::Bytes => Err(Error::InvalidStringEncoding),
+        }
+    }
+
+    /// Returns the serialized string bytes without converting them.
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Returns the CHARSXP encoding flag recorded in the serialized data.
+    pub fn encoding(&self) -> REncoding {
+        self.encoding
+    }
+
+    /// Returns the native-encoding provenance used for this value.
+    pub fn native_encoding_source(&self) -> &NativeEncodingSource {
+        &self.native_encoding_source
+    }
+
+    /// Returns the native encoding name declared by the stream header, if any.
+    ///
+    /// This reports header evidence only; it is not the effective decoding
+    /// context and therefore returns `None` for [`NativeEncodingSource::AssumedUtf8`]
+    /// and [`NativeEncodingSource::Unknown`].
+    pub fn header_native_encoding(&self) -> Option<&str> {
+        match &self.native_encoding_source {
+            NativeEncodingSource::Header(name) => Some(name),
+            NativeEncodingSource::AssumedUtf8 | NativeEncodingSource::Unknown => None,
         }
     }
 }
@@ -258,7 +317,7 @@ mod tests {
 
     #[test]
     fn native_ascii_strings_decode_without_header_encoding() {
-        let value = RStr::new(b"name", REncoding::Native, None);
+        let value = RStr::new(b"name", REncoding::Native, NativeEncodingSource::Unknown);
         assert_eq!(value.as_str().unwrap().unwrap().as_ref(), "name");
     }
 
@@ -267,14 +326,18 @@ mod tests {
         let value = RStr::new(
             "cafe\u{301}".as_bytes(),
             REncoding::Native,
-            Some(Arc::from("UTF-8")),
+            NativeEncodingSource::Header(Arc::from("UTF-8")),
         );
         assert_eq!(value.as_str().unwrap().unwrap().as_ref(), "cafe\u{301}");
     }
 
     #[test]
     fn native_non_ascii_strings_reject_unknown_native_encoding() {
-        let value = RStr::new("é".as_bytes(), REncoding::Native, None);
+        let value = RStr::new(
+            "é".as_bytes(),
+            REncoding::Native,
+            NativeEncodingSource::Unknown,
+        );
         assert_eq!(
             value.as_str().unwrap().unwrap_err(),
             Error::InvalidStringEncoding

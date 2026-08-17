@@ -18,11 +18,11 @@ fn rejects_non_list_roots() {
 fn invalid_string_in_text_leaf_reports_node_character_location() {
     let node = RObject::from_parts(RValue::Character(vec![RStr::Na, invalid_string()]), Attributes::new(vec![attribute(
             "Rd_tag",
-            RValue::Character(vec![RStr::Value {
-                bytes: Arc::from(&b"TEXT"[..]),
-                encoding: REncoding::Utf8,
-                native_encoding: None,
-            }]),
+            RValue::Character(vec![RStr::new(
+                &b"TEXT"[..],
+                REncoding::Utf8,
+                NativeEncodingSource::Unknown,
+            )]),
         )]));
     let error = lower_r_object(&bare(RValue::List(vec![node]))).unwrap_err();
 
@@ -47,11 +47,11 @@ fn invalid_string_in_option_reports_option_context() {
     let node = RObject::from_parts(RValue::Null, Attributes::new(vec![
             attribute(
                 "Rd_tag",
-                RValue::Character(vec![RStr::Value {
-                    bytes: Arc::from(&br"\arguments"[..]),
-                    encoding: REncoding::Utf8,
-                    native_encoding: None,
-                }]),
+                RValue::Character(vec![RStr::new(
+                    &br"\arguments"[..],
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                )]),
             ),
             attribute("Rd_option", RValue::Character(vec![invalid_string()])),
         ]));
@@ -74,11 +74,11 @@ fn invalid_string_in_raw_attribute_reports_attribute_context() {
     let node = RObject::from_parts(RValue::Null, Attributes::new(vec![
             attribute(
                 "Rd_tag",
-                RValue::Character(vec![RStr::Value {
-                    bytes: Arc::from(&b"TEXT"[..]),
-                    encoding: REncoding::Utf8,
-                    native_encoding: None,
-                }]),
+                RValue::Character(vec![RStr::new(
+                    &b"TEXT"[..],
+                    REncoding::Utf8,
+                    NativeEncodingSource::Unknown,
+                )]),
             ),
             attribute("rootextra", RValue::Character(vec![invalid_string()])),
         ]));

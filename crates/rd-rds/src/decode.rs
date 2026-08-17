@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Attribute, Attributes, ByteCursor, EnvHandle, Error, Header, Limits, Persisted, REncoding,
-    RObject, RStr, RValue, SexpKind, Symbol,
+    Attribute, Attributes, ByteCursor, EnvHandle, Error, Header, Limits, NativeEncodingSource,
+    Persisted, REncoding, RObject, RStr, RValue, SexpKind, Symbol,
 };
 
 const TYPE_MASK: u32 = 0xff;
@@ -48,34 +48,72 @@ const NA_INTEGER: i32 = i32::MIN;
 const NA_REAL_BITS: u64 = 0x7ff0_0000_0000_07a2;
 
 pub fn parse(bytes: &[u8]) -> Result<RObject, Error> {
-    parse_with_limits(bytes, Limits::default())
+    parse_with_options(bytes, ParseOptions::default())
 }
 
 pub fn parse_with_limits(bytes: &[u8], limits: Limits) -> Result<RObject, Error> {
-    parse_with_options(bytes, limits, NativeEncodingPolicy::RejectUnknown)
+    parse_with_options(bytes, ParseOptions::default().limits(limits))
 }
 
-/// Controls how a native CHARSXP is interpreted when the RDS header does not
-/// identify the native encoding.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Options controlling decompressed RDS parsing.
+#[derive(Debug, Clone, Copy, Default)]
+#[must_use]
+pub struct ParseOptions {
+    limits: Limits,
+    native_encoding_policy: NativeEncodingPolicy,
+}
+
+impl ParseOptions {
+    /// Sets the resource limits used while decoding.
+    pub fn limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// Sets the policy for native strings when the header field is absent,
+    /// which means format 2. Parsing remains lazy; conversion by
+    /// [`crate::RStr::as_str`] or a typed view validates or rejects the bytes.
+    pub fn native_encoding_policy(mut self, policy: NativeEncodingPolicy) -> Self {
+        self.native_encoding_policy = policy;
+        self
+    }
+
+    pub(crate) fn limits_value(self) -> Limits {
+        self.limits
+    }
+
+    pub(crate) fn native_encoding_policy_value(self) -> NativeEncodingPolicy {
+        self.native_encoding_policy
+    }
+}
+
+/// Controls how a native CHARSXP is interpreted when the RDS header field is
+/// absent, which means format 2. Parsing preserves bytes lazily; conversion by
+/// [`crate::RStr::as_str`] or a typed view performs validation or rejection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum NativeEncodingPolicy {
-    /// Reject non-ASCII native strings when no header encoding is available.
+    /// Preserve bytes without assuming an encoding; conversion later rejects
+    /// non-ASCII native strings in format 2 when no header encoding is
+    /// available.
+    #[default]
     RejectUnknown,
-    /// Validate native bytes as UTF-8 when no header encoding is available.
-    /// This is intended for callers that have an external UTF-8 contract.
+    /// Treat native strings as UTF-8 in format 2 when the header has no
+    /// encoding, for callers with an external UTF-8 contract. Conversion later
+    /// validates the bytes without lossy replacement.
     AssumeUtf8,
 }
 
-/// Parses a decompressed XDR stream with an explicit native-encoding policy.
-pub fn parse_with_options(
-    bytes: &[u8],
-    limits: Limits,
-    native_encoding_policy: NativeEncodingPolicy,
-) -> Result<RObject, Error> {
+/// Parses a decompressed XDR stream with explicit options.
+pub fn parse_with_options(bytes: &[u8], options: ParseOptions) -> Result<RObject, Error> {
     let mut cursor = ByteCursor::new(bytes);
     let header = Header::parse(&mut cursor)?;
-    Decoder::new(limits, header.native_encoding, native_encoding_policy).decode_root(&mut cursor)
+    Decoder::new(
+        options.limits_value(),
+        header.native_encoding,
+        options.native_encoding_policy_value(),
+    )
+    .decode_root(&mut cursor)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,7 +214,7 @@ struct Decoder {
     refs: RefTable,
     limits: Limits,
     total_elements: usize,
-    native_encoding: Option<Arc<str>>,
+    native_encoding_source: NativeEncodingSource,
 }
 
 impl Decoder {
@@ -189,12 +227,13 @@ impl Decoder {
             refs: RefTable::default(),
             limits,
             total_elements: 0,
-            native_encoding: native_encoding
-                .or_else(|| match native_encoding_policy {
-                    NativeEncodingPolicy::RejectUnknown => None,
-                    NativeEncodingPolicy::AssumeUtf8 => Some("UTF-8".to_owned()),
-                })
-                .map(Arc::from),
+            native_encoding_source: match native_encoding {
+                Some(name) => NativeEncodingSource::Header(Arc::from(name)),
+                None => match native_encoding_policy {
+                    NativeEncodingPolicy::RejectUnknown => NativeEncodingSource::Unknown,
+                    NativeEncodingPolicy::AssumeUtf8 => NativeEncodingSource::AssumedUtf8,
+                },
+            },
         }
     }
 
@@ -514,7 +553,11 @@ impl Decoder {
 
         let encoding = decode_encoding(flags);
         let bytes = cursor.read_exact(len as usize)?;
-        Ok(RStr::new(bytes, encoding, self.native_encoding.clone()))
+        Ok(RStr::new(
+            bytes,
+            encoding,
+            self.native_encoding_source.clone(),
+        ))
     }
 
     fn decode_symbol_with_flags(
