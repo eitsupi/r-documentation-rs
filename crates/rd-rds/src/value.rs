@@ -135,6 +135,8 @@ impl RObject {
     }
 }
 
+/// A symbol whose print name is decoded eagerly during parsing, so it always
+/// holds valid text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol(Arc<str>);
 

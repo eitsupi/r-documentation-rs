@@ -63,8 +63,8 @@ impl ReadOptions {
     }
 
     /// Selects the native-string policy used when the RDS header has no
-    /// encoding, which means format 2. Conversion later preserves bytes and
-    /// validates or rejects them when a typed view or `RStr::as_str()` is used.
+    /// encoding, which means format 2; retained `RStr` values are validated
+    /// when converted, while `SYMSXP` print names are converted during parsing.
     pub fn native_encoding_policy(mut self, policy: NativeEncodingPolicy) -> Self {
         self.parse_options = self.parse_options.native_encoding_policy(policy);
         self

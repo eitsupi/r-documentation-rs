@@ -71,8 +71,8 @@ impl ParseOptions {
     }
 
     /// Sets the policy for native strings when the header field is absent,
-    /// which means format 2. Parsing remains lazy; conversion by
-    /// [`crate::RStr::as_str`] or a typed view validates or rejects the bytes.
+    /// which means format 2; retained `RStr` values are validated when
+    /// converted, while `SYMSXP` print names are converted during parsing.
     pub fn native_encoding_policy(mut self, policy: NativeEncodingPolicy) -> Self {
         self.native_encoding_policy = policy;
         self
@@ -88,19 +88,24 @@ impl ParseOptions {
 }
 
 /// Controls how a native CHARSXP is interpreted when the RDS header field is
-/// absent, which means format 2. Parsing preserves bytes lazily; conversion by
-/// [`crate::RStr::as_str`] or a typed view performs validation or rejection.
+/// absent, which means format 2. Parsing retains bytes lazily for `RStr` values:
+/// conversion by [`crate::RStr::as_str`] or a typed view then performs validation
+/// or rejection. A `SYMSXP` print name is converted during parsing instead, so a
+/// symbol name that cannot be decoded fails immediately with
+/// [`crate::Error::InvalidSymbolName`] under either policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum NativeEncodingPolicy {
-    /// Preserve bytes without assuming an encoding; conversion later rejects
-    /// non-ASCII native strings in format 2 when no header encoding is
-    /// available.
+    /// Preserve bytes for retained `RStr` values without assuming an encoding;
+    /// conversion later rejects non-ASCII native strings in format 2 when no
+    /// header encoding is available. `SYMSXP` print names are decoded during
+    /// parsing.
     #[default]
     RejectUnknown,
     /// Treat native strings as UTF-8 in format 2 when the header has no
     /// encoding, for callers with an external UTF-8 contract. Conversion later
-    /// validates the bytes without lossy replacement.
+    /// validates retained `RStr` bytes without lossy replacement; `SYMSXP`
+    /// print names are decoded during parsing.
     AssumeUtf8,
 }
 
@@ -915,6 +920,39 @@ mod tests {
         };
         assert_eq!(strs[0].encoding(), Some(REncoding::Native));
         assert_eq!(strs[0].as_str().unwrap().unwrap().as_ref(), "a");
+    }
+
+    #[test]
+    fn native_symbol_names_are_decoded_during_format_v2_parsing() {
+        // Handwritten because R cannot easily serialize a non-ASCII Native
+        // symbol deterministically for a fixture.
+        fn stream(print_name: &[u8]) -> Vec<u8> {
+            let mut bytes = vec![b'X', b'\n', 0, 0, 0, 2, 0, 4, 6, 1, 0, 3, 5, 0];
+            bytes.extend_from_slice(&u32::from(SYMSXP).to_be_bytes());
+            bytes.extend_from_slice(&u32::from(CHARSXP).to_be_bytes());
+            bytes.extend_from_slice(&(print_name.len() as i32).to_be_bytes());
+            bytes.extend_from_slice(print_name);
+            bytes
+        }
+
+        let valid_utf8 = stream("é".as_bytes());
+        assert_eq!(parse(&valid_utf8), Err(Error::InvalidSymbolName));
+
+        let symbol = parse_with_options(
+            &valid_utf8,
+            ParseOptions::default().native_encoding_policy(NativeEncodingPolicy::AssumeUtf8),
+        )
+        .expect("AssumeUtf8 should decode a valid Native symbol name");
+        assert_eq!(symbol_name(&symbol), "é");
+
+        let invalid_utf8 = stream(&[0xff]);
+        assert_eq!(
+            parse_with_options(
+                &invalid_utf8,
+                ParseOptions::default().native_encoding_policy(NativeEncodingPolicy::AssumeUtf8),
+            ),
+            Err(Error::InvalidSymbolName)
+        );
     }
 
     #[test]
