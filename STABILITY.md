@@ -63,7 +63,7 @@ document, tagged node, group, or option when no single child is responsible.
 For `UnrepresentableLeafBoundary`, the later of the two adjacent leaves is the
 location.
 
-As a specific exception for the 0.3.x series, classification of a failed write
+As a specific exception for the 0.4.x series, classification of a failed write
 between `WriteError::Verification` and `WriteError::Unserializable` is
 provisional. A patch release may reclassify `Verification` as `Unserializable`
 when the input has no faithful Rd source representation; this may change

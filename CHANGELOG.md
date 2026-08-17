@@ -2,12 +2,20 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-17
+
+This is a minor release because [rd-rds]'s `RStr` changed shape: `RStr::Value`
+no longer exposes public struct-variant fields. Code that matches on those
+fields or constructs the variant directly must move to the accessors on
+`RStrValue` and to the now-public `RStr::new`. Nothing else in this release is
+a source break.
+
 ### Changed
 
 - [rd-rds] Reshape `RStr::Value` to wrap an opaque `RStrValue` with accessors.
   `NativeEncodingSource` now records whether native-encoding context came from
   the stream header or a caller assumption, and consumers constructing `RStr`
-  values use the now-public `RStr::new`.
+  values use the now-public `RStr::new` (#30).
 
 - [rd-rds] The xz decoder is now pure Rust, replacing the `xz2` bindings to the
   system `liblzma`. `rd-rds` links no C library at all, so building it needs no
@@ -16,7 +24,14 @@
   across R's `saveRDS` and the `xz` CLI's compression levels decode
   byte-identically to the previous decoder. In release builds decode speed is
   comparable on realistic inputs, and up to roughly 3x slower on incompressible
-  data, where decoding is a few tens of milliseconds either way.
+  data, where decoding is a few tens of milliseconds either way (#27).
+
+- [rd-writer] The provisional classification of a failed write between
+  `WriteError::Verification` and `WriteError::Unserializable`, declared for the
+  0.3.x series in 0.3.0, now applies to the 0.4.x series. Several unrepresentable
+  inputs still reach `Verification`, where `ast_path()` returns `None`, so a patch
+  release may still reclassify those as `Unserializable`; the reverse
+  reclassification remains disallowed.
 
 ### Added
 
@@ -25,7 +40,7 @@
   Native-string bytes remain available for lazy conversion: the default
   provides unknown native-encoding provenance, while `AssumeUtf8` supplies an
   assumed UTF-8 context and conversion validates the bytes. Format-3 header
-  evidence remains authoritative.
+  evidence remains authoritative (#30).
 
 ## [0.3.1] - 2026-08-11
 
