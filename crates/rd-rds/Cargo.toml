@@ -21,6 +21,7 @@ ruzstd = { workspace = true, optional = true }
 [features]
 default = ["gzip", "xz", "bzip2", "zstd"]
 gzip = ["dep:flate2"]
+lazyload = ["dep:flate2"]
 xz = ["dep:lzma-rust2"]
 bzip2 = ["dep:bzip2"]
 zstd = ["dep:ruzstd"]

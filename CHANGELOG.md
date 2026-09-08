@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- [rd-rds] Add the opt-in `lazyload` feature and a bounded reader for installed
+  package `.rdx` indexes and `.rdb` records. The reader preserves stored
+  variables and persistence references in index order, applies last-wins name
+  lookup, recognizes direct and compound references, and supports raw and
+  zlib records. The feature does not imply the standalone `gzip` feature.
+
 ## [0.4.0] - 2026-08-17
 
 This is a minor release because [rd-rds]'s `RStr` changed shape: `RStr::Value`
