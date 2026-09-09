@@ -28,6 +28,26 @@ pub enum Error {
     #[error("malformed help-db index: {0}")]
     MalformedIndex(String),
 
+    #[error("help-db index exceeds the {limit}-byte limit")]
+    IndexSizeLimitExceeded { limit: usize },
+
+    #[error("stored help-db record exceeds the {limit}-byte limit")]
+    StoredRecordSizeLimitExceeded { limit: usize },
+
+    #[error("decompressed help-db record exceeds the {limit}-byte limit")]
+    DecompressedRecordSizeLimitExceeded { limit: usize },
+
+    #[error("help database changed while it was being read: {path}")]
+    DatabaseChanged { path: PathBuf },
+
+    #[error("record compression {compression:?} is not supported")]
+    UnsupportedRecordCompression {
+        compression: rd_rds::lazyload::Compression,
+    },
+
+    #[error("reference {key:?} does not address a direct record")]
+    UnsupportedReference { key: String },
+
     #[error("unknown topic {topic:?}")]
     UnknownTopic { topic: String },
 

@@ -193,7 +193,6 @@ dependencies = [
 name = "rd-helpdb"
 version = "0.4.0"
 dependencies = [
- "flate2",
  "rd-ast",
  "rd-rds",
  "thiserror",

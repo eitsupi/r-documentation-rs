@@ -101,6 +101,15 @@ fn parses_compound_reference_fixture() {
 }
 
 #[test]
+fn reports_missing_reference_with_reference_specific_error() {
+    let db = LazyLoadDb::open(fixture("compound.rdx"), fixture("zlib.rdb")).unwrap();
+    assert!(matches!(
+        db.read_reference("missing"),
+        Err(Error::UnknownReference { name }) if name == "missing"
+    ));
+}
+
+#[test]
 fn codec_two_and_three_are_explicitly_unsupported() {
     for code in [2, 3] {
         let index = fixture(format!("unsupported-{code}.rdx").as_str());

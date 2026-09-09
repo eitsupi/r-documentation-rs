@@ -4,12 +4,22 @@
 
 ### Added
 
+- [rd-helpdb] Move compiled help database `.rdx` parsing and `.rdb` record
+  access onto `rd-rds`'s bounded `lazyload` reader while retaining the
+  `PackageHelpDb` API and the lower-level compatibility adapters.
 - [rd-rds] Add the opt-in `lazyload` feature and a bounded reader for installed
   package `.rdx` indexes and `.rdb` records. The reader preserves stored
   variables and persistence references in index order, applies last-wins name
   lookup, recognizes direct and compound references, and supports raw and
   zlib records. The feature includes the standalone `gzip` feature because
   normal installed-package `.rdx` indexes use gzip envelopes.
+
+### Changed
+
+- [rd-helpdb] The internal `rd-rds/lazyload` feature is now always enabled;
+  because it includes gzip for normal `.rdx` files, `--no-default-features`
+  still retains gzip while disabling the optional xz, bzip2, and zstd
+  standalone `.rds` codecs.
 
 ## [0.4.0] - 2026-08-17
 

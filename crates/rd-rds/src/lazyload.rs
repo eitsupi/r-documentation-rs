@@ -198,6 +198,8 @@ pub enum Error {
     InvalidVariable { name: String, message: String },
     #[error("unknown variable {name:?}")]
     UnknownVariable { name: String },
+    #[error("unknown persistence reference {name:?}")]
+    UnknownReference { name: String },
     #[error("variable {name:?} does not address a direct record")]
     UnsupportedVariableReference { name: String },
     #[error("record compression {compression:?} is not supported")]
@@ -365,6 +367,23 @@ impl LazyLoadDb {
         self.read_location(location)
     }
 
+    /// Reads a direct record addressed by a persistence reference name.
+    ///
+    /// A missing name returns [`Error::UnknownReference`]. References may
+    /// describe compound or otherwise unsupported records. In that case this
+    /// returns [`Error::UnsupportedVariableReference`], while retaining the
+    /// reference in [`Self::references`] for callers that only need to
+    /// enumerate the index.
+    pub fn read_reference(&self, name: &str) -> Result<RecordBytes, Error> {
+        let reference = self
+            .reference(name)
+            .ok_or_else(|| Error::UnknownReference { name: name.into() })?;
+        let RecordReference::Direct(location) = reference else {
+            return Err(Error::UnsupportedVariableReference { name: name.into() });
+        };
+        self.read_location(*location)
+    }
+
     fn read_location(&self, location: RecordLocation) -> Result<RecordBytes, Error> {
         let before = snapshot(&self.data_path)?;
         if self.data_metadata != before {
@@ -428,16 +447,90 @@ impl LazyLoadDb {
                 {
                     return Err(Error::DataFileChanged);
                 }
-                decode_record(stored, self.compression, self.options).map(|decompressed| {
-                    RecordBytes {
-                        location,
-                        compression: self.compression,
-                        stored: decompressed.0,
-                        decompressed: decompressed.1,
-                    }
+                let decompressed = decode_stored_record(&stored, self.compression, self.options)?;
+                Ok(RecordBytes {
+                    location,
+                    compression: self.compression,
+                    stored,
+                    decompressed,
                 })
             })
     }
+}
+
+/// Decodes the stored bytes of one lazy-load record.
+///
+/// This is the low-level container primitive for callers that already know a
+/// record's compression mode and have obtained its exact `(offset, length)`
+/// slice. It validates the stored and decompressed size limits, the four-byte
+/// length prefix, the compressed stream, and trailing bytes. The returned
+/// vector is the XDR payload accepted by [`crate::parse`].
+pub fn decode_stored_record(
+    stored: &[u8],
+    compression: Compression,
+    options: Options,
+) -> Result<Vec<u8>, Error> {
+    if stored.len() > options.max_stored_record_bytes {
+        return Err(Error::StoredRecordSizeLimitExceeded {
+            limit: options.max_stored_record_bytes,
+        });
+    }
+    if compression == Compression::None {
+        if stored.len() > options.max_decompressed_record_bytes {
+            return Err(Error::DecompressedRecordSizeLimitExceeded {
+                limit: options.max_decompressed_record_bytes,
+            });
+        }
+        return Ok(stored.to_vec());
+    }
+    let declared = u32::from_be_bytes(
+        stored
+            .get(..4)
+            .ok_or(Error::RecordLengthPrefixMissing)?
+            .try_into()
+            .expect("length checked"),
+    ) as usize;
+    if declared > options.max_decompressed_record_bytes {
+        return Err(Error::DecompressedRecordSizeLimitExceeded {
+            limit: options.max_decompressed_record_bytes,
+        });
+    }
+    let payload = &stored[4..];
+    let mut decompressed = Vec::with_capacity(declared.min(8192));
+    match compression {
+        Compression::Zlib => {
+            let mut decoder = flate2::read::ZlibDecoder::new(payload);
+            decoder
+                .by_ref()
+                .take(options.max_decompressed_record_bytes.saturating_add(1) as u64)
+                .read_to_end(&mut decompressed)
+                .map_err(|error| Error::Decompression {
+                    message: error.to_string(),
+                })?;
+            let consumed = decoder.total_in() as usize;
+            if consumed != payload.len() {
+                return Err(Error::TrailingRecordBytes {
+                    trailing: payload.len().saturating_sub(consumed),
+                });
+            }
+        }
+        Compression::Bzip2 | Compression::Xz => {
+            return Err(Error::CompressionUnsupported { compression });
+        }
+        Compression::None => unreachable!("raw records return above"),
+    }
+    if decompressed.len() > options.max_decompressed_record_bytes {
+        return Err(Error::DecompressedRecordSizeLimitExceeded {
+            limit: options.max_decompressed_record_bytes,
+        });
+    }
+    if decompressed.len() != declared {
+        return Err(Error::RecordSizeMismatch {
+            declared,
+            actual: decompressed.len(),
+        });
+    }
+    Ok(decompressed)
 }
 
 fn parse_compression(root: &RObject) -> Result<Compression, Error> {
@@ -714,69 +807,6 @@ fn invalid_index(message: impl Into<String>) -> Error {
     }
 }
 
-fn decode_record(
-    stored: Vec<u8>,
-    compression: Compression,
-    options: Options,
-) -> Result<(Vec<u8>, Vec<u8>), Error> {
-    if compression == Compression::None {
-        if stored.len() > options.max_decompressed_record_bytes {
-            return Err(Error::DecompressedRecordSizeLimitExceeded {
-                limit: options.max_decompressed_record_bytes,
-            });
-        }
-        return Ok((stored.clone(), stored));
-    }
-    let declared = u32::from_be_bytes(
-        stored
-            .get(..4)
-            .ok_or(Error::RecordLengthPrefixMissing)?
-            .try_into()
-            .expect("length checked"),
-    ) as usize;
-    if declared > options.max_decompressed_record_bytes {
-        return Err(Error::DecompressedRecordSizeLimitExceeded {
-            limit: options.max_decompressed_record_bytes,
-        });
-    }
-    let payload = &stored[4..];
-    let mut decompressed = Vec::with_capacity(declared.min(8192));
-    match compression {
-        Compression::Zlib => {
-            let mut decoder = flate2::read::ZlibDecoder::new(payload);
-            decoder
-                .by_ref()
-                .take(options.max_decompressed_record_bytes.saturating_add(1) as u64)
-                .read_to_end(&mut decompressed)
-                .map_err(|error| Error::Decompression {
-                    message: error.to_string(),
-                })?;
-            let consumed = decoder.total_in() as usize;
-            if consumed != payload.len() {
-                return Err(Error::TrailingRecordBytes {
-                    trailing: payload.len().saturating_sub(consumed),
-                });
-            }
-        }
-        Compression::Bzip2 | Compression::Xz => {
-            return Err(Error::CompressionUnsupported { compression });
-        }
-        Compression::None => unreachable!("raw records return above"),
-    }
-    if decompressed.len() > options.max_decompressed_record_bytes {
-        return Err(Error::DecompressedRecordSizeLimitExceeded {
-            limit: options.max_decompressed_record_bytes,
-        });
-    }
-    if decompressed.len() != declared {
-        return Err(Error::RecordSizeMismatch {
-            declared,
-            actual: decompressed.len(),
-        });
-    }
-    Ok((stored, decompressed))
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct FileSnapshot {
     len: u64,
@@ -921,8 +951,7 @@ mod tests {
     #[test]
     fn decodes_raw_record_and_checks_declared_length() {
         let payload = b"X\nexample";
-        let (_, decoded) =
-            decode_record(payload.to_vec(), Compression::None, Options::default()).unwrap();
+        let decoded = decode_stored_record(payload, Compression::None, Options::default()).unwrap();
         assert_eq!(decoded, payload);
     }
 
@@ -937,13 +966,13 @@ mod tests {
         encoder.write_all(payload).unwrap();
         let mut stored = (payload.len() as u32).to_be_bytes().to_vec();
         stored.extend(encoder.finish().unwrap());
-        let (_, decoded) = decode_record(stored.clone(), Compression::Zlib, Options::default())
+        let decoded = decode_stored_record(&stored, Compression::Zlib, Options::default())
             .expect("zlib record");
         assert_eq!(decoded, payload);
 
         stored.push(0);
         assert!(matches!(
-            decode_record(stored, Compression::Zlib, Options::default()),
+            decode_stored_record(&stored, Compression::Zlib, Options::default()),
             Err(Error::TrailingRecordBytes { .. })
         ));
     }
@@ -951,12 +980,12 @@ mod tests {
     #[test]
     fn rejects_short_corrupt_and_mismatched_compressed_records() {
         assert!(matches!(
-            decode_record(vec![0, 0, 0], Compression::Zlib, Options::default()),
+            decode_stored_record(&[0, 0, 0], Compression::Zlib, Options::default()),
             Err(Error::RecordLengthPrefixMissing)
         ));
         assert!(matches!(
-            decode_record(
-                vec![0, 0, 0, 10, 1, 2, 3],
+            decode_stored_record(
+                &[0, 0, 0, 10, 1, 2, 3],
                 Compression::Zlib,
                 Options::default()
             ),
@@ -970,7 +999,7 @@ mod tests {
         let mut stored = (0_u32).to_be_bytes().to_vec();
         stored.extend(encoder.finish().unwrap());
         assert!(matches!(
-            decode_record(stored, Compression::Zlib, Options::default()),
+            decode_stored_record(&stored, Compression::Zlib, Options::default()),
             Err(Error::RecordSizeMismatch { .. })
         ));
     }

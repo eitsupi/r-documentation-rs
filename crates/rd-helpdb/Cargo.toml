@@ -11,16 +11,15 @@ keywords = ["r", "rstats", "documentation", "help", "database"]
 categories = ["database", "parsing"]
 
 [dependencies]
-flate2.workspace = true
-rd-rds.workspace = true
+rd-rds = { workspace = true, features = ["lazyload"] }
 thiserror.workspace = true
 
 [features]
 default = ["gzip", "xz", "bzip2", "zstd"]
-# These forward to rd-rds and control only the compression envelopes accepted
-# for standalone `.rds` files. The direct `flate2` dependency above is
-# unconditional: `.rdb` records are a raw zlib stream, which the format always
-# requires, so `--no-default-features` does not drop flate2.
+# These forward to rd-rds and control only the additional compression
+# envelopes accepted for standalone `.rds` files. The mandatory `lazyload`
+# feature includes gzip for normal installed-package `.rdx` files; raw zlib
+# `.rdb` records are decoded by rd-rds as part of that feature.
 gzip = ["rd-rds/gzip"]
 xz = ["rd-rds/xz"]
 bzip2 = ["rd-rds/bzip2"]
