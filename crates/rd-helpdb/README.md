@@ -16,14 +16,22 @@ help objects into [`rd-ast`](../rd-ast/README.md).
 
 ## Features
 
-The `gzip`, `xz`, `bzip2`, and `zstd` features are enabled by default. They control only the compression envelopes accepted for standalone `.rds` files such as `aliases.rds`, `<pkg>.rdx`, and the `Meta/*.rds` indexes. For example, a consumer that only needs gzip-enveloped `.rds` files can use:
+The `xz`, `bzip2`, and `zstd` features are enabled by default and control
+optional compression envelopes accepted for standalone `.rds` files such as
+`aliases.rds` and the `Meta/*.rds` indexes. Gzip support is always effective
+for installed-package `.rdx` indexes: the mandatory `rd-rds/lazyload` feature
+includes `rd-rds/gzip` because that is the normal installed-package profile.
+
+The `gzip` feature remains as a compatibility forwarding feature for callers
+that name it explicitly, but enabling it does not change the effective codec
+set when `lazyload` is enabled. A minimal build that keeps gzip for help
+databases while omitting the optional standalone codecs can therefore use:
 
 ```toml
 [dependencies]
-rd-helpdb = { version = "0.4.0", default-features = false, features = ["gzip"] }
+rd-helpdb = { version = "0.4.0", default-features = false }
 ```
 
-The `gzip` feature is unrelated to the zlib record stream inside `<pkg>.rdb`.
 The internal `rd-rds/lazyload` feature is always enabled because compiled help
 databases use that bounded reader; it includes the gzip envelope needed by
 normal installed-package `.rdx` files. The standalone codec features still

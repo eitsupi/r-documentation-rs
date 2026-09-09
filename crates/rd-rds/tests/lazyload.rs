@@ -98,6 +98,10 @@ fn parses_compound_reference_fixture() {
             lazy_keys: vec![("line".into(), rd_rds::lazyload::RecordLocation::new(0, 108))],
         })
     );
+    assert!(matches!(
+        db.read_reference("env"),
+        Err(Error::UnsupportedRecordReference { name }) if name == "env"
+    ));
 }
 
 #[test]

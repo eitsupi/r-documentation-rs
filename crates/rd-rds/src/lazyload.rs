@@ -200,8 +200,8 @@ pub enum Error {
     UnknownVariable { name: String },
     #[error("unknown persistence reference {name:?}")]
     UnknownReference { name: String },
-    #[error("variable {name:?} does not address a direct record")]
-    UnsupportedVariableReference { name: String },
+    #[error("record reference {name:?} does not address a direct record")]
+    UnsupportedRecordReference { name: String },
     #[error("record compression {compression:?} is not supported")]
     CompressionUnsupported { compression: Compression },
     #[error("record range ({offset}, {length}) overflows")]
@@ -357,12 +357,15 @@ impl LazyLoadDb {
     }
 
     /// Reads a direct record addressed by a variable name.
+    ///
+    /// Variables backed by compound or otherwise unsupported references
+    /// return [`Error::UnsupportedRecordReference`].
     pub fn read(&self, name: &str) -> Result<RecordBytes, Error> {
         let variable = self
             .variable(name)
             .ok_or_else(|| Error::UnknownVariable { name: name.into() })?;
         let RecordReference::Direct(location) = variable.reference else {
-            return Err(Error::UnsupportedVariableReference { name: name.into() });
+            return Err(Error::UnsupportedRecordReference { name: name.into() });
         };
         self.read_location(location)
     }
@@ -371,7 +374,7 @@ impl LazyLoadDb {
     ///
     /// A missing name returns [`Error::UnknownReference`]. References may
     /// describe compound or otherwise unsupported records. In that case this
-    /// returns [`Error::UnsupportedVariableReference`], while retaining the
+    /// returns [`Error::UnsupportedRecordReference`], while retaining the
     /// reference in [`Self::references`] for callers that only need to
     /// enumerate the index.
     pub fn read_reference(&self, name: &str) -> Result<RecordBytes, Error> {
@@ -379,7 +382,7 @@ impl LazyLoadDb {
             .reference(name)
             .ok_or_else(|| Error::UnknownReference { name: name.into() })?;
         let RecordReference::Direct(location) = reference else {
-            return Err(Error::UnsupportedVariableReference { name: name.into() });
+            return Err(Error::UnsupportedRecordReference { name: name.into() });
         };
         self.read_location(*location)
     }

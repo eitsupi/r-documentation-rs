@@ -16,6 +16,9 @@
 
 ### Changed
 
+- [rd-rds] Rename the lazy-load `UnsupportedVariableReference` error to
+  `UnsupportedRecordReference`, covering both variable reads and persistence
+  reference reads.
 - [rd-helpdb] The internal `rd-rds/lazyload` feature is now always enabled;
   because it includes gzip for normal `.rdx` files, `--no-default-features`
   still retains gzip while disabling the optional xz, bzip2, and zstd

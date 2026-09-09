@@ -290,7 +290,7 @@ fn map_lazyload_record_error(
         rd_rds::lazyload::Error::UnknownReference { .. } if reference => {
             Error::UnknownReference { key: name.into() }
         }
-        rd_rds::lazyload::Error::UnsupportedVariableReference { name } if reference => {
+        rd_rds::lazyload::Error::UnsupportedRecordReference { name } if reference => {
             Error::UnsupportedReference { key: name }
         }
         rd_rds::lazyload::Error::CompressionUnsupported { compression } => {
@@ -434,7 +434,7 @@ mod tests {
         ));
         assert!(matches!(
             map_lazyload_record_error(
-                rd_rds::lazyload::Error::UnsupportedVariableReference { name: "env".into() },
+                rd_rds::lazyload::Error::UnsupportedRecordReference { name: "env".into() },
                 "env",
                 true,
                 &data_path,
