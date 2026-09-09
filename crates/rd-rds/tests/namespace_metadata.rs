@@ -104,7 +104,10 @@ fn installed_package_metadata_preserves_aliases_and_r_import_shapes() {
             },
             NamespaceImport::From {
                 package: "stats".into(),
-                names: vec![rd_rds::package::ImportedName::new("median", "mean")],
+                names: vec![
+                    rd_rds::package::ImportedName::new("sd", "sd"),
+                    rd_rds::package::ImportedName::new("median", "mean"),
+                ],
             },
         ])
     );
@@ -228,6 +231,54 @@ fn imports_accept_r_names_for_an_unnamed_package_field() {
             except: vec!["head".into(), "tail".into()],
         }])
     );
+
+    let mixed_selection = named_list(
+        &["imports"],
+        vec![list_of(vec![RObject::from_parts(
+            RValue::List(vec![
+                character_vector(&["stats"]),
+                named_character_vector(&["", "average"], &["sd", "median"]),
+            ]),
+            Attributes::default(),
+        )])],
+    );
+    let metadata = NamespaceMetadata::from_object(&mixed_selection).expect("metadata root");
+    assert_eq!(
+        metadata.imports(),
+        &MetadataField::Present(vec![NamespaceImport::From {
+            package: "stats".into(),
+            names: vec![
+                rd_rds::package::ImportedName::new("sd", "sd"),
+                rd_rds::package::ImportedName::new("median", "average"),
+            ],
+        }])
+    );
+
+    let invalid_alias = named_list(
+        &["imports"],
+        vec![list_of(vec![RObject::from_parts(
+            RValue::List(vec![
+                character_vector(&["stats"]),
+                RObject::from_parts(
+                    RValue::Character(vec![RStr::new(
+                        b"median",
+                        REncoding::Native,
+                        NativeEncodingSource::Unknown,
+                    )]),
+                    Attributes::new(vec![Attribute::new(
+                        Symbol::new("names"),
+                        RObject::from_parts(
+                            RValue::Character(vec![RStr::Na]),
+                            Attributes::default(),
+                        ),
+                    )]),
+                ),
+            ]),
+            Attributes::default(),
+        )])],
+    );
+    let metadata = NamespaceMetadata::from_object(&invalid_alias).expect("metadata root");
+    assert!(matches!(metadata.imports(), MetadataField::Invalid(_)));
 
     let misplaced = named_list(
         &["imports"],

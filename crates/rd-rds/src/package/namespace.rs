@@ -628,8 +628,14 @@ fn parse_imported_names(object: &RObject, path: &str) -> Result<Vec<ImportedName
                 .map_err(ParseFailure::Invalid)?;
             let local_name = match aliases {
                 Some(aliases) => {
-                    decode_required(&aliases[index], &format!("{path}.names[{index}]"), None)
-                        .map_err(ParseFailure::Invalid)?
+                    let alias =
+                        decode_required(&aliases[index], &format!("{path}.names[{index}]"), None)
+                            .map_err(ParseFailure::Invalid)?;
+                    if alias.is_empty() {
+                        source_name.clone()
+                    } else {
+                        alias
+                    }
                 }
                 None => source_name.clone(),
             };

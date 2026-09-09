@@ -4,7 +4,8 @@
 the minimal package in
 [`namespace-package`](../../namespace-package) with `R CMD INSTALL`. The
 package's `NAMESPACE` includes a named export, an ordinary export, an
-`import(..., except = ...)`, an aliased `importFrom`, and an S3 declaration.
+`import(..., except = ...)`, a mixed unaliased/aliased `importFrom`, and an S3
+declaration.
 The checked-in artifact was generated with R 4.6.1; it is not copied from an
 installed system package or another repository.
 
