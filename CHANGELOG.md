@@ -4,6 +4,10 @@
 
 ### Added
 
+- [rd-rds] Add the owned `package::NamespaceMetadata` view for static
+  `Meta/nsInfo.rds` declarations, including field-local diagnostics, import
+  aliases and exclusions, S3 registration/evidence separation, and explicit
+  S4 export declarations.
 - [rd-rds] Add the opt-in `lazyload` feature and a bounded reader for installed
   package `.rdx` indexes and `.rdb` records. The reader preserves stored
   variables and persistence references in index order, applies last-wins name

@@ -17,6 +17,10 @@
 //! validates and owns the matrix data, absorbing R's column-major layout.
 //! Row/column lookup uses an outer `Option` for a missing column or row and an
 //! inner `Option` for an R `NA` cell.
+//!
+//! [`NamespaceMetadata`] provides a separate owned view of static declarations
+//! from `Meta/nsInfo.rds`. It does not represent runtime namespace state or
+//! stored lazy-load bindings.
 
 use std::{collections::BTreeMap, fmt};
 
@@ -24,8 +28,14 @@ use thiserror::Error;
 
 use crate::{RObject, RStr, RValue};
 
+mod namespace;
+
+pub use namespace::{
+    ImportedName, MetadataField, NamespaceImport, NamespaceMetadata, S3MethodName, S3Registration,
+};
+
 /// A construction error from the typed installed-package metadata view.
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ViewError {
     #[error("missing value at {path}")]
