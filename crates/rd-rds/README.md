@@ -33,6 +33,8 @@ The `lazyload` feature includes the `gzip` feature because installed package
 `.rdx` indexes use the standalone gzip envelope in the normal package
 profile. Callers that enable `lazyload` therefore also get gzip `.rds`
 handling; the other standalone codecs remain independently selectable.
+The low-level `lazyload::decode_stored_record` helper applies the same bounded
+record decoder to an already isolated `(offset, length)` byte slice.
 
 Record reads take a metadata snapshot when the database opens and compare it
 before and after each read. On Unix this includes device and inode, and on

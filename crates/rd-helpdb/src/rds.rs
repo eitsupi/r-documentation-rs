@@ -9,9 +9,7 @@
 //! - A `.rdb` record is framed as a 4-byte big-endian uncompressed-size
 //!   prefix followed by a raw zlib deflate stream (no gzip wrapper).
 
-use std::{io::Read, path::Path};
-
-use flate2::read::ZlibDecoder;
+use std::path::Path;
 
 use crate::Error;
 
@@ -33,32 +31,43 @@ pub fn read_rds_file(path: impl AsRef<Path>) -> Result<rd_rds::RObject, Error> {
 /// Decodes a single `.rdb` record: `bytes` is the exact `(offset, length)`
 /// slice a `.rdx` index entry points at, i.e. a 4-byte big-endian
 /// uncompressed-size prefix followed by a raw zlib deflate stream. The
-/// decompressed size is checked against the prefix before parsing.
+/// bounded `rd-rds::lazyload` record decoder checks the decompressed size,
+/// input size, stream completeness, and trailing bytes before parsing.
 pub fn decode_rdb_record(bytes: &[u8]) -> Result<rd_rds::RObject, Error> {
-    if bytes.len() < 4 {
-        // Too short to even hold the 4-byte length prefix.
-        return Err(Error::RecordSizeMismatch {
-            expected: 4,
-            actual: bytes.len(),
-        });
-    }
-    let (prefix, payload) = bytes.split_at(4);
-    let declared_len =
-        u32::from_be_bytes(prefix.try_into().expect("split_at(4) yields 4 bytes")) as usize;
-
-    let mut decoder = ZlibDecoder::new(payload);
-    let mut decompressed = Vec::new();
-    decoder.read_to_end(&mut decompressed).map_err(|err| {
-        Error::MalformedIndex(format!("zlib decompression of .rdb record failed: {err}"))
-    })?;
-    if decompressed.len() != declared_len {
-        return Err(Error::RecordSizeMismatch {
-            expected: declared_len,
-            actual: decompressed.len(),
-        });
-    }
-
+    let decompressed = rd_rds::lazyload::decode_stored_record(
+        bytes,
+        rd_rds::lazyload::Compression::Zlib,
+        rd_rds::lazyload::Options::default(),
+    )
+    .map_err(|error| map_record_decode_error(error, bytes.len()))?;
     Ok(rd_rds::parse(&decompressed)?)
+}
+
+fn map_record_decode_error(error: rd_rds::lazyload::Error, stored_len: usize) -> Error {
+    match error {
+        rd_rds::lazyload::Error::StoredRecordSizeLimitExceeded { limit } => {
+            Error::StoredRecordSizeLimitExceeded { limit }
+        }
+        rd_rds::lazyload::Error::DecompressedRecordSizeLimitExceeded { limit } => {
+            Error::DecompressedRecordSizeLimitExceeded { limit }
+        }
+        rd_rds::lazyload::Error::RecordLengthPrefixMissing => Error::RecordSizeMismatch {
+            expected: 4,
+            actual: stored_len,
+        },
+        rd_rds::lazyload::Error::RecordSizeMismatch { declared, actual } => {
+            Error::RecordSizeMismatch {
+                expected: declared,
+                actual,
+            }
+        }
+        rd_rds::lazyload::Error::CompressionUnsupported { compression } => {
+            Error::UnsupportedRecordCompression { compression }
+        }
+        other => {
+            Error::MalformedIndex(format!("zlib decompression of .rdb record failed: {other}"))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -90,5 +99,21 @@ mod tests {
                 actual: 3
             }
         ));
+    }
+
+    #[test]
+    fn compatibility_record_decoder_rejects_trailing_bytes() {
+        let mut bytes = include_bytes!("../tests/fixtures/data/rd_minimal_v3.rdbentry").to_vec();
+        bytes.push(0);
+        let err = decode_rdb_record(&bytes).unwrap_err();
+        assert!(matches!(err, Error::MalformedIndex(message) if message.contains("trailing")));
+    }
+
+    #[test]
+    fn compatibility_record_decoder_maps_declared_size_mismatch() {
+        let mut bytes = include_bytes!("../tests/fixtures/data/rd_minimal_v3.rdbentry").to_vec();
+        bytes[3] = bytes[3].wrapping_add(1);
+        let err = decode_rdb_record(&bytes).unwrap_err();
+        assert!(matches!(err, Error::RecordSizeMismatch { .. }));
     }
 }

@@ -19,7 +19,6 @@
 mod db;
 pub mod demo;
 mod error;
-mod index;
 mod rds;
 mod util;
 pub mod vignette;
