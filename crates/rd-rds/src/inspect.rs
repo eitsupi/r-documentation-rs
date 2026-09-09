@@ -190,7 +190,7 @@ impl<'a> Inspector<'a> {
         }
 
         if root_flags.has_attributes()
-            && let Err(failure) = self.skip_object(FailurePhase::Attributes)
+            && let Err(failure) = self.skip_attributes(FailurePhase::Attributes)
         {
             return Ok(self.unavailable(kind, FormalsInspection::Unavailable(failure)));
         }
@@ -271,7 +271,7 @@ impl<'a> Inspector<'a> {
                 })?;
 
             if flags.has_attributes() {
-                self.skip_object_at(FailurePhase::Formals, 2)?;
+                self.skip_attributes_at(FailurePhase::Formals, 2)?;
             }
             if !flags.has_tag() {
                 return Err(PrefixFailure {
@@ -370,6 +370,18 @@ impl<'a> Inspector<'a> {
         Ok(())
     }
 
+    fn skip_attributes(&mut self, phase: FailurePhase) -> Result<(), PrefixFailure> {
+        self.skip_attributes_at(phase, 1)
+    }
+
+    fn skip_attributes_at(&mut self, phase: FailurePhase, depth: u32) -> Result<(), PrefixFailure> {
+        let mut tasks = vec![Task::Attributes { depth }];
+        while let Some(task) = tasks.pop() {
+            self.step_task(task, phase, &mut tasks)?;
+        }
+        Ok(())
+    }
+
     fn skip_flags(
         &mut self,
         flags: ItemFlags,
@@ -390,6 +402,136 @@ impl<'a> Inspector<'a> {
         tasks: &mut Vec<Task>,
     ) -> Result<(), PrefixFailure> {
         match task {
+            Task::Attributes { depth } => {
+                self.state.check_depth(depth).map_err(|error| {
+                    self.failure_from_error(error, phase, self.cursor.position())
+                })?;
+                let offset = self.cursor.position();
+                let flags = self
+                    .state
+                    .read_flags(&mut self.cursor)
+                    .map_err(|error| self.failure_from_error(error, phase, offset))?;
+                if wire::is_nil(flags) {
+                    return Ok(());
+                }
+                if flags.type_code() != wire::LISTSXP {
+                    return Err(PrefixFailure {
+                        phase,
+                        offset,
+                        reason: FailureReason::Malformed,
+                    });
+                }
+                tasks.push(Task::AttributeCell {
+                    flags,
+                    depth,
+                    offset,
+                });
+            }
+            Task::AttributeCell {
+                flags,
+                depth,
+                offset,
+            } => {
+                self.state.check_depth(depth).map_err(|error| {
+                    self.failure_from_error(error, phase, self.cursor.position())
+                })?;
+                if flags.type_code() != wire::LISTSXP {
+                    return Err(PrefixFailure {
+                        phase,
+                        offset,
+                        reason: FailureReason::Malformed,
+                    });
+                }
+                self.state
+                    .account_elements(1, self.cursor.position())
+                    .map_err(|error| {
+                        self.failure_from_error(error, phase, self.cursor.position())
+                    })?;
+                tasks.push(Task::AttributeCellAfterAttributes {
+                    flags,
+                    depth,
+                    offset,
+                });
+                if flags.has_attributes() {
+                    tasks.push(Task::Attributes { depth: depth + 1 });
+                }
+            }
+            Task::AttributeCellAfterAttributes {
+                flags,
+                depth,
+                offset,
+            } => {
+                if !flags.has_tag() {
+                    return Err(PrefixFailure {
+                        phase,
+                        offset,
+                        reason: FailureReason::Malformed,
+                    });
+                }
+                let tag_offset = self.cursor.position();
+                self.state
+                    .check_depth(depth + 1)
+                    .map_err(|error| self.failure_from_error(error, phase, tag_offset))?;
+                let tag_flags = self
+                    .state
+                    .read_flags(&mut self.cursor)
+                    .map_err(|error| self.failure_from_error(error, phase, tag_offset))?;
+                match tag_flags.type_code() {
+                    wire::SYMSXP => {
+                        self.state
+                            .decode_symbol(&mut self.cursor)
+                            .map_err(|error| self.failure_from_error(error, phase, tag_offset))?;
+                    }
+                    wire::REFSXP => {
+                        let index = self
+                            .state
+                            .read_ref_index(&mut self.cursor, tag_flags)
+                            .map_err(|error| self.failure_from_error(error, phase, tag_offset))?;
+                        let reference = self
+                            .state
+                            .resolve(index, tag_offset)
+                            .map_err(|error| self.failure_from_error(error, phase, tag_offset))?;
+                        if !matches!(reference, RefEntry::Symbol(_)) {
+                            return Err(PrefixFailure {
+                                phase,
+                                offset: tag_offset,
+                                reason: FailureReason::Malformed,
+                            });
+                        }
+                    }
+                    _ => {
+                        return Err(PrefixFailure {
+                            phase,
+                            offset: tag_offset,
+                            reason: FailureReason::Malformed,
+                        });
+                    }
+                }
+                tasks.push(Task::AttributeAfterValue { depth });
+                tasks.push(Task::Object { depth: depth + 1 });
+            }
+            Task::AttributeAfterValue { depth } => {
+                let offset = self.cursor.position();
+                let flags = self
+                    .state
+                    .read_flags(&mut self.cursor)
+                    .map_err(|error| self.failure_from_error(error, phase, offset))?;
+                if wire::is_nil(flags) {
+                    return Ok(());
+                }
+                if flags.type_code() != wire::LISTSXP {
+                    return Err(PrefixFailure {
+                        phase,
+                        offset,
+                        reason: FailureReason::Malformed,
+                    });
+                }
+                tasks.push(Task::AttributeCell {
+                    flags,
+                    depth,
+                    offset,
+                });
+            }
             Task::Object { depth } => {
                 self.state.check_depth(depth).map_err(|error| {
                     self.failure_from_error(error, phase, self.cursor.position())
@@ -418,7 +560,7 @@ impl<'a> Inspector<'a> {
                     })?;
                 if flags.has_attributes() {
                     tasks.push(Task::PairAfterAttributes { flags, depth });
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 } else {
                     tasks.push(Task::PairAfterAttributes { flags, depth });
                 }
@@ -534,7 +676,7 @@ impl<'a> Inspector<'a> {
                         self.failure_from_error(error, phase, self.cursor.position())
                     })?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             wire::CHARSXP => {
@@ -544,7 +686,7 @@ impl<'a> Inspector<'a> {
                         self.failure_from_error(error, phase, self.cursor.position())
                     })?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             wire::ENVSXP => {
@@ -576,7 +718,7 @@ impl<'a> Inspector<'a> {
                 tasks.push(Task::Object { depth: depth + 1 });
                 tasks.push(Task::Object { depth: depth + 1 });
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             wire::LISTSXP | wire::LANGSXP | wire::PROMSXP | wire::DOTSXP => {
@@ -589,7 +731,7 @@ impl<'a> Inspector<'a> {
                     .read_vector_len(&mut self.cursor)
                     .map_err(|error| self.failure_from_error(error, phase, len_offset))?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
                 if type_code == wire::STRSXP {
                     tasks.push(Task::StringItems {
@@ -615,7 +757,7 @@ impl<'a> Inspector<'a> {
                         self.failure_from_error(error, phase, self.cursor.position())
                     })?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             wire::REALSXP => {
@@ -630,7 +772,7 @@ impl<'a> Inspector<'a> {
                         self.failure_from_error(error, phase, self.cursor.position())
                     })?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             wire::CPLXSXP => {
@@ -645,7 +787,7 @@ impl<'a> Inspector<'a> {
                         self.failure_from_error(error, phase, self.cursor.position())
                     })?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             wire::RAWSXP | wire::SPECIALSXP | wire::BUILTINSXP => {
@@ -658,7 +800,7 @@ impl<'a> Inspector<'a> {
                     self.failure_from_error(error, phase, self.cursor.position())
                 })?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             wire::PERSISTSXP | wire::PACKAGESXP | wire::NAMESPACESXP => {
@@ -668,7 +810,7 @@ impl<'a> Inspector<'a> {
                     .read_string_vec_len(&mut self.cursor)
                     .map_err(|error| self.failure_from_error(error, phase, len_offset))?;
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
                 tasks.push(Task::StringItems {
                     remaining: len,
@@ -681,7 +823,7 @@ impl<'a> Inspector<'a> {
             }
             wire::S4SXP => {
                 if flags.has_attributes() {
-                    tasks.push(Task::Object { depth: depth + 1 });
+                    tasks.push(Task::Attributes { depth: depth + 1 });
                 }
             }
             BCODESXP | EXTPTRSXP | WEAKREFSXP | ALTREP_SXP => {
@@ -711,6 +853,22 @@ impl<'a> Inspector<'a> {
 
 #[derive(Debug, Clone)]
 enum Task {
+    Attributes {
+        depth: u32,
+    },
+    AttributeCell {
+        flags: ItemFlags,
+        depth: u32,
+        offset: usize,
+    },
+    AttributeCellAfterAttributes {
+        flags: ItemFlags,
+        depth: u32,
+        offset: usize,
+    },
+    AttributeAfterValue {
+        depth: u32,
+    },
     Object {
         depth: u32,
     },
@@ -1035,7 +1193,40 @@ mod tests {
             result.formals,
             FormalsInspection::Unavailable(PrefixFailure {
                 phase: FailurePhase::Attributes,
-                reason: FailureReason::Unsupported { .. },
+                reason: FailureReason::Malformed,
+                ..
+            })
+        ));
+
+        let mut missing_attribute_tag = closure_bytes();
+        missing_attribute_tag[25] |= 0x02;
+        missing_attribute_tag[27..31].copy_from_slice(&[0, 0, 0, wire::LISTSXP]);
+        let result =
+            inspect_stored_object(&missing_attribute_tag, InspectionOptions::default()).unwrap();
+        assert!(matches!(
+            result.formals,
+            FormalsInspection::Unavailable(PrefixFailure {
+                phase: FailurePhase::Attributes,
+                reason: FailureReason::Malformed,
+                ..
+            })
+        ));
+
+        let mut formal_attributes =
+            include_bytes!("../tests/fixtures/data/closure_formals_v3.rds").to_vec();
+        let cell = formal_attributes
+            .windows(4)
+            .position(|window| window == [0, 0, 4, wire::LISTSXP])
+            .unwrap();
+        formal_attributes[cell + 2] |= 0x02;
+        formal_attributes[cell + 7] = EXTPTRSXP;
+        let result =
+            inspect_stored_object(&formal_attributes, InspectionOptions::default()).unwrap();
+        assert!(matches!(
+            result.formals,
+            FormalsInspection::Unavailable(PrefixFailure {
+                phase: FailurePhase::Formals,
+                reason: FailureReason::Malformed,
                 ..
             })
         ));
@@ -1112,6 +1303,29 @@ mod tests {
                 })
             ));
         }
+    }
+
+    #[test]
+    fn attribute_tags_honor_the_nested_depth_limit() {
+        let bytes = include_bytes!("../tests/fixtures/data/closure_attributes_s4_v3.rds");
+        let name_offset = bytes
+            .windows(b"inspection_s4".len())
+            .position(|window| window == b"inspection_s4")
+            .expect("S4 attribute name");
+        let tag_offset = name_offset - 12;
+        let result = inspect_stored_object(
+            bytes,
+            InspectionOptions::default().limits(Limits::default().max_depth(1)),
+        )
+        .unwrap();
+        assert!(matches!(
+            result.formals,
+            FormalsInspection::Unavailable(PrefixFailure {
+                phase: FailurePhase::Attributes,
+                offset,
+                reason: FailureReason::ResourceLimit,
+            }) if offset == tag_offset
+        ));
     }
 
     #[test]
