@@ -98,6 +98,19 @@ fn parses_compound_reference_fixture() {
             lazy_keys: vec![("line".into(), rd_rds::lazyload::RecordLocation::new(0, 108))],
         })
     );
+    assert!(matches!(
+        db.read_reference("env"),
+        Err(Error::UnsupportedRecordReference { name }) if name == "env"
+    ));
+}
+
+#[test]
+fn reports_missing_reference_with_reference_specific_error() {
+    let db = LazyLoadDb::open(fixture("compound.rdx"), fixture("zlib.rdb")).unwrap();
+    assert!(matches!(
+        db.read_reference("missing"),
+        Err(Error::UnknownReference { name }) if name == "missing"
+    ));
 }
 
 #[test]
