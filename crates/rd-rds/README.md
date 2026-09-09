@@ -86,6 +86,26 @@ fn generic_evidence(object: &rd_rds::RObject) -> BTreeSet<String> {
 The caller still decides how missing metadata, invalid schemas, base-generic
 catalogs, shadowing, and library precedence should affect its provider.
 
+## Closure prefix inspection
+
+The decoder also contains a crate-private bounded inspector for consumers that
+need to classify a serialized object before materializing it. For a closure it
+walks attributes, environment fields, and the formal/default pairlist while
+sharing strict decoding's reference registration/resolution, encoding, depth,
+and element accounting. It also applies inspection-specific byte and
+formal-count limits.
+It reports formal names in wire order (including `...`, duplicate names, and
+non-syntactic UTF-8 names), distinguishes missing defaults from present
+defaults including `NULL`, and stops immediately after observing the body tag.
+The body payload is intentionally not validated. Prefix failures retain their
+phase and byte offset in an unavailable result after the root kind is known;
+failures before the root flags remain top-level errors. This is an internal
+inspection boundary, not a general R object walker or a replacement for
+`parse`. Deterministic plain and compiler-produced format-2/format-3 fixtures,
+along with generated diagnostic, ALTREP, S4, namespace, and persisted-reference
+cases, are produced in the source repository by
+`tests/fixtures/generate_closure_inspection_fixture.R`.
+
 ## Runnable examples
 
 ```text

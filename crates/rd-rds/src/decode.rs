@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::wire::{
     BASEENV_SXP, BASENAMESPACE_SXP, BUILTINSXP, CHARSXP, CPLXSXP, EMPTYENV_SXP, ENVSXP, EXPRSXP,
     GLOBALENV_SXP, INTSXP, ItemFlags, LGLSXP, LISTSXP, MISSINGARG_SXP, NA_INTEGER, NA_REAL_BITS,
@@ -321,12 +319,7 @@ impl Decoder {
         cursor: &mut ByteCursor<'_>,
         flags: ItemFlags,
     ) -> Result<RObject, Error> {
-        let inline_index = flags.ref_index_inline();
-        let index = if inline_index == 0 {
-            cursor.read_be_i32()? as u32
-        } else {
-            inline_index
-        };
+        let index = self.state.read_ref_index(cursor, flags)?;
 
         match self
             .state
@@ -420,15 +413,7 @@ impl Decoder {
         cursor: &mut ByteCursor<'_>,
         _flags: ItemFlags,
     ) -> Result<Symbol, Error> {
-        let print_name = self.decode_char_item(cursor)?;
-        let text = print_name
-            .as_str()
-            .ok_or(Error::InvalidSymbolName)?
-            .map_err(|_| Error::InvalidSymbolName)?;
-        let symbol = Symbol::new(Arc::<str>::from(text.as_ref()));
-        self.state
-            .register(RefEntry::Symbol(symbol.clone()), cursor.position())?;
-        Ok(symbol)
+        self.state.decode_symbol(cursor)
     }
 
     fn decode_persisted(&mut self, cursor: &mut ByteCursor<'_>) -> Result<Persisted, Error> {
@@ -444,26 +429,7 @@ impl Decoder {
     /// count (with the usual -1 long-vector escape), then that many
     /// `CHARSXP` items.
     fn decode_string_vec(&mut self, cursor: &mut ByteCursor<'_>) -> Result<Vec<RStr>, Error> {
-        let _placeholder = cursor.read_be_i32()?;
-        let offset = cursor.position();
-        let len = cursor.read_be_i32()?;
-        let len = if len == -1 {
-            let len = self.state.read_long_len(cursor)?;
-            return Err(Error::PersistedLongVectorUnsupported { len, offset });
-        } else if len < 0 {
-            return Err(Error::NegativeLength { len, offset });
-        } else {
-            len as usize
-        };
-
-        if len > self.state.max_vector_len() {
-            return Err(Error::VectorLengthLimitExceeded {
-                limit: self.state.max_vector_len(),
-                length: len,
-                offset,
-            });
-        }
-        self.state.account_elements(len, offset)?;
+        let len = self.state.read_string_vec_len(cursor)?;
         (0..len)
             .map(|_| self.decode_char_item(cursor))
             .collect::<Result<Vec<_>, _>>()
@@ -543,12 +509,7 @@ impl Decoder {
         match flags.type_code() {
             SYMSXP => self.decode_symbol_with_flags(cursor, flags),
             REFSXP => {
-                let inline_index = flags.ref_index_inline();
-                let index = if inline_index == 0 {
-                    cursor.read_be_i32()? as u32
-                } else {
-                    inline_index
-                };
+                let index = self.state.read_ref_index(cursor, flags)?;
                 match self
                     .state
                     .resolve(index, cursor.position().saturating_sub(4))?

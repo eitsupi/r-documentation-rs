@@ -35,8 +35,9 @@ pub(crate) const STRSXP: u8 = 16;
 pub(crate) const DOTSXP: u8 = 17;
 pub(crate) const VECSXP: u8 = 19;
 pub(crate) const EXPRSXP: u8 = 20;
-#[cfg(test)]
 pub(crate) const EXTPTRSXP: u8 = 22;
+pub(crate) const BCODESXP: u8 = 21;
+pub(crate) const WEAKREFSXP: u8 = 23;
 pub(crate) const RAWSXP: u8 = 24;
 pub(crate) const S4SXP: u8 = 25;
 pub(crate) const BASEENV_SXP: u8 = 241;
@@ -50,6 +51,10 @@ pub(crate) const GLOBALENV_SXP: u8 = 253;
 pub(crate) const NILVALUE_SXP: u8 = 254;
 pub(crate) const REFSXP: u8 = 255;
 pub(crate) const PERSISTSXP: u8 = 247;
+/// ALTREP is an internal serialized type code rather than a regular SEXP
+/// value. It is deliberately kept here so bounded inspection can reject it
+/// without treating it as an unknown byte sequence.
+pub(crate) const ALTREP_SXP: u8 = 238;
 
 pub(crate) const NA_INTEGER: i32 = i32::MIN;
 pub(crate) const NA_REAL_BITS: u64 = 0x7ff0_0000_0000_07a2;
@@ -207,6 +212,30 @@ impl WireState {
         ))
     }
 
+    pub(crate) fn read_ref_index(
+        &mut self,
+        cursor: &mut ByteCursor<'_>,
+        flags: ItemFlags,
+    ) -> Result<u32, Error> {
+        let inline_index = flags.ref_index_inline();
+        if inline_index == 0 {
+            Ok(cursor.read_be_i32()? as u32)
+        } else {
+            Ok(inline_index)
+        }
+    }
+
+    pub(crate) fn decode_symbol(&mut self, cursor: &mut ByteCursor<'_>) -> Result<Symbol, Error> {
+        let print_name = self.decode_char_item(cursor)?;
+        let text = print_name
+            .as_str()
+            .ok_or(Error::InvalidSymbolName)?
+            .map_err(|_| Error::InvalidSymbolName)?;
+        let symbol = Symbol::new(Arc::<str>::from(text.as_ref()));
+        self.register(RefEntry::Symbol(symbol.clone()), cursor.position())?;
+        Ok(symbol)
+    }
+
     pub(crate) fn register(&mut self, entry: RefEntry, offset: usize) -> Result<(), Error> {
         self.refs.register(entry, self.limits, offset)
     }
@@ -245,8 +274,34 @@ impl WireState {
         Ok(len)
     }
 
-    pub(crate) fn read_long_len(&mut self, cursor: &mut ByteCursor<'_>) -> Result<u64, Error> {
-        read_long_len(cursor)
+    /// Reads the shared string-vector framing used by persisted/package and
+    /// namespace references, accounting for its elements before any strings
+    /// are decoded. Registration remains the caller's responsibility and is
+    /// performed only after all string payloads have been consumed.
+    pub(crate) fn read_string_vec_len(
+        &mut self,
+        cursor: &mut ByteCursor<'_>,
+    ) -> Result<usize, Error> {
+        let _placeholder = cursor.read_be_i32()?;
+        let offset = cursor.position();
+        let len = cursor.read_be_i32()?;
+        let len = if len == -1 {
+            let len = read_long_len(cursor)?;
+            return Err(Error::PersistedLongVectorUnsupported { len, offset });
+        } else if len < 0 {
+            return Err(Error::NegativeLength { len, offset });
+        } else {
+            len as usize
+        };
+        if len > self.max_vector_len() {
+            return Err(Error::VectorLengthLimitExceeded {
+                limit: self.max_vector_len(),
+                length: len,
+                offset,
+            });
+        }
+        self.account_elements(len, offset)?;
+        Ok(len)
     }
 
     pub(crate) fn check_depth(&self, depth: u32) -> Result<(), Error> {
