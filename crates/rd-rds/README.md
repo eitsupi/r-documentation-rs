@@ -54,6 +54,12 @@ S4 declarations are static metadata: they are not runtime namespace exports,
 stored lazy-load bindings, evaluated export patterns, or `.onLoad` results.
 Each known field is independently represented by [`package::MetadataField`],
 so a malformed S3 schema does not hide valid declared exports.
+Declared exports are returned as [`package::NamespaceExport`] values: the
+source binding and namespace-facing name are preserved separately, so an
+assignment-shaped export such as `export(public = internal)` is not confused
+with an ordinary `export(name)`. Empty export-name attributes use the source
+name. The installed-package fixture also exercises the R-written
+`list("utils", except = ...)` import shape and an aliased `importFrom`.
 
 A consumer such as a mini-roxygen provider can retain its existing policy
 boundary while replacing ad-hoc S3 extraction with positive evidence:

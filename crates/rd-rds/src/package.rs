@@ -31,7 +31,8 @@ use crate::{RObject, RStr, RValue};
 mod namespace;
 
 pub use namespace::{
-    ImportedName, MetadataField, NamespaceImport, NamespaceMetadata, S3MethodName, S3Registration,
+    ImportedName, MetadataField, NamespaceExport, NamespaceImport, NamespaceMetadata, S3MethodName,
+    S3Registration,
 };
 
 /// A construction error from the typed installed-package metadata view.

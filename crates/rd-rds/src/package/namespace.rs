@@ -58,6 +58,38 @@ pub struct ImportedName {
     local_name: String,
 }
 
+/// One statically declared export, retaining source and exported names.
+///
+/// For an ordinary `export(name)` declaration both names are identical. An
+/// assignment-shaped declaration such as `export(public_name = internal_name)`
+/// retains the source binding as `source_name` and the namespace binding as
+/// `exported_name`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamespaceExport {
+    source_name: String,
+    exported_name: String,
+}
+
+impl NamespaceExport {
+    /// Creates an exported source/binding name pair.
+    pub fn new(source_name: impl Into<String>, exported_name: impl Into<String>) -> Self {
+        Self {
+            source_name: source_name.into(),
+            exported_name: exported_name.into(),
+        }
+    }
+
+    /// Returns the source binding name.
+    pub fn source_name(&self) -> &str {
+        &self.source_name
+    }
+
+    /// Returns the name exposed by the namespace.
+    pub fn exported_name(&self) -> &str {
+        &self.exported_name
+    }
+}
+
 impl ImportedName {
     /// Creates an imported source/local name pair.
     pub fn new(source_name: impl Into<String>, local_name: impl Into<String>) -> Self {
@@ -147,7 +179,7 @@ impl S3Registration {
 /// regex evaluation, re-exports, or `.onLoad` additions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamespaceMetadata {
-    declared_exports: MetadataField<Vec<String>>,
+    declared_exports: MetadataField<Vec<NamespaceExport>>,
     export_patterns: MetadataField<Vec<String>>,
     imports: MetadataField<Vec<NamespaceImport>>,
     s3_registrations: MetadataField<Vec<S3Registration>>,
@@ -182,7 +214,7 @@ impl NamespaceMetadata {
         }
 
         Ok(Self {
-            declared_exports: parse_known_field(&fields, "exports", parse_strings),
+            declared_exports: parse_known_field(&fields, "exports", parse_exports),
             export_patterns: parse_known_field(&fields, "exportPatterns", parse_strings),
             imports: parse_known_field(&fields, "imports", parse_imports),
             s3_registrations: parse_known_field(&fields, "S3methods", parse_s3_registrations),
@@ -193,7 +225,7 @@ impl NamespaceMetadata {
         })
     }
 
-    pub fn declared_exports(&self) -> &MetadataField<Vec<String>> {
+    pub fn declared_exports(&self) -> &MetadataField<Vec<NamespaceExport>> {
         &self.declared_exports
     }
 
@@ -260,6 +292,69 @@ where
             MetadataField::UnsupportedSchema { description }
         }
     }
+}
+
+fn parse_exports(object: &RObject, path: &str) -> Result<Vec<NamespaceExport>, ParseFailure> {
+    let values = match object.value() {
+        RValue::Character(values) => values,
+        value => {
+            return Err(ParseFailure::Invalid(unexpected_type(
+                path,
+                None,
+                "character vector",
+                value.kind_name(),
+            )));
+        }
+    };
+    let aliases = match object.attributes().get("names") {
+        None => None,
+        Some(attribute) => match &attribute.value() {
+            RValue::Character(names) => Some(names),
+            value => {
+                return Err(ParseFailure::Invalid(unexpected_type(
+                    &format!("{path}.names"),
+                    None,
+                    "character vector",
+                    value.kind_name(),
+                )));
+            }
+        },
+    };
+    if let Some(aliases) = aliases
+        && aliases.len() != values.len()
+    {
+        return Err(ParseFailure::Invalid(unexpected_length(
+            &format!("{path}.names"),
+            None,
+            values.len().to_string(),
+            aliases.len(),
+        )));
+    }
+    values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            let source_name = decode_required(value, &format!("{path}[{index}]"), None)
+                .map_err(ParseFailure::Invalid)?;
+            let exported_name = match aliases {
+                Some(aliases) => {
+                    let alias =
+                        decode_required(&aliases[index], &format!("{path}.names[{index}]"), None)
+                            .map_err(ParseFailure::Invalid)?;
+                    if alias.is_empty() {
+                        source_name.clone()
+                    } else {
+                        alias
+                    }
+                }
+                None => source_name.clone(),
+            };
+            Ok(NamespaceExport {
+                source_name,
+                exported_name,
+            })
+        })
+        .collect()
 }
 
 fn parse_strings(object: &RObject, path: &str) -> Result<Vec<String>, ParseFailure> {
@@ -372,11 +467,19 @@ fn parse_import_entry(object: &RObject, path: &str) -> Result<NamespaceImport, P
 
     // A named entry must be interpreted entirely by its names. In particular,
     // an unknown second name must not silently turn a two-element list into
-    // the positional package/selections shape.
+    // the positional package/selections shape. R writes the package element
+    // of `list("pkg", except = ...)` with an empty name; only that first
+    // position is accepted as an implicit package field.
     let mut decoded_names = Vec::with_capacity(names.len());
+    let mut empty_name_indices = Vec::new();
     for (index, name) in names.iter().enumerate() {
         let decoded = decode_required(name, &format!("{path}.names[{index}]"), None)
             .map_err(ParseFailure::Invalid)?;
+        if decoded.is_empty() {
+            empty_name_indices.push(index);
+            decoded_names.push(decoded);
+            continue;
+        }
         if !matches!(
             decoded.as_str(),
             "package" | "except" | "selections" | "names"
@@ -394,7 +497,19 @@ fn parse_import_entry(object: &RObject, path: &str) -> Result<NamespaceImport, P
         decoded_names.push(decoded);
     }
 
-    let package_index = decoded_names.iter().position(|name| name == "package");
+    if empty_name_indices != [0] && !empty_name_indices.is_empty() {
+        return Err(ParseFailure::Unsupported(format!(
+            "{path} has an unnamed import field outside the first position"
+        )));
+    }
+    let named_package_index = decoded_names.iter().position(|name| name == "package");
+    if !empty_name_indices.is_empty() && named_package_index.is_some() {
+        return Err(ParseFailure::Invalid(super::duplicate(
+            &format!("{path}.names"),
+            Some("package".into()),
+        )));
+    }
+    let package_index = empty_name_indices.first().copied().or(named_package_index);
     let Some(package_index) = package_index else {
         return Err(ParseFailure::Unsupported(format!(
             "{path} does not contain a package entry"

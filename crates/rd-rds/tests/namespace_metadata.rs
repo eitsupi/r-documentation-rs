@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, path::PathBuf};
 
 use rd_rds::{
     Attribute, Attributes, NativeEncodingSource, REncoding, RObject, RStr, RValue, Symbol,
-    package::{MetadataField, NamespaceImport, NamespaceMetadata, S3MethodName},
+    package::{MetadataField, NamespaceExport, NamespaceImport, NamespaceMetadata, S3MethodName},
 };
 
 fn fixture(version: &str) -> RObject {
@@ -10,6 +10,13 @@ fn fixture(version: &str) -> RObject {
         .join("tests/fixtures/data/namespace")
         .join(format!("namespace-{version}.rds"));
     rd_rds::file::read(path).expect("namespace fixture")
+}
+
+#[cfg(feature = "gzip")]
+fn installed_fixture() -> RObject {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/data/namespace-installed/namespace-installed.rds");
+    rd_rds::file::read(path).expect("installed namespace fixture")
 }
 
 #[test]
@@ -20,7 +27,11 @@ fn v2_and_v3_fixtures_have_the_same_owned_metadata() {
 
     assert_eq!(
         v2.declared_exports(),
-        &MetadataField::Present(vec!["alpha".into(), "alpha".into(), "beta".into()])
+        &MetadataField::Present(vec![
+            NamespaceExport::new("alpha", "alpha"),
+            NamespaceExport::new("alpha", "alpha"),
+            NamespaceExport::new("beta", "beta"),
+        ])
     );
     assert_eq!(v2.export_patterns(), &MetadataField::Present(Vec::new()));
     assert_eq!(
@@ -70,6 +81,41 @@ fn v2_and_v3_fixtures_have_the_same_owned_metadata() {
         v2.s3_generic_evidence(),
         &MetadataField::Present(vec!["print".into(), "format".into()])
     );
+}
+
+#[test]
+#[cfg(feature = "gzip")]
+fn installed_package_metadata_preserves_aliases_and_r_import_shapes() {
+    let metadata =
+        NamespaceMetadata::try_from(&installed_fixture()).expect("installed namespace metadata");
+    assert_eq!(
+        metadata.declared_exports(),
+        &MetadataField::Present(vec![
+            NamespaceExport::new("internal_name", "public_name"),
+            NamespaceExport::new("ordinary_name", "ordinary_name"),
+        ])
+    );
+    assert_eq!(
+        metadata.imports(),
+        &MetadataField::Present(vec![
+            NamespaceImport::All {
+                package: "utils".into(),
+                except: vec!["head".into(), "tail".into()],
+            },
+            NamespaceImport::From {
+                package: "stats".into(),
+                names: vec![rd_rds::package::ImportedName::new("median", "mean")],
+            },
+        ])
+    );
+    let MetadataField::Present(registrations) = metadata.s3_registrations() else {
+        panic!("installed S3 registrations should be present");
+    };
+    assert_eq!(registrations.len(), 1);
+    assert_eq!(registrations[0].generic(), "print");
+    assert_eq!(registrations[0].class(), "namespacefixture");
+    assert!(matches!(registrations[0].method(), S3MethodName::Implicit));
+    assert_eq!(registrations[0].generic_package(), None);
 }
 
 #[test]
@@ -163,6 +209,153 @@ fn named_imports_reject_ambiguous_or_unknown_shapes() {
 }
 
 #[test]
+fn imports_accept_r_names_for_an_unnamed_package_field() {
+    let object = named_list(
+        &["imports"],
+        vec![list_of(vec![named_list(
+            &["", "except"],
+            vec![
+                character_vector(&["utils"]),
+                character_vector(&["head", "tail"]),
+            ],
+        )])],
+    );
+    let metadata = NamespaceMetadata::from_object(&object).expect("metadata root");
+    assert_eq!(
+        metadata.imports(),
+        &MetadataField::Present(vec![NamespaceImport::All {
+            package: "utils".into(),
+            except: vec!["head".into(), "tail".into()],
+        }])
+    );
+
+    let misplaced = named_list(
+        &["imports"],
+        vec![list_of(vec![named_list(
+            &["except", ""],
+            vec![character_vector(&["head"]), character_vector(&["utils"])],
+        )])],
+    );
+    let metadata = NamespaceMetadata::from_object(&misplaced).expect("metadata root");
+    assert!(matches!(
+        metadata.imports(),
+        MetadataField::UnsupportedSchema { .. }
+    ));
+
+    let multiple = named_list(
+        &["imports"],
+        vec![list_of(vec![named_list(
+            &["", ""],
+            vec![character_vector(&["utils"]), character_vector(&["stats"])],
+        )])],
+    );
+    let metadata = NamespaceMetadata::from_object(&multiple).expect("metadata root");
+    assert!(matches!(
+        metadata.imports(),
+        MetadataField::UnsupportedSchema { .. }
+    ));
+}
+
+#[test]
+fn exports_preserve_source_and_namespace_aliases() {
+    let object = named_list(
+        &["exports"],
+        vec![named_character_vector(
+            &["internal_name", "", "public_name"],
+            &["source_name", "ordinary", "internal_name"],
+        )],
+    );
+    let metadata = NamespaceMetadata::from_object(&object).expect("metadata root");
+    assert_eq!(
+        metadata.declared_exports(),
+        &MetadataField::Present(vec![
+            NamespaceExport::new("source_name", "internal_name"),
+            NamespaceExport::new("ordinary", "ordinary"),
+            NamespaceExport::new("internal_name", "public_name"),
+        ])
+    );
+}
+
+#[test]
+fn malformed_export_names_are_field_local_invalid() {
+    let wrong_type = named_list(
+        &["exports"],
+        vec![RObject::from_parts(
+            RValue::Character(vec![RStr::new(
+                b"name",
+                REncoding::Native,
+                NativeEncodingSource::Unknown,
+            )]),
+            Attributes::new(vec![Attribute::new(
+                Symbol::new("names"),
+                RObject::from_parts(RValue::Null, Attributes::default()),
+            )]),
+        )],
+    );
+    let metadata = NamespaceMetadata::from_object(&wrong_type).expect("metadata root");
+    assert!(matches!(
+        metadata.declared_exports(),
+        MetadataField::Invalid(_)
+    ));
+
+    let invalid_names = named_list(
+        &["exports", "exportPatterns"],
+        vec![
+            RObject::from_parts(
+                RValue::Character(vec![
+                    RStr::new(b"name", REncoding::Native, NativeEncodingSource::Unknown),
+                    RStr::new(b"other", REncoding::Native, NativeEncodingSource::Unknown),
+                ]),
+                Attributes::new(vec![Attribute::new(
+                    Symbol::new("names"),
+                    RObject::from_parts(
+                        RValue::Character(vec![RStr::Na, RStr::Na]),
+                        Attributes::default(),
+                    ),
+                )]),
+            ),
+            character_vector(&[]),
+        ],
+    );
+    let metadata = NamespaceMetadata::from_object(&invalid_names).expect("metadata root");
+    assert!(matches!(
+        metadata.declared_exports(),
+        MetadataField::Invalid(_)
+    ));
+    assert_eq!(
+        metadata.export_patterns(),
+        &MetadataField::Present(Vec::new())
+    );
+
+    let invalid_encoding = named_list(
+        &["exports"],
+        vec![RObject::from_parts(
+            RValue::Character(vec![RStr::new(
+                b"source",
+                REncoding::Native,
+                NativeEncodingSource::Unknown,
+            )]),
+            Attributes::new(vec![Attribute::new(
+                Symbol::new("names"),
+                RObject::from_parts(
+                    RValue::Character(vec![RStr::new(
+                        b"\xff",
+                        REncoding::Native,
+                        NativeEncodingSource::Unknown,
+                    )]),
+                    Attributes::default(),
+                ),
+            )]),
+        )],
+    );
+    let metadata = NamespaceMetadata::from_object(&invalid_encoding).expect("metadata root");
+    assert!(matches!(
+        metadata.declared_exports(),
+        MetadataField::Invalid(_)
+    ));
+}
+
+#[test]
 fn malformed_root_is_a_constructor_error() {
     let scalar = character_vector(&["not a list"]);
     assert!(matches!(
@@ -236,6 +429,27 @@ fn character_vector(values: &[&str]) -> RObject {
                 .collect(),
         ),
         Attributes::default(),
+    )
+}
+
+fn named_character_vector(names: &[&str], values: &[&str]) -> RObject {
+    RObject::from_parts(
+        RValue::Character(
+            values
+                .iter()
+                .map(|value| {
+                    RStr::new(
+                        value.as_bytes(),
+                        REncoding::Native,
+                        NativeEncodingSource::Unknown,
+                    )
+                })
+                .collect(),
+        ),
+        Attributes::new(vec![Attribute::new(
+            Symbol::new("names"),
+            character_vector(names),
+        )]),
     )
 }
 
