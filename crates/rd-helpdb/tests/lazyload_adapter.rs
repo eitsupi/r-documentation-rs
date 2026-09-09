@@ -8,7 +8,7 @@ use rd_rds::RValue;
 
 fn lazyload_fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../rd-rds/tests/fixtures/data/lazyload")
+        .join("tests/fixtures/data/lazyload")
         .join(name)
 }
 
