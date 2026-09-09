@@ -186,6 +186,8 @@ jobs:
           - crate: rd-rds
             flags: "--no-default-features --features zstd"
           - crate: rd-rds
+            flags: "--no-default-features --features lazyload"
+          - crate: rd-rds
             flags: "--all-features"
     name: test-features (${{ matrix.crate }} ${{ matrix.flags || 'default-features' }}; ${{ matrix.cmd || 'test' }})
     runs-on: ubuntu-latest

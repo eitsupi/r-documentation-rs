@@ -17,6 +17,29 @@ The API has three layers:
 - `matrix::CharacterMatrix` provides a validated, owned view of general R
   character matrices, including matrices without `dimnames`.
 
+With the opt-in `lazyload` feature, [`lazyload`] provides bounded access to an
+installed package's `R/<pkg>.rdx` and `R/<pkg>.rdb` pair. It retains stored
+variables in index order (including duplicate names), resolves name lookups
+with last-wins semantics, and reads direct records without an R session. The
+record layer recognizes uncompressed and zlib records. bzip2 and xz entries
+are recognized in the index and always report an explicit unsupported error;
+their codecs are outside this milestone. Compound persistence references are
+described by their eager and lazy record locations but are not resolved. The
+API returns both the exact addressed bytes and the decompressed payload, with
+independent 256 MiB default bounds. Raw records are already XDR bytes and do
+not carry a length prefix; zlib records carry a four-byte declared length.
+
+The `lazyload` feature includes the `gzip` feature because installed package
+`.rdx` indexes use the standalone gzip envelope in the normal package
+profile. Callers that enable `lazyload` therefore also get gzip `.rds`
+handling; the other standalone codecs remain independently selectable.
+
+Record reads take a metadata snapshot when the database opens and compare it
+before and after each read. On Unix this includes device and inode, and on
+other platforms it uses file length and modification time when available.
+This is best-effort detection of replacement or concurrent modification and
+cannot provide a transaction guarantee against races after the final check.
+
 The [`rd-helpdb`](../rd-helpdb/README.md) crate uses the file layer for
 standalone help-database RDS files, and [`rd-ast`](../rd-ast/README.md) can
 lower supported decoded documentation objects into the common document model.

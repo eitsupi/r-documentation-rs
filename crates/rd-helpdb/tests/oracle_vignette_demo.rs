@@ -74,7 +74,7 @@ fn decode_hex(value: &str) -> String {
     assert_eq!(value.len() % 2, 0, "odd-length hex string: {value:?}");
     let bytes = value
         .as_bytes()
-        .chunks_exact(2)
+        .chunks(2)
         .map(|pair| {
             let pair = std::str::from_utf8(pair).expect("hex is ASCII");
             u8::from_str_radix(pair, 16)
