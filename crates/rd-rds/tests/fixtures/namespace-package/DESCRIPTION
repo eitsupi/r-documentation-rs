@@ -1,0 +1,8 @@
+Package: namespacefixture
+Type: Package
+Title: Namespace Metadata Fixture
+Version: 0.0.1
+Authors@R: person("Fixture", "Author", email = "fixture@example.invalid", role = c("aut", "cre"))
+Description: A minimal package used to exercise installed namespace metadata.
+License: MIT
+Encoding: UTF-8

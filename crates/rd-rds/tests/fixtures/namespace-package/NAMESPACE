@@ -1,0 +1,5 @@
+export(public_name = internal_name)
+export(ordinary_name)
+import(utils, except = c(head, tail))
+importFrom(stats, sd, mean = median)
+S3method(print, namespacefixture)

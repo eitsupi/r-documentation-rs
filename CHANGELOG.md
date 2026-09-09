@@ -4,6 +4,13 @@
 
 ### Added
 
+- [rd-rds] Add the owned `package::NamespaceMetadata` view for static
+  `Meta/nsInfo.rds` declarations, including field-local diagnostics, import
+  aliases and exclusions, source/export name pairs, S3
+  registration/evidence separation, and explicit S4 export declarations.
+- [rd-rds] Add an R CMD INSTALL-generated namespace metadata fixture covering
+  named exports, `import(..., except = ...)`, aliased `importFrom`, and S3
+  declarations.
 - [rd-helpdb] Move compiled help database `.rdx` parsing and `.rdb` record
   access onto `rd-rds`'s bounded `lazyload` reader while retaining the
   `PackageHelpDb` API and the lower-level compatibility adapters.

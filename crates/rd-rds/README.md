@@ -46,6 +46,46 @@ The [`rd-helpdb`](../rd-helpdb/README.md) crate uses the file layer for
 standalone help-database RDS files, and [`rd-ast`](../rd-ast/README.md) can
 lower supported decoded documentation objects into the common document model.
 
+## Namespace metadata
+
+[`package::NamespaceMetadata`] provides an owned view of declarations from a
+decoded `Meta/nsInfo.rds` object. Its exports, imports, S3 registrations, and
+S4 declarations are static metadata: they are not runtime namespace exports,
+stored lazy-load bindings, evaluated export patterns, or `.onLoad` results.
+Each known field is independently represented by [`package::MetadataField`],
+so a malformed S3 schema does not hide valid declared exports.
+Declared exports are returned as [`package::NamespaceExport`] values: the
+source binding and namespace-facing name are preserved separately, so an
+assignment-shaped export such as `export(public = internal)` is not confused
+with an ordinary `export(name)`. Empty export-name attributes use the source
+name. The installed-package fixture also exercises the R-written
+`list("utils", except = ...)` import shape and an aliased `importFrom`.
+
+A consumer such as a mini-roxygen provider can retain its existing policy
+boundary while replacing ad-hoc S3 extraction with positive evidence:
+
+```rust
+use std::collections::BTreeSet;
+use rd_rds::package::{MetadataField, NamespaceMetadata};
+
+fn generic_evidence(object: &rd_rds::RObject) -> BTreeSet<String> {
+    match NamespaceMetadata::from_object(object)
+        .ok()
+        .map(|metadata| metadata.s3_generic_evidence().clone())
+    {
+        Some(MetadataField::Present(generics)) => generics.into_iter().collect(),
+        Some(MetadataField::Missing)
+        | Some(MetadataField::Invalid(_))
+        | Some(MetadataField::UnsupportedSchema { .. })
+        | None => BTreeSet::new(),
+        _ => BTreeSet::new(),
+    }
+}
+```
+
+The caller still decides how missing metadata, invalid schemas, base-generic
+catalogs, shadowing, and library precedence should affect its provider.
+
 ## Runnable examples
 
 ```text
