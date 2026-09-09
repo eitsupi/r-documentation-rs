@@ -165,7 +165,10 @@ handles, and a limited set of verified value shapes inside them (for example
 complex, raw, and S4 objects) is wire-consumed and discarded rather than
 rejected. Decoder defaults are a depth limit of
 5,000, a vector limit of 8,000,000 elements, and a total-element limit of
-16,000,000. The file layer defaults to 256 MiB compressed and decompressed
+16,000,000, plus a reference-table limit of 16,000,000 entries. The
+reference-table cap can be tightened independently with
+`Limits::max_references`; it is checked before a decoded reference is
+registered. The file layer defaults to 256 MiB compressed and decompressed
 input caps.
 
 `RObject` and `RValue` access is a supported advanced API. Their fields are

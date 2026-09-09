@@ -17,7 +17,8 @@
 //! `parse` accepts only decompressed XDR,
 //! while [`file::from_bytes`] accepts raw XDR, gzip, xz, bzip2, and zstd
 //! envelopes when enabled. Default resource limits are depth 5,000, vectors
-//! 8,000,000 elements, 16,000,000 total elements, and 256 MiB file inputs.
+//! 8,000,000 elements, 16,000,000 total elements and references, and 256 MiB
+//! file inputs.
 
 mod cursor;
 mod decode;
@@ -29,6 +30,7 @@ pub mod lazyload;
 pub mod matrix;
 pub mod package;
 mod value;
+mod wire;
 
 pub use cursor::ByteCursor;
 pub use decode::{

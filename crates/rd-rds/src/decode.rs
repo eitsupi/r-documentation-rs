@@ -1,51 +1,15 @@
 use std::sync::Arc;
 
-use crate::{
-    Attribute, Attributes, ByteCursor, EnvHandle, Error, Header, Limits, NativeEncodingSource,
-    Persisted, REncoding, RObject, RStr, RValue, SexpKind, Symbol,
+use crate::wire::{
+    BASEENV_SXP, BASENAMESPACE_SXP, BUILTINSXP, CHARSXP, CPLXSXP, EMPTYENV_SXP, ENVSXP, EXPRSXP,
+    GLOBALENV_SXP, INTSXP, ItemFlags, LGLSXP, LISTSXP, MISSINGARG_SXP, NA_INTEGER, NA_REAL_BITS,
+    NAMESPACESXP, NILSXP, NILVALUE_SXP, PACKAGESXP, PERSISTSXP, RAWSXP, REALSXP, REFSXP, RefEntry,
+    S4SXP, SPECIALSXP, STRSXP, SYMSXP, UNBOUNDVALUE_SXP, VECSXP, WireState, is_dotted_pair, is_nil,
 };
-
-const TYPE_MASK: u32 = 0xff;
-const ATTRIBUTES_BIT: u32 = 1 << 9;
-const TAG_BIT: u32 = 1 << 10;
-const LEVELS_SHIFT: u32 = 12;
-
-const NILSXP: u8 = 0;
-const SYMSXP: u8 = 1;
-const LISTSXP: u8 = 2;
-const CLOSXP: u8 = 3;
-const ENVSXP: u8 = 4;
-const PROMSXP: u8 = 5;
-const LANGSXP: u8 = 6;
-const SPECIALSXP: u8 = 7;
-const BUILTINSXP: u8 = 8;
-const CHARSXP: u8 = 9;
-const LGLSXP: u8 = 10;
-const INTSXP: u8 = 13;
-const REALSXP: u8 = 14;
-const CPLXSXP: u8 = 15;
-const STRSXP: u8 = 16;
-const DOTSXP: u8 = 17;
-const VECSXP: u8 = 19;
-const EXPRSXP: u8 = 20;
-const RAWSXP: u8 = 24;
-const S4SXP: u8 = 25;
-#[cfg(test)]
-const EXTPTRSXP: u8 = 22;
-const BASEENV_SXP: u8 = 241;
-const EMPTYENV_SXP: u8 = 242;
-const PACKAGESXP: u8 = 248;
-const NAMESPACESXP: u8 = 249;
-const BASENAMESPACE_SXP: u8 = 250;
-const MISSINGARG_SXP: u8 = 251;
-const UNBOUNDVALUE_SXP: u8 = 252;
-const GLOBALENV_SXP: u8 = 253;
-const NILVALUE_SXP: u8 = 254;
-const REFSXP: u8 = 255;
-const PERSISTSXP: u8 = 247;
-
-const NA_INTEGER: i32 = i32::MIN;
-const NA_REAL_BITS: u64 = 0x7ff0_0000_0000_07a2;
+use crate::{
+    Attribute, Attributes, ByteCursor, EnvHandle, Error, Header, Limits, Persisted, RObject, RStr,
+    RValue, SexpKind, Symbol,
+};
 
 pub fn parse(bytes: &[u8]) -> Result<RObject, Error> {
     parse_with_options(bytes, ParseOptions::default())
@@ -121,57 +85,6 @@ pub fn parse_with_options(bytes: &[u8], options: ParseOptions) -> Result<RObject
     .decode_root(&mut cursor)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ItemFlags {
-    raw: u32,
-    type_code: u8,
-}
-
-impl ItemFlags {
-    pub(crate) fn from_raw(raw: u32) -> Self {
-        Self {
-            raw,
-            type_code: (raw & TYPE_MASK) as u8,
-        }
-    }
-
-    fn type_code(self) -> u8 {
-        self.type_code
-    }
-
-    fn kind(self) -> SexpKind {
-        SexpKind::from_type_code(self.type_code)
-    }
-
-    fn has_attributes(self) -> bool {
-        self.raw & ATTRIBUTES_BIT != 0
-    }
-
-    fn has_tag(self) -> bool {
-        self.raw & TAG_BIT != 0
-    }
-
-    fn levels(self) -> u32 {
-        self.raw >> LEVELS_SHIFT
-    }
-
-    fn ref_index_inline(self) -> u32 {
-        self.raw >> 8
-    }
-
-    #[cfg(test)]
-    fn is_object(self) -> bool {
-        self.raw & (1 << 8) != 0
-    }
-}
-
-#[derive(Debug, Clone)]
-enum RefEntry {
-    Symbol(Symbol),
-    Persisted(Persisted),
-    Env(EnvHandle),
-}
-
 /// Traversal mode for the core decoder.
 ///
 /// `Strict` is the public entry point's behavior: any SEXP type outside the
@@ -187,39 +100,8 @@ enum Mode {
     Discard,
 }
 
-#[derive(Default)]
-struct RefTable {
-    entries: Vec<RefEntry>,
-}
-
-impl RefTable {
-    fn register(&mut self, entry: RefEntry) {
-        self.entries.push(entry);
-    }
-
-    fn resolve(&self, index: u32, offset: usize) -> Result<&RefEntry, Error> {
-        if index == 0 {
-            return Err(Error::RefIndexOutOfRange {
-                index,
-                len: self.entries.len(),
-                offset,
-            });
-        }
-        self.entries
-            .get(index as usize - 1)
-            .ok_or(Error::RefIndexOutOfRange {
-                index,
-                len: self.entries.len(),
-                offset,
-            })
-    }
-}
-
 struct Decoder {
-    refs: RefTable,
-    limits: Limits,
-    total_elements: usize,
-    native_encoding_source: NativeEncodingSource,
+    state: WireState,
 }
 
 impl Decoder {
@@ -229,16 +111,7 @@ impl Decoder {
         native_encoding_policy: NativeEncodingPolicy,
     ) -> Self {
         Self {
-            refs: RefTable::default(),
-            limits,
-            total_elements: 0,
-            native_encoding_source: match native_encoding {
-                Some(name) => NativeEncodingSource::Header(Arc::from(name)),
-                None => match native_encoding_policy {
-                    NativeEncodingPolicy::RejectUnknown => NativeEncodingSource::Unknown,
-                    NativeEncodingPolicy::AssumeUtf8 => NativeEncodingSource::AssumedUtf8,
-                },
-            },
+            state: WireState::new(limits, native_encoding, native_encoding_policy),
         }
     }
 
@@ -319,7 +192,8 @@ impl Decoder {
     /// wire bytes and reference-table side effects matter.
     fn decode_env(&mut self, cursor: &mut ByteCursor<'_>, depth: u32) -> Result<RObject, Error> {
         let _locked = cursor.read_be_i32()?;
-        self.refs.register(RefEntry::Env(EnvHandle::Other));
+        self.state
+            .register(RefEntry::Env(EnvHandle::Other), cursor.position())?;
         for _ in 0..4 {
             let _ = self.decode_object(cursor, depth + 1, Mode::Discard)?;
         }
@@ -334,7 +208,8 @@ impl Decoder {
         cursor: &mut ByteCursor<'_>,
     ) -> Result<EnvHandle, Error> {
         let _ = self.decode_string_vec(cursor)?;
-        self.refs.register(RefEntry::Env(EnvHandle::Other));
+        self.state
+            .register(RefEntry::Env(EnvHandle::Other), cursor.position())?;
         Ok(EnvHandle::Other)
     }
 
@@ -438,7 +313,7 @@ impl Decoder {
     }
 
     fn read_flags(&mut self, cursor: &mut ByteCursor<'_>) -> Result<ItemFlags, Error> {
-        Ok(ItemFlags::from_raw(cursor.read_be_u32()?))
+        self.state.read_flags(cursor)
     }
 
     fn decode_ref(
@@ -454,7 +329,7 @@ impl Decoder {
         };
 
         match self
-            .refs
+            .state
             .resolve(index, cursor.position().saturating_sub(4))?
         {
             RefEntry::Symbol(symbol) => Ok(RObject::from_parts(
@@ -529,15 +404,7 @@ impl Decoder {
     }
 
     fn decode_char_item(&mut self, cursor: &mut ByteCursor<'_>) -> Result<RStr, Error> {
-        let flags = self.read_flags(cursor)?;
-        if flags.type_code() != CHARSXP {
-            return Err(Error::UnsupportedSexp {
-                kind: flags.kind(),
-                type_code: flags.type_code(),
-                offset: cursor.position().saturating_sub(4),
-            });
-        }
-        self.decode_char_with_flags(cursor, flags)
+        self.state.decode_char_item(cursor)
     }
 
     fn decode_char_with_flags(
@@ -545,24 +412,7 @@ impl Decoder {
         cursor: &mut ByteCursor<'_>,
         flags: ItemFlags,
     ) -> Result<RStr, Error> {
-        let len = cursor.read_be_i32()?;
-        if len == -1 {
-            return Ok(RStr::Na);
-        }
-        if len < 0 {
-            return Err(Error::NegativeLength {
-                len,
-                offset: cursor.position().saturating_sub(4),
-            });
-        }
-
-        let encoding = decode_encoding(flags);
-        let bytes = cursor.read_exact(len as usize)?;
-        Ok(RStr::new(
-            bytes,
-            encoding,
-            self.native_encoding_source.clone(),
-        ))
+        self.state.decode_char_with_flags(cursor, flags)
     }
 
     fn decode_symbol_with_flags(
@@ -576,14 +426,16 @@ impl Decoder {
             .ok_or(Error::InvalidSymbolName)?
             .map_err(|_| Error::InvalidSymbolName)?;
         let symbol = Symbol::new(Arc::<str>::from(text.as_ref()));
-        self.refs.register(RefEntry::Symbol(symbol.clone()));
+        self.state
+            .register(RefEntry::Symbol(symbol.clone()), cursor.position())?;
         Ok(symbol)
     }
 
     fn decode_persisted(&mut self, cursor: &mut ByteCursor<'_>) -> Result<Persisted, Error> {
         let values = self.decode_string_vec(cursor)?;
         let persisted = Persisted::new(values);
-        self.refs.register(RefEntry::Persisted(persisted.clone()));
+        self.state
+            .register(RefEntry::Persisted(persisted.clone()), cursor.position())?;
         Ok(persisted)
     }
 
@@ -596,7 +448,7 @@ impl Decoder {
         let offset = cursor.position();
         let len = cursor.read_be_i32()?;
         let len = if len == -1 {
-            let len = read_long_len(cursor)?;
+            let len = self.state.read_long_len(cursor)?;
             return Err(Error::PersistedLongVectorUnsupported { len, offset });
         } else if len < 0 {
             return Err(Error::NegativeLength { len, offset });
@@ -604,14 +456,14 @@ impl Decoder {
             len as usize
         };
 
-        if len > self.limits.max_vector_len_value() {
+        if len > self.state.max_vector_len() {
             return Err(Error::VectorLengthLimitExceeded {
-                limit: self.limits.max_vector_len_value(),
+                limit: self.state.max_vector_len(),
                 length: len,
                 offset,
             });
         }
-        self.account_elements(len, offset)?;
+        self.state.account_elements(len, offset)?;
         (0..len)
             .map(|_| self.decode_char_item(cursor))
             .collect::<Result<Vec<_>, _>>()
@@ -698,7 +550,7 @@ impl Decoder {
                     inline_index
                 };
                 match self
-                    .refs
+                    .state
                     .resolve(index, cursor.position().saturating_sub(4))?
                 {
                     RefEntry::Symbol(symbol) => Ok(symbol.clone()),
@@ -714,48 +566,15 @@ impl Decoder {
     }
 
     fn read_vector_len(&mut self, cursor: &mut ByteCursor<'_>) -> Result<usize, Error> {
-        let offset = cursor.position();
-        let len = cursor.read_be_i32()?;
-        if len == -1 {
-            let len = read_long_len(cursor)?;
-            return Err(Error::LongVectorUnsupported { len, offset });
-        }
-        if len < 0 {
-            return Err(Error::NegativeLength { len, offset });
-        }
-        let len = len as usize;
-        if len > self.limits.max_vector_len_value() {
-            return Err(Error::VectorLengthLimitExceeded {
-                limit: self.limits.max_vector_len_value(),
-                length: len,
-                offset,
-            });
-        }
-        self.account_elements(len, offset)?;
-        Ok(len)
+        self.state.read_vector_len(cursor)
     }
 
     fn check_depth(&self, depth: u32) -> Result<(), Error> {
-        if depth > self.limits.max_depth_value() {
-            Err(Error::DepthLimitExceeded {
-                limit: self.limits.max_depth_value(),
-            })
-        } else {
-            Ok(())
-        }
+        self.state.check_depth(depth)
     }
 
     fn account_elements(&mut self, count: usize, offset: usize) -> Result<(), Error> {
-        let total = self.total_elements.saturating_add(count);
-        if total > self.limits.max_total_elements_value() {
-            return Err(Error::TotalElementsLimitExceeded {
-                limit: self.limits.max_total_elements_value(),
-                total,
-                offset,
-            });
-        }
-        self.total_elements = total;
-        Ok(())
+        self.state.account_elements(count, offset)
     }
 }
 
@@ -763,43 +582,15 @@ impl Decoder {
 /// `InCharSXP`: UTF-8 (bit 3) takes priority, then Latin-1 (bit 2), then
 /// bytes (bit 1), else native. The ASCII marker (bit 6) is a non-exclusive
 /// hint, not a distinct encoding, so it naturally falls through to Native.
-fn decode_encoding(flags: ItemFlags) -> REncoding {
-    let levels = flags.levels();
-    if levels & (1 << 3) != 0 {
-        REncoding::Utf8
-    } else if levels & (1 << 2) != 0 {
-        REncoding::Latin1
-    } else if levels & (1 << 1) != 0 {
-        REncoding::Bytes
-    } else {
-        REncoding::Native
-    }
-}
-
-fn is_nil(flags: ItemFlags) -> bool {
-    matches!(flags.type_code(), NILSXP | NILVALUE_SXP)
-}
-
-fn is_dotted_pair(flags: ItemFlags) -> bool {
-    matches!(
-        flags.type_code(),
-        LISTSXP | LANGSXP | CLOSXP | PROMSXP | DOTSXP
-    )
-}
-
 fn env_object(handle: EnvHandle) -> RObject {
     RObject::from_parts(RValue::Environment(handle), Attributes::default())
-}
-
-fn read_long_len(cursor: &mut ByteCursor<'_>) -> Result<u64, Error> {
-    let upper = cursor.read_be_i32()? as u32 as u64;
-    let lower = cursor.read_be_i32()? as u32 as u64;
-    Ok((upper << 32) | lower)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::REncoding;
+    use crate::wire::{ATTRIBUTES_BIT, CLOSXP, EXTPTRSXP, TAG_BIT};
     use std::{fs, io::Read, path::PathBuf};
 
     use flate2::read::GzDecoder;
@@ -1051,6 +842,21 @@ mod tests {
                 offset: 0
             }
         );
+    }
+
+    #[test]
+    fn reference_limit_is_enforced_before_symbol_registration() {
+        let bytes = [
+            0, 0, 0, SYMSXP, // symbol
+            0, 0, 0, CHARSXP, // print name
+            0, 0, 0, 1, b'a',
+        ];
+        let error = item_with_limits(&bytes, Limits::default().max_references(0))
+            .expect_err("zero reference limit should reject the symbol");
+        assert!(matches!(
+            error,
+            Error::ReferenceLimitExceeded { limit: 0, .. }
+        ));
     }
 
     #[test]
