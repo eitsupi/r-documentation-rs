@@ -32,6 +32,22 @@ fn opens_and_reads_raw_records_from_rds_v2_and_v3() {
 }
 
 #[test]
+fn reads_a_real_installed_package_pair_with_lazyload_only_profile() {
+    let db = LazyLoadDb::open(
+        fixture("installed/lazyfixture.rdx"),
+        fixture("installed/lazyfixture.rdb"),
+    )
+    .unwrap();
+    assert!(db.variable("lazy_fixture").is_some());
+    let record = db.read("lazy_fixture_value").unwrap();
+    let parsed = rd_rds::parse(record.decompressed_bytes()).unwrap();
+    assert!(matches!(
+        parsed.value(),
+        RValue::Integer(values) if values == &vec![Some(42)]
+    ));
+}
+
+#[test]
 fn opens_and_reads_zlib_records_from_rds_v2_and_v3_with_last_wins_lookup() {
     for suffix in ["-v2", ""] {
         let db = LazyLoadDb::open(

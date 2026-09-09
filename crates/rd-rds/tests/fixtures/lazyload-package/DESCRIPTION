@@ -1,0 +1,9 @@
+Package: lazyfixture
+Type: Package
+Title: Minimal Lazy-Load Fixture
+Version: 0.0.1
+Authors@R: person("Fixture", "Author", email = "fixture@example.invalid", role = c("aut", "cre"))
+Description: A deterministic package used to exercise installed lazy-load databases.
+License: MIT
+Encoding: UTF-8
+LazyData: true

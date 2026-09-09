@@ -8,7 +8,8 @@
   package `.rdx` indexes and `.rdb` records. The reader preserves stored
   variables and persistence references in index order, applies last-wins name
   lookup, recognizes direct and compound references, and supports raw and
-  zlib records. The feature does not imply the standalone `gzip` feature.
+  zlib records. The feature includes the standalone `gzip` feature because
+  normal installed-package `.rdx` indexes use gzip envelopes.
 
 ## [0.4.0] - 2026-08-17
 

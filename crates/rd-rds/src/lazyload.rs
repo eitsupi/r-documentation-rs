@@ -25,7 +25,7 @@ pub enum Compression {
     None,
     Zlib,
     Bzip2,
-    Lzma,
+    Xz,
 }
 
 /// A checked byte range in the data file.
@@ -466,7 +466,7 @@ fn parse_compression(root: &RObject) -> Result<Compression, Error> {
         0 => Ok(Compression::None),
         1 => Ok(Compression::Zlib),
         2 => Ok(Compression::Bzip2),
-        3 => Ok(Compression::Lzma),
+        3 => Ok(Compression::Xz),
         _ => Err(invalid_index("'compressed' must be one of 0, 1, 2, or 3")),
     }
 }
@@ -547,53 +547,85 @@ fn parse_map(object: &RObject, field: &str, strict: bool) -> Result<Vec<Variable
                     invalid_index(format!("'{field}' contains an invalid name: {message}"))
                 }
             })?;
-            let reference = parse_reference(item).unwrap_or(RecordReference::Unsupported);
-            if strict && matches!(reference, RecordReference::Unsupported) {
-                return Err(Error::InvalidVariable {
-                    name,
-                    message: "expected a numeric offset/length pair".into(),
-                });
-            }
+            let reference = match parse_reference(item) {
+                Ok(reference) => reference,
+                Err(ReferenceParseError::Unknown) => {
+                    if strict {
+                        return Err(Error::InvalidVariable {
+                            name,
+                            message: "expected a numeric offset/length pair".into(),
+                        });
+                    }
+                    RecordReference::Unsupported
+                }
+                Err(ReferenceParseError::Malformed(message)) => {
+                    if strict {
+                        return Err(Error::InvalidVariable { name, message });
+                    }
+                    return Err(invalid_index(format!(
+                        "'{field}' entry is malformed: {message}"
+                    )));
+                }
+            };
             Ok(Variable { name, reference })
         })
         .collect()
 }
 
-fn parse_reference(object: &RObject) -> Result<RecordReference, String> {
-    if let Some(location) = parse_location(object)? {
-        return Ok(RecordReference::Direct(location));
+#[derive(Debug)]
+enum ReferenceParseError {
+    Unknown,
+    Malformed(String),
+}
+
+fn parse_reference(object: &RObject) -> Result<RecordReference, ReferenceParseError> {
+    if matches!(object.value(), RValue::Integer(_) | RValue::Real(_)) {
+        return parse_location(object)
+            .map_err(ReferenceParseError::Malformed)
+            .and_then(|location| {
+                location
+                    .map(RecordReference::Direct)
+                    .ok_or_else(|| ReferenceParseError::Malformed("missing location".into()))
+            });
     }
     let RValue::List(items) = object.value() else {
-        return Err("unsupported reference shape".into());
+        return Err(ReferenceParseError::Unknown);
     };
     let Some(names) = object.names() else {
-        return Err("compound reference has no names".into());
+        return Err(ReferenceParseError::Unknown);
     };
     let mut eager_key = None;
     let mut eager_seen = false;
     let mut lazy_keys = Vec::new();
     let mut lazy_seen = false;
     if names.len() != items.len() {
-        return Err("compound descriptor names and values differ in length".into());
+        return Err(ReferenceParseError::Malformed(
+            "compound descriptor names and values differ in length".into(),
+        ));
     }
     for (name, item) in names.iter().zip(items) {
-        let field = string_value(name)?;
+        let field = string_value(name).map_err(ReferenceParseError::Malformed)?;
         match field.as_str() {
             "eagerKey" => {
                 if eager_seen {
-                    return Err("compound descriptor repeats eagerKey".into());
+                    return Err(ReferenceParseError::Malformed(
+                        "compound descriptor repeats eagerKey".into(),
+                    ));
                 }
                 eager_seen = true;
-                eager_key = Some(parse_location_required(item)?);
+                eager_key =
+                    Some(parse_location_required(item).map_err(ReferenceParseError::Malformed)?);
             }
             "lazyKeys" => {
                 if lazy_seen {
-                    return Err("compound descriptor repeats lazyKeys".into());
+                    return Err(ReferenceParseError::Malformed(
+                        "compound descriptor repeats lazyKeys".into(),
+                    ));
                 }
                 lazy_seen = true;
-                lazy_keys = parse_lazy_keys(item)?;
+                lazy_keys = parse_lazy_keys(item).map_err(ReferenceParseError::Malformed)?;
             }
-            _ => {}
+            _ => continue,
         }
     }
     if eager_seen || lazy_seen {
@@ -602,7 +634,7 @@ fn parse_reference(object: &RObject) -> Result<RecordReference, String> {
             lazy_keys,
         })
     } else {
-        Err("unsupported reference shape".into())
+        Err(ReferenceParseError::Unknown)
     }
 }
 
@@ -726,7 +758,7 @@ fn decode_record(
                 });
             }
         }
-        Compression::Bzip2 | Compression::Lzma => {
+        Compression::Bzip2 | Compression::Xz => {
             return Err(Error::CompressionUnsupported { compression });
         }
         Compression::None => unreachable!("raw records return above"),
@@ -830,7 +862,7 @@ mod tests {
             (RValue::Logical(vec![Some(false)]), Compression::None),
             (RValue::Logical(vec![Some(true)]), Compression::Zlib),
             (RValue::Integer(vec![Some(2)]), Compression::Bzip2),
-            (RValue::Integer(vec![Some(3)]), Compression::Lzma),
+            (RValue::Integer(vec![Some(3)]), Compression::Xz),
         ] {
             let root = named_list(
                 &["compressed"],
@@ -951,6 +983,66 @@ mod tests {
         );
         let references = parse_references(&root).unwrap();
         assert_eq!(references[0].1, RecordReference::Unsupported);
+    }
+
+    #[test]
+    fn distinguishes_unknown_and_malformed_reference_shapes() {
+        let unknown = named_list(
+            &["references"],
+            vec![named_list(&["ref"], vec![string("future")])],
+        );
+        assert!(parse_references(&unknown).is_ok());
+
+        let malformed_direct = named_list(
+            &["references"],
+            vec![named_list(
+                &["ref"],
+                vec![RObject::from_parts(
+                    RValue::Integer(vec![Some(1), None]),
+                    Attributes::default(),
+                )],
+            )],
+        );
+        assert!(matches!(
+            parse_references(&malformed_direct),
+            Err(Error::InvalidIndex { .. })
+        ));
+
+        let malformed_variable = named_list(
+            &["variables"],
+            vec![named_list(
+                &["ref"],
+                vec![RObject::from_parts(
+                    RValue::Integer(vec![Some(1), None]),
+                    Attributes::default(),
+                )],
+            )],
+        );
+        assert!(matches!(
+            parse_variables(&malformed_variable),
+            Err(Error::InvalidVariable { .. })
+        ));
+
+        let location = || {
+            RObject::from_parts(
+                RValue::Integer(vec![Some(1), Some(2)]),
+                Attributes::default(),
+            )
+        };
+        let malformed_compound = named_list(
+            &["references"],
+            vec![named_list(
+                &["ref"],
+                vec![named_list(
+                    &["eagerKey", "eagerKey"],
+                    vec![location(), location()],
+                )],
+            )],
+        );
+        assert!(matches!(
+            parse_references(&malformed_compound),
+            Err(Error::InvalidIndex { .. })
+        ));
     }
 
     #[test]
