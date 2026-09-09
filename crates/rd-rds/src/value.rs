@@ -352,6 +352,7 @@ pub struct Limits {
     max_depth: u32,
     max_vector_len: usize,
     max_total_elements: usize,
+    max_references: usize,
 }
 
 impl Default for Limits {
@@ -360,6 +361,7 @@ impl Default for Limits {
             max_depth: 5_000,
             max_vector_len: 8_000_000,
             max_total_elements: 16_000_000,
+            max_references: 16_000_000,
         }
     }
 }
@@ -380,6 +382,13 @@ impl Limits {
         self
     }
 
+    /// Sets the maximum number of entries in the serialized reference table.
+    #[must_use]
+    pub fn max_references(mut self, value: usize) -> Self {
+        self.max_references = value;
+        self
+    }
+
     pub(crate) fn max_depth_value(self) -> u32 {
         self.max_depth
     }
@@ -388,6 +397,9 @@ impl Limits {
     }
     pub(crate) fn max_total_elements_value(self) -> usize {
         self.max_total_elements
+    }
+    pub(crate) fn max_references_value(self) -> usize {
+        self.max_references
     }
 }
 

@@ -39,6 +39,9 @@ pub enum Error {
         offset: usize,
     },
 
+    #[error("reference table limit ({limit}) exceeded at byte offset {offset}")]
+    ReferenceLimitExceeded { limit: usize, offset: usize },
+
     #[error("unsupported SEXP kind {kind:?} with type code {type_code} at byte offset {offset}")]
     UnsupportedSexp {
         kind: SexpKind,

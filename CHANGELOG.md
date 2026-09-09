@@ -23,6 +23,9 @@
 
 ### Changed
 
+- [rd-rds] Extract crate-private serialized-wire state shared by strict
+  decoding and future bounded inspection, including a configurable reference
+  table limit enforced before registration.
 - [rd-rds] Rename the lazy-load `UnsupportedVariableReference` error to
   `UnsupportedRecordReference`, covering both variable reads and persistence
   reference reads.
