@@ -134,7 +134,7 @@ cases, are produced in the source repository by
 ```text
 cargo run -p rd-rds --example inspect_packages -- /path/to/PACKAGES.rds
 cargo run -p rd-rds --example inspect_rds -- /path/to/archive.rds
-cargo run -p rd-rds --example inspect_installed_package -- /path/to/installed/package [binding]
+cargo run -p rd-rds --features lazyload --example inspect_installed_package -- /path/to/installed/package [binding]
 ```
 
 `inspect_packages` demonstrates the typed, stable package-index view.

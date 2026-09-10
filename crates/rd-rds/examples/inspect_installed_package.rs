@@ -3,7 +3,7 @@
 //! Run with:
 //!
 //! ```text
-//! cargo run -p rd-rds --example inspect_installed_package -- /path/to/installed/package [binding]
+//! cargo run -p rd-rds --features lazyload --example inspect_installed_package -- /path/to/installed/package [binding]
 //! ```
 //!
 //! This is a small CLI demonstration, not a runtime namespace inspection
