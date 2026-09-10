@@ -58,11 +58,12 @@ record decoder to an already isolated `(offset, length)` byte slice.
 
 Record reads take a metadata snapshot when the database opens and compare it
 before and after each read. On Unix this includes device and inode, and on
-Windows it includes the creation/write times exposed by stable standard-library
-metadata APIs; on other platforms it uses file length and modification time
-when available.
+other platforms it uses file length and modification time when available.
 This is best-effort detection of replacement or concurrent modification and
 cannot provide a transaction guarantee against races after the final check.
+Neither the generation nor replacement detection is a content hash or a
+portable guarantee: a replacement that preserves all observed metadata may
+not be distinguishable on every platform.
 
 The [`rd-helpdb`](../rd-helpdb/README.md) crate uses the file layer for
 standalone help-database RDS files, and [`rd-ast`](../rd-ast/README.md) can

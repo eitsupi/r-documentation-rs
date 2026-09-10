@@ -159,7 +159,34 @@ fn duplicate_names_are_reported_without_selecting_last_wins() {
 }
 
 #[test]
-fn replacement_is_reported_and_new_open_gets_a_new_generation() {
+fn replacement_with_changed_metadata_is_reported_and_new_open_gets_a_new_generation() {
+    let package_dir = installed_fixture();
+    let db = InstalledCodeDb::open(&package_dir).unwrap();
+    let old_generation = db.provenance().generation();
+    let data_path = package_dir.join("R/lazyfixture.rdb");
+    let replacement = package_dir.join("R/replacement.rdb");
+    fs::copy(fixture("installed/lazyfixture.rdb"), &replacement).unwrap();
+    let mut replacement_file = fs::OpenOptions::new()
+        .append(true)
+        .open(&replacement)
+        .unwrap();
+    std::io::Write::write_all(&mut replacement_file, &[0]).unwrap();
+    drop(replacement_file);
+    fs::remove_file(&data_path).unwrap();
+    fs::rename(replacement, &data_path).unwrap();
+    assert!(matches!(
+        db.inspect_stored_binding("lazy_fixture_value"),
+        Err(rd_rds::package::InstalledCodeError::DatabaseChanged { .. })
+    ));
+
+    let replacement_db = InstalledCodeDb::open(&package_dir).unwrap();
+    assert_ne!(old_generation, replacement_db.provenance().generation());
+    let _ = fs::remove_dir_all(package_dir);
+}
+
+#[cfg(unix)]
+#[test]
+fn unix_same_size_replacement_is_reported_by_device_and_inode() {
     let package_dir = installed_fixture();
     let db = InstalledCodeDb::open(&package_dir).unwrap();
     let old_generation = db.provenance().generation();
