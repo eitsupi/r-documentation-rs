@@ -528,7 +528,7 @@ impl<'a> Inspector<'a> {
                 }
                 tasks.push(Task::AttributeCell {
                     flags,
-                    depth,
+                    depth: depth + 1,
                     offset,
                 });
             }
@@ -964,6 +964,27 @@ mod tests {
         bytes
     }
 
+    fn closure_with_attribute_chain(length: usize) -> Vec<u8> {
+        let mut bytes = closure_bytes();
+        bytes[25] |= 0x02;
+
+        let mut attributes = vec![0, 0, 0, wire::NILSXP];
+        for index in (0..length).rev() {
+            let name = format!("attribute_{index}");
+            let mut cell = vec![0, 0, 4, wire::LISTSXP];
+            cell.extend_from_slice(&[0, 0, 0, wire::SYMSXP]);
+            cell.extend_from_slice(&[0, 0, 0, wire::CHARSXP]);
+            cell.extend_from_slice(&(name.len() as u32).to_be_bytes());
+            cell.extend_from_slice(name.as_bytes());
+            cell.extend_from_slice(&[0, 0, 0, wire::NILSXP]);
+            cell.extend_from_slice(&attributes);
+            attributes = cell;
+        }
+
+        bytes.splice(27..27, attributes);
+        bytes
+    }
+
     fn replace_dots_tag_with_reference(bytes: &mut Vec<u8>, reference: u32) {
         let marker = [
             0,
@@ -1325,6 +1346,24 @@ mod tests {
                 offset,
                 reason: FailureReason::ResourceLimit,
             }) if offset == tag_offset
+        ));
+    }
+
+    #[test]
+    fn sibling_attribute_chain_honors_the_nested_depth_limit() {
+        let bytes = closure_with_attribute_chain(3);
+        let result = inspect_stored_object(
+            &bytes,
+            InspectionOptions::default().limits(Limits::default().max_depth(2)),
+        )
+        .unwrap();
+        assert!(matches!(
+            result.formals,
+            FormalsInspection::Unavailable(PrefixFailure {
+                phase: FailurePhase::Attributes,
+                reason: FailureReason::ResourceLimit,
+                ..
+            })
         ));
     }
 
