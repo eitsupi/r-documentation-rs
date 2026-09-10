@@ -748,6 +748,10 @@ struct FileIdentity {
     dev: u64,
     #[cfg(unix)]
     ino: u64,
+    #[cfg(windows)]
+    creation_time: u64,
+    #[cfg(windows)]
+    last_write_time: u64,
 }
 
 fn file_identity(path: &Path) -> Result<FileIdentity, InstalledCodeError> {
@@ -775,6 +779,17 @@ fn file_identity(path: &Path) -> Result<FileIdentity, InstalledCodeError> {
     }
     #[cfg(not(unix))]
     {
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            return Ok(FileIdentity {
+                len: metadata.len(),
+                modified_nanos,
+                creation_time: metadata.creation_time(),
+                last_write_time: metadata.last_write_time(),
+            });
+        }
+        #[cfg(not(windows))]
         Ok(FileIdentity {
             len: metadata.len(),
             modified_nanos,

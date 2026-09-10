@@ -58,7 +58,9 @@ record decoder to an already isolated `(offset, length)` byte slice.
 
 Record reads take a metadata snapshot when the database opens and compare it
 before and after each read. On Unix this includes device and inode, and on
-other platforms it uses file length and modification time when available.
+Windows it includes the creation/write times exposed by stable standard-library
+metadata APIs; on other platforms it uses file length and modification time
+when available.
 This is best-effort detection of replacement or concurrent modification and
 cannot provide a transaction guarantee against races after the final check.
 
