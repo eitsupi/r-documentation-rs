@@ -29,6 +29,20 @@ API returns both the exact addressed bytes and the decompressed payload, with
 independent 256 MiB default bounds. Raw records are already XDR bytes and do
 not carry a length prefix; zlib records carry a four-byte declared length.
 
+With the same feature, [`package::InstalledCodeDb`] provides the package-level
+API for that pair. The caller supplies the installed package directory; the
+reader selects `R/<basename>.rdx` and `.rdb` and does not discover libraries or
+scan runtime exports. [`InstalledCodeDb::stored_bindings`] is the complete
+`variables` map in index order, including duplicate names. Consequently this
+view's completeness domain is `CodeDatabaseVariables`, not exports or runtime
+bindings. [`InstalledCodeDb::inspect_stored_binding`] returns structured
+unknown/ambiguous errors instead of choosing among duplicate names, reads only
+a unique direct record, and returns bounded closure prefix metadata. Closure
+bodies are reported as `BodyValidation::NotValidated`.
+The provenance includes both selected paths, compression, and an opaque
+`CodeDbGeneration` derived from best-effort file metadata. It is an identity
+hint rather than a content hash or a transaction guarantee.
+
 The `lazyload` feature includes the `gzip` feature because installed package
 `.rdx` indexes use the standalone gzip envelope in the normal package
 profile. Callers that enable `lazyload` therefore also get gzip `.rds`

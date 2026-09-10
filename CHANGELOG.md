@@ -4,6 +4,9 @@
 
 ### Added
 
+- [rd-rds] Add the package-level `package::InstalledCodeDb` API for explicit
+  installed-package `R/<pkg>.rdx`/`.rdb` access, index-order stored bindings,
+  bounded closure-prefix inspection, and best-effort database provenance.
 - [rd-rds] Add the owned `package::NamespaceMetadata` view for static
   `Meta/nsInfo.rds` declarations, including field-local diagnostics, import
   aliases and exclusions, source/export name pairs, S3

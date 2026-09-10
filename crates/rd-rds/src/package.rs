@@ -30,6 +30,17 @@ use crate::{RObject, RStr, RValue};
 
 mod namespace;
 
+#[cfg(feature = "lazyload")]
+mod installed_code;
+
+#[cfg(feature = "lazyload")]
+pub use installed_code::{
+    BodyValidation, CodeDbGeneration, CodeDbProvenance, DefaultPresence, FailureCause,
+    FailurePhase, Formal, FormalsInspection, FormalsNotApplicable, FormalsUnavailable,
+    FunctionFormals, InspectionExtent, InstalledCodeDb, InstalledCodeError, InstalledCodeOptions,
+    PrefixFailure, StoredBinding, StoredKind, StoredObjectInspection,
+};
+
 pub use namespace::{
     ImportedName, MetadataField, NamespaceExport, NamespaceImport, NamespaceMetadata, S3MethodName,
     S3Registration,

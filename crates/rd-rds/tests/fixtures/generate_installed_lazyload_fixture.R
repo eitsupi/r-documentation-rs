@@ -29,4 +29,13 @@ tryCatch({
   if (!isTRUE(copied_rdx) || !isTRUE(copied_rdb)) {
     stop("failed to copy installed lazy-load database files")
   }
+  # Keep a valid index with an explicitly empty variables map alongside the
+  # installed-package pair. An empty database is different from a package
+  # with no `.rdx` file, and is useful for package-level API tests.
+  index <- readRDS(file.path(out, "lazyfixture.rdx"))
+  index$variables <- list()
+  saveRDS(index, file.path(out, "empty.rdx"), compress = "gzip", version = 3)
+  if (!file.create(file.path(out, "empty.rdb"))) {
+    stop("failed to create empty lazy-load record database")
+  }
 }, finally = unlink(library_dir, recursive = TRUE, force = TRUE))
