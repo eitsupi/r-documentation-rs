@@ -145,8 +145,9 @@ declared S3 generic evidence, and lists or inspects stored code-database
 bindings from the explicit package directory. Its output keeps three domains
 separate: declared namespace metadata, code-database variables, and runtime
 namespace state. It never starts or inspects an R runtime. Consumers should
-convert only `FormalsInspection::Available` into a callable signature;
-`NotApplicable` and `Unavailable` remain distinct states.
+derive a closure-formals signature only from `FormalsInspection::Available`;
+`NotApplicable` (including callable built-ins and specials) and `Unavailable`
+remain distinct states.
 A missing index is reported as `NoCodeDatabase`, while an existing index with
 no variables is a valid empty database. An unknown binding is reported as
 `UnknownStoredBinding`, and a duplicate name as `AmbiguousStoredBinding`;

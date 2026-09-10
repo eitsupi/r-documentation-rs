@@ -95,7 +95,7 @@ fn oak_signature(db: &InstalledCodeDb, name: &str) -> ConsumerSignature {
     }
 }
 
-fn arf_stored_bindings(db: &InstalledCodeDb) -> Vec<String> {
+fn stored_binding_inventory(db: &InstalledCodeDb) -> Vec<String> {
     db.stored_bindings()
         .iter()
         .map(|binding| binding.name().to_owned())
@@ -115,7 +115,7 @@ fn consumer_policies_keep_namespace_code_and_runtime_domains_distinct() {
     );
 
     let db = InstalledCodeDb::open(&package_dir).unwrap();
-    let bindings = arf_stored_bindings(&db);
+    let bindings = stored_binding_inventory(&db);
     assert_eq!(bindings.len(), 5);
     assert!(bindings.iter().any(|name| name == "lazy_fixture"));
     assert!(bindings.iter().any(|name| name == "lazy_fixture_value"));
