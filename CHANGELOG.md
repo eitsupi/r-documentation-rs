@@ -20,6 +20,13 @@
   lookup, recognizes direct and compound references, and supports raw and
   zlib records. The feature includes the standalone `gzip` feature because
   normal installed-package `.rdx` indexes use gzip envelopes.
+- [rd-rds] Add a crate-private bounded prefix inspector for serialized closure
+  roots. It preserves formal order and default presence, validates reference
+  alignment, and stops after the body tag without constructing an `RObject`.
+  Inspection-specific byte and formal-count limits complement the shared wire
+  accounting, with deterministic R-generated plain, compiled, and diagnostic
+  fixtures covering unsupported prefix shapes and persisted-reference
+  environments.
 
 ### Changed
 

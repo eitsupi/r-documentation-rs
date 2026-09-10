@@ -25,6 +25,7 @@ mod decode;
 mod error;
 pub mod file;
 mod header;
+mod inspect;
 #[cfg(feature = "lazyload")]
 pub mod lazyload;
 pub mod matrix;
