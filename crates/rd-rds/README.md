@@ -29,6 +29,26 @@ API returns both the exact addressed bytes and the decompressed payload, with
 independent 256 MiB default bounds. Raw records are already XDR bytes and do
 not carry a length prefix; zlib records carry a four-byte declared length.
 
+With the same feature, [`package::InstalledCodeDb`] provides the package-level
+API for that pair. The caller supplies the installed package directory; the
+reader selects `R/<basename>.rdx` and `.rdb` and does not discover libraries or
+scan runtime exports. [`InstalledCodeDb::stored_bindings`] is the complete
+`variables` map in index order, including duplicate names. Consequently this
+view's completeness domain is `CodeDatabaseVariables`, not exports or runtime
+bindings. [`InstalledCodeDb::inspect_stored_binding`] returns structured
+unknown/ambiguous errors instead of choosing among duplicate names, reads only
+a unique direct record, and returns bounded closure prefix metadata. Closure
+bodies are reported as `BodyValidation::NotValidated`.
+The selected record is fully loaded, decompressed, and checked by the
+`LazyLoadDb` container layer first; stored/decompressed size limits, framing,
+compression, and trailing-stream corruption therefore fail before prefix
+inspection. `InstalledCodeOptions::max_bytes_visited` applies only to the
+semantic prefix walker, which stops before reading or validating a closure's
+decompressed body payload.
+The provenance includes both selected paths, compression, and an opaque
+`CodeDbGeneration` derived from best-effort file metadata. It is an identity
+hint rather than a content hash or a transaction guarantee.
+
 The `lazyload` feature includes the `gzip` feature because installed package
 `.rdx` indexes use the standalone gzip envelope in the normal package
 profile. Callers that enable `lazyload` therefore also get gzip `.rds`
@@ -41,6 +61,9 @@ before and after each read. On Unix this includes device and inode, and on
 other platforms it uses file length and modification time when available.
 This is best-effort detection of replacement or concurrent modification and
 cannot provide a transaction guarantee against races after the final check.
+Neither the generation nor replacement detection is a content hash or a
+portable guarantee: a replacement that preserves all observed metadata may
+not be distinguishable on every platform.
 
 The [`rd-helpdb`](../rd-helpdb/README.md) crate uses the file layer for
 standalone help-database RDS files, and [`rd-ast`](../rd-ast/README.md) can

@@ -13,4 +13,6 @@ Rscript crates/rd-rds/tests/fixtures/generate_installed_lazyload_fixture.R \
 
 The generated pair uses the normal installed-package profile: a gzip-enveloped
 `.rdx` index and a zlib `.rdb` record database. The smoke test opens the
-committed pair directly and reads and parses a known binding.
+committed pair directly and reads and parses a known binding. The generator
+also writes `empty.rdx` and `empty.rdb`, a valid empty variables map used to
+distinguish an empty database from a missing index.

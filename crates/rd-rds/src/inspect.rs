@@ -5,7 +5,7 @@
 //! closure body tag, which makes it suitable for answering metadata queries
 //! about large or partially damaged objects.
 
-#![allow(dead_code)]
+#![cfg_attr(not(feature = "lazyload"), allow(dead_code))]
 
 use std::fmt;
 

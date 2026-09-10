@@ -840,11 +840,9 @@ fn snapshot_metadata(metadata: &Metadata) -> FileSnapshot {
         }
     }
     #[cfg(not(unix))]
-    {
-        FileSnapshot {
-            len: metadata.len(),
-            modified: metadata.modified().ok(),
-        }
+    FileSnapshot {
+        len: metadata.len(),
+        modified: metadata.modified().ok(),
     }
 }
 
