@@ -1,6 +1,7 @@
-//! Typed access to an installed package's `Meta/package.rds` metadata.
+//! Typed access to installed-package metadata, installed code databases, and
+//! CRAN-like repository indexes.
 //!
-//! This module covers the `packageDescription2` shape written by R for an
+//! [`PackageMeta`] covers the `packageDescription2` shape written by R for an
 //! installed package. It is intentionally a typed reader rather than a
 //! general R object model: values are validated and copied into owned Rust
 //! data during construction. The raw [`crate::RObject`] remains available for
