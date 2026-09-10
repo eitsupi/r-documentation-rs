@@ -71,7 +71,13 @@ impl InstalledCodeOptions {
         self
     }
 
-    /// Sets the maximum number of record bytes visited by prefix inspection.
+    /// Sets the semantic prefix-walker byte limit.
+    ///
+    /// The selected record is first fully read and passed through
+    /// [`LazyLoadDb`]'s stored-size, decompressed-size, decompression, and
+    /// container/framing checks. This limit then bounds the prefix walker;
+    /// semantic payload bytes after the observed closure body tag are not
+    /// read or validated by inspection.
     #[must_use]
     pub fn max_bytes_visited(mut self, value: usize) -> Self {
         self.max_bytes_visited = value;
@@ -590,7 +596,10 @@ impl InstalledCodeDb {
     ///
     /// Unknown and duplicate names are returned as structured errors. A
     /// duplicate is never silently resolved with the low-level last-wins
-    /// policy.
+    /// policy. Record loading and container validation happen before semantic
+    /// prefix inspection, so compressed-stream, framing, and trailing-byte
+    /// corruption is reported as an inspection error. For closures, the
+    /// semantic body payload itself is intentionally not read or validated.
     pub fn inspect_stored_binding(
         &self,
         name: &str,

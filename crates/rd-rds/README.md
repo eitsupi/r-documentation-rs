@@ -39,6 +39,12 @@ bindings. [`InstalledCodeDb::inspect_stored_binding`] returns structured
 unknown/ambiguous errors instead of choosing among duplicate names, reads only
 a unique direct record, and returns bounded closure prefix metadata. Closure
 bodies are reported as `BodyValidation::NotValidated`.
+The selected record is fully loaded, decompressed, and checked by the
+`LazyLoadDb` container layer first; stored/decompressed size limits, framing,
+compression, and trailing-stream corruption therefore fail before prefix
+inspection. `InstalledCodeOptions::max_bytes_visited` applies only to the
+semantic prefix walker, which stops before reading or validating a closure's
+decompressed body payload.
 The provenance includes both selected paths, compression, and an opaque
 `CodeDbGeneration` derived from best-effort file metadata. It is an identity
 hint rather than a content hash or a transaction guarantee.
