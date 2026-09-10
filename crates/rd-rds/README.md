@@ -134,11 +134,25 @@ cases, are produced in the source repository by
 ```text
 cargo run -p rd-rds --example inspect_packages -- /path/to/PACKAGES.rds
 cargo run -p rd-rds --example inspect_rds -- /path/to/archive.rds
+cargo run -p rd-rds --features lazyload --example inspect_installed_package -- /path/to/installed/package [binding]
 ```
 
 `inspect_packages` demonstrates the typed, stable package-index view.
 `inspect_rds` provides a bounded advanced inspection of unfamiliar decoded
 objects, including shapes that are not package matrices.
+`inspect_installed_package` reads `Meta/nsInfo.rds` with `file::read`, reports
+declared S3 generic evidence, and lists or inspects stored code-database
+bindings from the explicit package directory. Its output keeps three domains
+separate: declared namespace metadata, code-database variables, and runtime
+namespace state. It never starts or inspects an R runtime. Consumers should
+derive a closure-formals signature only from `FormalsInspection::Available`;
+`NotApplicable` (including callable built-ins and specials) and `Unavailable`
+remain distinct states.
+A missing index is reported as `NoCodeDatabase`, while an existing index with
+no variables is a valid empty database. An unknown binding is reported as
+`UnknownStoredBinding`, and a duplicate name as `AmbiguousStoredBinding`;
+consumers should keep these database states distinct rather than treating them
+as an empty or last-wins lookup.
 
 ## Repository-index interoperability
 

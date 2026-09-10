@@ -28,3 +28,7 @@ zstd = ["dep:ruzstd"]
 
 [dev-dependencies]
 flate2.workspace = true
+
+[[example]]
+name = "inspect_installed_package"
+required-features = ["lazyload"]
