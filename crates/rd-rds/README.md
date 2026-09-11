@@ -245,9 +245,8 @@ version, platform, locale, and installed path. It is intentionally limited to
 scheduled and manually dispatched runs; it is not a pull-request gate.
 The R 4.6.1 profile has a measured baseline containing stored-entry,
 root-kind, formals-availability, and oracle comparison counts. The R 4.5.3
-profile is a blocking compatibility run without a checked-in baseline until
-that release has been measured in the same environment. R-devel is
-observational.
+profile has a measured compatibility baseline with the same aggregate counts.
+Both fixed-release profiles are blocking; R-devel is observational.
 
 An eligible oracle comparison requires a same-named, non-active runtime
 closure. Stored and declared names, runtime-only names, active bindings, and

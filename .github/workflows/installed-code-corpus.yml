@@ -1,20 +1,8 @@
-# This workflow is an observational installed-code corpus check. The temporary
-# pull-request trigger is used once to bootstrap the R 4.5.3 artifact report;
-# remove it after that baseline is measured. Scheduled/manual runs are not
-# required pull-request gates.
+# This workflow is an observational installed-code corpus check. Scheduled
+# and manual runs are not pull-request gates.
 name: Installed Code Corpus
 
 on:
-  # Temporary bootstrap trigger; remove after the R 4.5.3 baseline is captured.
-  pull_request:
-    paths:
-      - ".github/workflows/installed-code-corpus.yml"
-      - ".github/scripts/compare_installed_code_corpus.py"
-      - ".github/scripts/installed-code-corpus-*"
-      - ".github/scripts/oracle_installed_code_corpus.R"
-      - ".github/scripts/prepare_installed_code_corpus.sh"
-      - "crates/rd-rds/examples/scan_installed_code_corpus.rs"
-      - "crates/rd-rds/Cargo.toml"
   schedule:
     - cron: "0 5 * * 3"
   workflow_dispatch:
@@ -92,12 +80,11 @@ jobs:
       - name: Compare reports and produce aggregate
         run: |
           expected_report="-"
-          # The primary profile has a measured baseline. The compatibility
-          # profile is blocking but intentionally has no baseline until that
-          # R release is measured in this environment.
-          if [[ "${{ matrix.profile }}" == r-4.6.1 ]]; then
-            expected_report=".github/scripts/installed-code-corpus-expected-r-4.6.1.json"
-          fi
+          case "${{ matrix.profile }}" in
+            r-4.6.1|r-4.5.3)
+              expected_report=".github/scripts/installed-code-corpus-expected-${{ matrix.profile }}.json"
+              ;;
+          esac
           python3 .github/scripts/compare_installed_code_corpus.py \
             "${{ matrix.profile }}" \
             .github/scripts/installed-code-corpus-manifest.tsv \
