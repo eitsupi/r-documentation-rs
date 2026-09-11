@@ -234,6 +234,26 @@ may be added in minor releases, so consumers must use wildcard match arms;
 the public enums are non-exhaustive. The typed `package` and `matrix` views are
 the stable convenience surface for ordinary consumers.
 
+### Installed-code corpus observation
+
+The scheduled `Installed Code Corpus` workflow runs an R-side oracle and the
+Rust scanner as separate processes against base and stats from setup-r plus
+the latest versions available in the fixed `2026-09-01` P3M snapshot for
+Matrix, dplyr, rlang, and R6. The manifest records the expected
+package version and the provenance records the observed version, build, R
+version, platform, locale, and installed path. It is intentionally limited to
+scheduled and manually dispatched runs; it is not a pull-request gate.
+The R 4.6.1 profile has a measured baseline containing stored-entry,
+root-kind, formals-availability, and oracle comparison counts. The R 4.5.3
+profile has a measured compatibility baseline with the same aggregate counts.
+Both fixed-release profiles are blocking; R-devel is observational.
+
+An eligible oracle comparison requires a same-named, non-active runtime
+closure. Stored and declared names, runtime-only names, active bindings, and
+runtime kind differences are reported as independent diagnostic buckets. A
+bounded Rust inspection that cannot obtain formals remains an explicit
+unavailable classification; it is not treated as a guessed signature.
+
 ## Stability
 
 Typed package-metadata views are the recommended supported surface. The `RObject`/`RValue` object model is supported as an advanced surface, with variants subject to addition; unsupported SEXPs are hard errors except for selected environment internals consumed as opaque or discarded wire data. See the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md).

@@ -32,3 +32,7 @@ flate2.workspace = true
 [[example]]
 name = "inspect_installed_package"
 required-features = ["lazyload"]
+
+[[example]]
+name = "scan_installed_code_corpus"
+required-features = ["lazyload"]

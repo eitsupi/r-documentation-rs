@@ -1,0 +1,104 @@
+# This workflow is an observational installed-code corpus check. Scheduled
+# and manual runs are not pull-request gates.
+name: Installed Code Corpus
+
+on:
+  schedule:
+    - cron: "0 5 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  corpus:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: r-4.6.1
+            r-version: "4.6.1"
+            experimental: false
+          - profile: r-4.5.3
+            r-version: "4.5.3"
+            experimental: false
+          - profile: r-devel
+            r-version: devel
+            experimental: true
+    continue-on-error: ${{ matrix.experimental }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up R
+        uses: r-lib/actions/setup-r@465b7d8e732ca3921382b1674c59bada9cbf3399 # v2.13.0
+        with:
+          r-version: ${{ matrix.r-version }}
+      - name: Verify R profile
+        run: |
+          Rscript --version
+          if [[ "${{ matrix.experimental }}" != true ]]; then
+            Rscript -e 'stopifnot(identical(as.character(getRversion()), commandArgs(TRUE)[[1L]]))' "${{ matrix.r-version }}"
+          fi
+          Rscript -e 'stopifnot(nzchar(R.version$platform), nzchar(Sys.getlocale("LC_CTYPE")))'
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Prepare pinned package library
+        run: |
+          library_dir="$RUNNER_TEMP/installed-code-corpus-library"
+          provenance="$RUNNER_TEMP/installed-code-corpus-provenance.tsv"
+          bash .github/scripts/prepare_installed_code_corpus.sh \
+            "${{ matrix.profile }}" "$library_dir" \
+            .github/scripts/installed-code-corpus-manifest.tsv "$provenance"
+          {
+            echo "profile=${{ matrix.profile }}"
+            echo "r_version=$(Rscript -e 'cat(as.character(getRversion()))')"
+            echo "platform=$(Rscript -e 'cat(R.version$platform)')"
+            echo "locale=$(Rscript -e 'cat(Sys.getlocale("LC_CTYPE"))')"
+          } >> "$provenance"
+      - name: Run independent R oracle
+        run: |
+          Rscript --vanilla .github/scripts/oracle_installed_code_corpus.R \
+            "${{ matrix.profile }}" "$RUNNER_TEMP/installed-code-corpus-library" \
+            .github/scripts/installed-code-corpus-manifest.tsv \
+            "$RUNNER_TEMP/installed-code-corpus-r-oracle.jsonl"
+      - name: Run Rust scanner in a separate process
+        run: |
+          cargo run --locked -p rd-rds --features lazyload \
+            --example scan_installed_code_corpus -- \
+            --profile "${{ matrix.profile }}" \
+            --library "$RUNNER_TEMP/installed-code-corpus-library" \
+            --manifest .github/scripts/installed-code-corpus-manifest.tsv \
+            --output "$RUNNER_TEMP/installed-code-corpus-rust.jsonl"
+      - name: Compare reports and produce aggregate
+        run: |
+          expected_report="-"
+          case "${{ matrix.profile }}" in
+            r-4.6.1|r-4.5.3)
+              expected_report=".github/scripts/installed-code-corpus-expected-${{ matrix.profile }}.json"
+              ;;
+          esac
+          python3 .github/scripts/compare_installed_code_corpus.py \
+            "${{ matrix.profile }}" \
+            .github/scripts/installed-code-corpus-manifest.tsv \
+            "$expected_report" \
+            "$RUNNER_TEMP/installed-code-corpus-rust.jsonl" \
+            "$RUNNER_TEMP/installed-code-corpus-r-oracle.jsonl" \
+            "$RUNNER_TEMP/installed-code-corpus-summary.json"
+      - name: Upload corpus report and provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: installed-code-corpus-${{ matrix.profile }}
+          path: |
+            ${{ runner.temp }}/installed-code-corpus-provenance.tsv
+            ${{ runner.temp }}/installed-code-corpus-*.jsonl
+            ${{ runner.temp }}/installed-code-corpus-summary.json
+          if-no-files-found: warn

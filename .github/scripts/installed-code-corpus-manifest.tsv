@@ -1,0 +1,23 @@
+# schema=installed-code-corpus/v1
+# profile	package	package_version	source	snapshot	r_version	os	arch	locale
+# Base and stats come from setup-r; external packages are installed from the
+# fixed-date P3M snapshot. The expected package version remains part of the
+# manifest and is checked after installation.
+r-4.6.1	base	4.6.1	setup-r	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	stats	4.6.1	setup-r	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	Matrix	1.7-6	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	dplyr	1.2.1	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	rlang	1.3.0	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	R6	2.6.1	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	base	4.5.3	setup-r	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	stats	4.5.3	setup-r	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	Matrix	1.7-6	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	dplyr	1.2.1	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	rlang	1.3.0	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	R6	2.6.1	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-devel	base	record-at-run	setup-r	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	stats	record-at-run	setup-r	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	Matrix	1.7-6	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	dplyr	1.2.1	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	rlang	1.3.0	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	R6	2.6.1	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
