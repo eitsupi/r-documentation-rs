@@ -31,7 +31,7 @@ while IFS=$'\t' read -r row_profile package version source snapshot r_version os
     exit 1
   fi
 done < "$manifest"
-for package in base stats MASS Matrix dplyr rlang R6; do
+for package in base stats Matrix dplyr rlang R6; do
   [[ -n "${manifest_packages[$package]+present}" ]] || {
     echo "manifest is missing $package for $profile" >&2
     exit 1
@@ -46,7 +46,7 @@ options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2026-09-01"))
 
 # TODO: Consider replacing this bootstrap installation with a declarative
 # package manifest, following approaches used by tools such as rig or rv.
-install.packages(c("MASS", "Matrix", "dplyr", "rlang", "R6"),
+install.packages(c("Matrix", "dplyr", "rlang", "R6"),
                  lib = library_dir,
                  dependencies = c("Depends", "Imports", "LinkingTo"), quiet = TRUE)
 RS
@@ -80,7 +80,7 @@ while IFS=$'\t' read -r row_profile package version source snapshot r_version os
     "$os" "$arch" "$locale" "$installed_path" >> "$provenance"
 done < "$manifest"
 
-for package in base stats MASS Matrix dplyr rlang R6; do
+for package in base stats Matrix dplyr rlang R6; do
   [[ -n "${seen_packages[$package]+present}" ]] || {
     echo "manifest is missing $package for $profile" >&2
     exit 1

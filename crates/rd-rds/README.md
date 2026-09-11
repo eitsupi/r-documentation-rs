@@ -239,7 +239,7 @@ the stable convenience surface for ordinary consumers.
 The scheduled `Installed Code Corpus` workflow runs an R-side oracle and the
 Rust scanner as separate processes against base and stats from setup-r plus
 the latest versions available in the fixed `2026-09-01` P3M snapshot for
-MASS, Matrix, dplyr, rlang, and R6. The manifest records the expected
+Matrix, dplyr, rlang, and R6. The manifest records the expected
 package version and the provenance records the observed version, build, R
 version, platform, locale, and installed path. It is intentionally limited to
 scheduled and manually dispatched runs; it is not a pull-request gate.
