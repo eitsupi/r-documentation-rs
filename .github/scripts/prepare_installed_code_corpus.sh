@@ -26,6 +26,10 @@ while IFS=$'\t' read -r row_profile package version source snapshot r_version os
     exit 1
   }
   manifest_packages[$package]=1
+  if [[ "$source" == P3M-snapshot && "$snapshot" != "2026-09-01" ]]; then
+    echo "P3M snapshot for $profile/$package must be 2026-09-01, got $snapshot" >&2
+    exit 1
+  fi
 done < "$manifest"
 for package in base stats MASS Matrix dplyr rlang R6; do
   [[ -n "${manifest_packages[$package]+present}" ]] || {
