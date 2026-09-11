@@ -13,7 +13,7 @@ manifest_path <- normalizePath(args[[3L]], mustWork = TRUE)
 output_path <- args[[4L]]
 
 fields <- c("profile", "package", "version", "source", "snapshot", "r_version",
-            "os", "arch", "locale", "artifact_url", "artifact_sha256")
+            "os", "arch", "locale")
 manifest_lines <- readLines(manifest_path, warn = FALSE)
 manifest_lines <- manifest_lines[nzchar(manifest_lines) & !startsWith(manifest_lines, "#")]
 manifest_rows <- do.call(rbind, lapply(manifest_lines, function(line) {

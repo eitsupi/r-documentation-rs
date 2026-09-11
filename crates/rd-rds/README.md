@@ -237,14 +237,17 @@ the stable convenience surface for ordinary consumers.
 ### Installed-code corpus observation
 
 The scheduled `Installed Code Corpus` workflow runs an R-side oracle and the
-Rust scanner as separate processes against the pinned `base`, `stats`, `MASS`,
-`Matrix`, `dplyr`, `rlang`, and `R6` package set. It is intentionally limited
-to scheduled and manually dispatched runs; it is not a pull-request gate.
+Rust scanner as separate processes against base and stats from setup-r plus
+the latest versions available in the fixed `2026-09-01` P3M snapshot for
+MASS, Matrix, dplyr, rlang, and R6. The manifest records the expected
+package version and the provenance records the observed version, build, R
+version, platform, locale, and installed path. It is intentionally limited to
+scheduled and manually dispatched runs; it is not a pull-request gate.
 The R 4.6.1 profile has a measured baseline containing stored-entry,
 root-kind, formals-availability, and oracle comparison counts. The R 4.5.3
 profile is a blocking compatibility run without a checked-in baseline until
 that release has been measured in the same environment. R-devel is
-observational and may use run-time artifact provenance.
+observational.
 
 An eligible oracle comparison requires a same-named, non-active runtime
 closure. Stored and declared names, runtime-only names, active bindings, and

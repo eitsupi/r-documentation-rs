@@ -33,8 +33,8 @@ def manifest_packages(path: Path, profile: str) -> set[str]:
         if not line or line.startswith("#"):
             continue
         fields = line.split("\t")
-        if len(fields) != 11:
-            fail(f"{path}:{line_number}: expected 11 tab-separated fields")
+        if len(fields) != 9:
+            fail(f"{path}:{line_number}: expected 9 tab-separated fields")
         if fields[0] == profile:
             if fields[1] in packages:
                 fail(f"manifest repeats package {fields[1]!r}")

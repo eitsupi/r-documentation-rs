@@ -76,9 +76,9 @@ fn read_manifest(path: &Path, profile: &str) -> Result<Vec<ManifestRow>, Box<dyn
             continue;
         }
         let fields: Vec<_> = line.split('\t').collect();
-        if fields.len() != 11 {
+        if fields.len() != 9 {
             return Err(format!(
-                "manifest line {} has {} fields, expected 11",
+                "manifest line {} has {} fields, expected 9",
                 line_number + 1,
                 fields.len()
             )

@@ -1,27 +1,26 @@
 # schema=installed-code-corpus/v1
-# profile	package	package_version	source	snapshot	r_version	os	arch	locale	artifact_url	artifact_sha256
-# The package URLs and snapshot date are pinned. Blocking profiles use fixed
-# artifact digests; only the nonblocking R-devel profile may use `record-at-run`.
-# `record-at-run` means that the downloaded artifact digest is recorded in
-# provenance.tsv and uploaded with the report.
-r-4.6.1	base	4.6.1	R-source	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/base/R-4/R-4.6.1.tar.gz	4da6e61d2c0aac5f14a2e7e432cb5fcc269efe83da4293050ba7f03dff4e2cf4
-r-4.6.1	stats	4.6.1	R-source	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/base/R-4/R-4.6.1.tar.gz	4da6e61d2c0aac5f14a2e7e432cb5fcc269efe83da4293050ba7f03dff4e2cf4
-r-4.6.1	MASS	7.3-65	CRAN-archive	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/MASS/MASS_7.3-65.tar.gz	b07ef1e3c364ce56269b4a8a7759cc9f87c876554f91293437bb578cfe38172f
-r-4.6.1	Matrix	1.7-5	CRAN-archive	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/Matrix/Matrix_1.7-5.tar.gz	308b0edd7bcb023a8bb50cc5cec98e66b3658c94a5badfb1ce6024e595fa8a83
-r-4.6.1	dplyr	1.2.0	CRAN-archive	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/dplyr/dplyr_1.2.0.tar.gz	a82c292f2249d439157986b504edd1d99741f467c75bf08969254ca8d441bfa3
-r-4.6.1	rlang	1.2.0	CRAN-archive	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/rlang/rlang_1.2.0.tar.gz	8f808ad4f6c1ba37d81b6a4a2cdb4a7d4d30d5bee4ba3e9924352d85a3874357
-r-4.6.1	R6	2.6.1	CRAN-archive	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/R6/R6_2.6.1.tar.gz	22057410b47e2291be57261616d573604ebb5e611d5c4623c9cea767da106d38
-r-4.5.3	base	4.5.3	R-source	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/base/R-4/R-4.5.3.tar.gz	aa5c1ed4293c7271ac513d654670356ac0e8a6ad5e42be014365d11150b5b8f2
-r-4.5.3	stats	4.5.3	R-source	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/base/R-4/R-4.5.3.tar.gz	aa5c1ed4293c7271ac513d654670356ac0e8a6ad5e42be014365d11150b5b8f2
-r-4.5.3	MASS	7.3-65	CRAN-archive	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/MASS/MASS_7.3-65.tar.gz	b07ef1e3c364ce56269b4a8a7759cc9f87c876554f91293437bb578cfe38172f
-r-4.5.3	Matrix	1.7-5	CRAN-archive	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/Matrix/Matrix_1.7-5.tar.gz	308b0edd7bcb023a8bb50cc5cec98e66b3658c94a5badfb1ce6024e595fa8a83
-r-4.5.3	dplyr	1.2.0	CRAN-archive	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/dplyr/dplyr_1.2.0.tar.gz	a82c292f2249d439157986b504edd1d99741f467c75bf08969254ca8d441bfa3
-r-4.5.3	rlang	1.2.0	CRAN-archive	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/rlang/rlang_1.2.0.tar.gz	8f808ad4f6c1ba37d81b6a4a2cdb4a7d4d30d5bee4ba3e9924352d85a3874357
-r-4.5.3	R6	2.6.1	CRAN-archive	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/R6/R6_2.6.1.tar.gz	22057410b47e2291be57261616d573604ebb5e611d5c4623c9cea767da106d38
-r-devel	base	record-at-run	R-source	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/base/R-devel/R-devel.tar.gz	record-at-run
-r-devel	stats	record-at-run	R-source	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/base/R-devel/R-devel.tar.gz	record-at-run
-r-devel	MASS	7.3-65	CRAN-archive	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/MASS/MASS_7.3-65.tar.gz	b07ef1e3c364ce56269b4a8a7759cc9f87c876554f91293437bb578cfe38172f
-r-devel	Matrix	1.7-5	CRAN-archive	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/Matrix/Matrix_1.7-5.tar.gz	308b0edd7bcb023a8bb50cc5cec98e66b3658c94a5badfb1ce6024e595fa8a83
-r-devel	dplyr	1.2.0	CRAN-archive	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/dplyr/dplyr_1.2.0.tar.gz	a82c292f2249d439157986b504edd1d99741f467c75bf08969254ca8d441bfa3
-r-devel	rlang	1.2.0	CRAN-archive	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/rlang/rlang_1.2.0.tar.gz	8f808ad4f6c1ba37d81b6a4a2cdb4a7d4d30d5bee4ba3e9924352d85a3874357
-r-devel	R6	2.6.1	CRAN-archive	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8	https://cloud.r-project.org/src/contrib/Archive/R6/R6_2.6.1.tar.gz	22057410b47e2291be57261616d573604ebb5e611d5c4623c9cea767da106d38
+# profile	package	package_version	source	snapshot	r_version	os	arch	locale
+# Base and stats come from setup-r; external packages are installed from the
+# fixed-date P3M snapshot. The expected package version remains part of the
+# manifest and is checked after installation.
+r-4.6.1	base	4.6.1	setup-r	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	stats	4.6.1	setup-r	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	MASS	7.3-65	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	Matrix	1.7-5	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	dplyr	1.2.1	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	rlang	1.3.0	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.6.1	R6	2.6.1	P3M-snapshot	2026-09-01	4.6.1	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	base	4.5.3	setup-r	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	stats	4.5.3	setup-r	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	MASS	7.3-65	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	Matrix	1.7-5	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	dplyr	1.2.1	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	rlang	1.3.0	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-4.5.3	R6	2.6.1	P3M-snapshot	2026-09-01	4.5.3	ubuntu-latest	x86_64	C.UTF-8
+r-devel	base	record-at-run	setup-r	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	stats	record-at-run	setup-r	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	MASS	7.3-65	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	Matrix	1.7-5	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	dplyr	1.2.1	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	rlang	1.3.0	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
+r-devel	R6	2.6.1	P3M-snapshot	2026-09-01	devel	ubuntu-latest	x86_64	C.UTF-8
