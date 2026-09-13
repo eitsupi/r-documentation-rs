@@ -6,6 +6,51 @@ use rd_ast::{
     producer,
 };
 
+#[test]
+fn navigation_api_is_public_and_position_preserving() {
+    let document = RdDocument::new(vec![
+        RdNode::tagged(
+            RdTag::Unknown(r"\future".into()),
+            Some(vec![RdNode::Text("option".into())]),
+            vec![RdNode::Text("child".into())],
+        ),
+        RdNode::group(vec![
+            RdNode::Text("same".into()),
+            RdNode::Text("same".into()),
+        ]),
+    ]);
+
+    let first = document.top_level().get(0).expect("top-level cursor");
+    let option = first.option().expect("present option");
+    assert_eq!(
+        option.path(),
+        &RdAstPath::new(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Option,
+        ])
+    );
+    assert_eq!(
+        option.children().get(0).unwrap().node(),
+        &RdNode::Text("option".into())
+    );
+
+    let children = document.top_level().get(1).unwrap().children();
+    let same = children.slice(0..2).unwrap();
+    assert_ne!(same.get(0).unwrap().path(), same.get(1).unwrap().path());
+    let path = same.get(1).unwrap().path().clone();
+    assert!(std::ptr::eq(
+        same.get(1).unwrap().node(),
+        document.node_at(&path).unwrap().node()
+    ));
+    let walked: Vec<_> = document.walk().collect();
+    assert_eq!(walked.len(), 6);
+    assert!(
+        walked
+            .iter()
+            .all(|cursor| document.node_at(cursor.path()).is_some())
+    );
+}
+
 fn document_from_public_producer_api() -> RdDocument {
     RdDocument::new(vec![
         RdNode::tagged(

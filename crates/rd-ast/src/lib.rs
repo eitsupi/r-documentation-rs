@@ -6,6 +6,7 @@
 #![doc = include_str!("../CONTRACT.md")]
 
 mod document;
+mod navigation;
 mod option;
 mod path;
 mod raw;
@@ -15,6 +16,7 @@ mod tag;
 mod view;
 
 pub use document::{RdDocument, RdGroup, RdNode, RdTagged};
+pub use navigation::{RdNodeRef, RdNodesIter, RdNodesRef, RdOptionRef, RdSiblingRange, RdWalk};
 pub use option::{
     RdEffectiveSexprOptions, RdOptionError, RdOptionList, RdOptionPair, RdOptionPairErrorKind,
     RdOptionValueKind, RdSexprOptionKey, RdSexprOptionOverrides, RdSexprResults, RdSexprStage,
