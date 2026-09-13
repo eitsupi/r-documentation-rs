@@ -126,7 +126,10 @@ otherwise identical views at different canonical paths are unequal. Aggregate
 views whose provenance is exposed per fact use their established value
 projection for equality; in particular, `RdGenerationHeader` compares its
 generator and source-file values while excluding `generator_path()` and
-`source_origins()` metadata.
+`source_origins()` metadata. `RdSystemMacroMatch` likewise compares its
+canonical anchor, semantic value, origin, and consumed count while excluding
+the positioned `source_nodes()` metadata. It intentionally does not promise
+`Eq`.
 
 `leaf_byte_range()` is measured in the canonical leaf's UTF-8 bytes, not in
 the original source bytes. For canonical text `léc`, the byte range of `é` is

@@ -21,13 +21,22 @@ pub enum RdSystemMacro<'a> {
     I { body: &'a [RdNode] },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct RdSystemMacroMatch<'a> {
     anchor_path: RdAstPath,
     source_nodes: RdNodesRef<'a>,
     semantic: RdSystemMacro<'a>,
     origin: RdSystemMacroOrigin,
     consumed: usize,
+}
+
+impl<'a> PartialEq for RdSystemMacroMatch<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.anchor_path == other.anchor_path
+            && self.semantic == other.semantic
+            && self.origin == other.origin
+            && self.consumed == other.consumed
+    }
 }
 
 impl<'a> RdSystemMacroMatch<'a> {

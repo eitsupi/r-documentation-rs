@@ -6,6 +6,10 @@ fn raw_attr(name: &str, value: RawRdValue) -> RdAttribute {
 }
 
 fn srcref() -> RdAttribute {
+    srcref_with_line(1)
+}
+
+fn srcref_with_line(line: i32) -> RdAttribute {
     let srcfile = producer::raw_attribute(
         "srcfile".into(),
         producer::raw_object(RawRdValue::Persisted(vec![Some("env::1".into())]), vec![]),
@@ -16,7 +20,10 @@ fn srcref() -> RdAttribute {
     );
     producer::raw_attribute(
         "srcref".into(),
-        producer::raw_object(RawRdValue::Integer(vec![Some(1); 6]), vec![srcfile, class]),
+        producer::raw_object(
+            RawRdValue::Integer(vec![Some(line); 6]),
+            vec![srcfile, class],
+        ),
     )
 }
 
@@ -74,8 +81,17 @@ fn definition_text(name: &str, argument: &str) -> String {
 }
 
 fn raw_macro(name: &str, argument: &str, extra: Vec<RdAttribute>) -> RdNode {
+    raw_macro_with_srcref(name, argument, extra, srcref())
+}
+
+fn raw_macro_with_srcref(
+    name: &str,
+    argument: &str,
+    extra: Vec<RdAttribute>,
+    srcref: RdAttribute,
+) -> RdNode {
     let mut attributes = vec![
-        srcref(),
+        srcref,
         raw_attr("macro", RawRdValue::Character(vec![Some(name.into())])),
     ];
     attributes.extend(extra);
@@ -297,6 +313,29 @@ fn sliced_invalid_expansion_reports_absolute_path_without_consuming_it() {
         Ok(RdSystemMacroItem::Node { path, .. })
             if path.segments() == [RdAstPathSegment::TopLevel(2)]
     ));
+}
+
+#[test]
+fn system_macro_match_equality_ignores_raw_producer_metadata() {
+    let first_document = RdDocument::new(vec![
+        raw_macro_with_srcref(r"\doi", "10.1/x", vec![], srcref_with_line(1)),
+        expansion_doi("10.1/x"),
+    ]);
+    let second_document = RdDocument::new(vec![
+        raw_macro_with_srcref(r"\doi", "10.1/x", vec![], srcref_with_line(2)),
+        expansion_doi("10.1/x"),
+    ]);
+    let RdSystemMacroItem::Macro(first) = first_document.system_macro_items().next().unwrap()
+    else {
+        unreachable!()
+    };
+    let RdSystemMacroItem::Macro(second) = second_document.system_macro_items().next().unwrap()
+    else {
+        unreachable!()
+    };
+
+    assert_eq!(first, second);
+    assert_ne!(first.source_nodes(), second.source_nodes());
 }
 
 #[test]
