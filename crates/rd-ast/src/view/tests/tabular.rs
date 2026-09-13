@@ -34,7 +34,7 @@ fn tabular_view_splits_rows_cells_and_preserves_nested_markup() {
             RdNode::Text("f".into()),
         ],
     );
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(4)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(4)]);
     let view = table.inspect_tabular(&base).unwrap();
     assert_eq!(
         view.columns(),
@@ -69,14 +69,14 @@ fn tabular_view_keeps_empty_cells_and_does_not_make_trailing_row() {
             separator(RdTag::Cr),
         ],
     );
-    let view = table.inspect_tabular(&RdPath::new(vec![])).unwrap();
+    let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(view.rows().len(), 2);
     assert_eq!(view.rows()[0].cells().len(), 3);
     assert!(view.rows()[0].cells()[0].nodes().is_empty());
     assert!(view.rows()[1].cells()[0].nodes().is_empty());
     assert!(
         tabular("l", vec![])
-            .inspect_tabular(&RdPath::new(vec![]))
+            .inspect_tabular(&RdAstPath::new(vec![]))
             .unwrap()
             .rows()
             .is_empty()
@@ -86,11 +86,11 @@ fn tabular_view_keeps_empty_cells_and_does_not_make_trailing_row() {
 #[test]
 fn tabular_view_anchors_leading_empty_cell_at_separator() {
     let table = tabular("ll", vec![separator(RdTag::Tab), RdNode::Text("x".into())]);
-    let view = table.inspect_tabular(&RdPath::new(vec![])).unwrap();
+    let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(view.rows().len(), 1);
     assert_eq!(
         view.rows()[0].path(),
-        &RdPath::new(vec![RdPathSegment::Child(1), RdPathSegment::Child(0)])
+        &RdAstPath::new(vec![RdAstPathSegment::Child(1), RdAstPathSegment::Child(0)])
     );
     assert_eq!(view.rows()[0].cells().len(), 2);
     assert!(view.rows()[0].cells()[0].nodes().is_empty());
@@ -103,7 +103,7 @@ fn tabular_view_anchors_leading_empty_cell_at_separator() {
 #[test]
 fn tabular_view_does_not_create_terminal_empty_cell() {
     let table = tabular("ll", vec![RdNode::Text("a".into()), separator(RdTag::Tab)]);
-    let view = table.inspect_tabular(&RdPath::new(vec![])).unwrap();
+    let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(view.rows().len(), 1);
     assert_eq!(view.rows()[0].cells().len(), 1);
     assert_eq!(
@@ -132,7 +132,7 @@ fn tabular_view_reports_invalid_spec_widths_and_malformed_separators() {
         "l cx",
         vec![RdNode::Text("x".into()), malformed, separator(RdTag::Cr)],
     );
-    let view = table.inspect_tabular(&RdPath::new(vec![])).unwrap();
+    let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(
         view.columns(),
         &[RdColumnAlign::Left, RdColumnAlign::Center]
@@ -160,10 +160,27 @@ fn tabular_view_reports_invalid_spec_widths_and_malformed_separators() {
 }
 
 #[test]
+fn tabular_invalid_spec_reports_canonical_leaf_byte_range() {
+    let table = tabular("léc", vec![]);
+    let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();
+    let diagnostic = view
+        .diagnostics()
+        .iter()
+        .find(|error| matches!(error.kind(), RdShapeErrorKind::InvalidValue { .. }))
+        .expect("invalid UTF-8 column-spec character diagnostic");
+
+    assert_eq!(
+        diagnostic.path().segments(),
+        &[RdAstPathSegment::Child(0), RdAstPathSegment::Child(0),]
+    );
+    assert_eq!(diagnostic.leaf_byte_range(), Some(1..3));
+}
+
+#[test]
 fn tabular_view_does_not_split_nested_separators_and_reports_widths() {
     let nested_tab = RdNode::tagged(RdTag::Emph, None, vec![separator(RdTag::Tab)]);
     let table = tabular("l", vec![nested_tab, RdNode::Text("tail".into())]);
-    let view = table.inspect_tabular(&RdPath::new(vec![])).unwrap();
+    let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(view.rows().len(), 1);
     assert_eq!(view.rows()[0].cells().len(), 1);
     assert_eq!(view.rows()[0].cells()[0].nodes().len(), 2);
@@ -172,7 +189,7 @@ fn tabular_view_does_not_split_nested_separators_and_reports_widths() {
 
 #[test]
 fn tabular_view_container_failures_are_atomic() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(2)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(2)]);
     let wrong = RdTagged::new(RdTag::Title, None, vec![])
         .inspect_tabular(&base)
         .unwrap_err();

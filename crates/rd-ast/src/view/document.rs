@@ -75,7 +75,7 @@ pub enum RdSectionKind {
 /// A structurally valid custom section-family node in a document.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdSectionVisit<'a> {
-    path: RdPath,
+    path: RdAstPath,
     kind: RdSectionKind,
     nesting: usize,
     title: &'a [RdNode],
@@ -83,7 +83,7 @@ pub struct RdSectionVisit<'a> {
 }
 
 impl<'a> RdSectionVisit<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn kind(&self) -> RdSectionKind {
@@ -748,7 +748,7 @@ impl RdDocument {
 
 fn collect_section_visits<'a>(
     node: &'a RdNode,
-    path: RdPath,
+    path: RdAstPath,
     kind: RdSectionKind,
     nesting: usize,
     strict: bool,

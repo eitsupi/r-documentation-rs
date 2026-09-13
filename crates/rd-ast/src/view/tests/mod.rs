@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    RdArity, RdColumnAlign, RdConstruct, RdExpectedNode, RdLinkDestination, RdLinkTopic,
-    RdListItem, RdListKind, RdNode, RdNodeKind, RdPathSegment, RdSexprResults, RdShapeErrorKind,
+    RdArity, RdAstPathSegment, RdColumnAlign, RdConstruct, RdExpectedNode, RdLinkDestination,
+    RdLinkTopic, RdListItem, RdListKind, RdNode, RdNodeKind, RdSexprResults, RdShapeErrorKind,
     RdTag,
 };
 

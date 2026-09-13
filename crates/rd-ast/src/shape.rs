@@ -1,22 +1,41 @@
 //! Shared diagnostics for malformed or unexpected Rd tree shapes.
 
-use std::fmt;
+use std::{fmt, ops::Range};
 
 use crate::{RdNode, RdTag};
 
 /// A human-oriented explanation of a shape mismatch, including its path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RdShapeError {
-    path: crate::RdPath,
+    path: crate::RdAstPath,
     tag: Option<RdTag>,
     kind: RdShapeErrorKind,
+    leaf_byte_range: Option<Box<Range<usize>>>,
 }
 
 impl RdShapeError {
-    pub(crate) fn new(path: crate::RdPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> Self {
-        Self { path, tag, kind }
+    pub(crate) fn new(path: crate::RdAstPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> Self {
+        Self {
+            path,
+            tag,
+            kind,
+            leaf_byte_range: None,
+        }
     }
-    pub fn path(&self) -> &crate::RdPath {
+    pub(crate) fn with_leaf_byte_range(
+        path: crate::RdAstPath,
+        tag: Option<RdTag>,
+        kind: RdShapeErrorKind,
+        leaf_byte_range: Range<usize>,
+    ) -> Self {
+        Self {
+            path,
+            tag,
+            kind,
+            leaf_byte_range: Some(Box::new(leaf_byte_range)),
+        }
+    }
+    pub fn path(&self) -> &crate::RdAstPath {
         &self.path
     }
     pub fn tag(&self) -> Option<&RdTag> {
@@ -24,6 +43,14 @@ impl RdShapeError {
     }
     pub fn kind(&self) -> &RdShapeErrorKind {
         &self.kind
+    }
+    /// Returns the byte range within the canonical text leaf identified by
+    /// [`Self::path`], if the diagnostic pinpoints a subrange.
+    ///
+    /// This is a UTF-8 byte range in the canonical AST value. It is not a
+    /// byte range in the original source or in an RDS character vector.
+    pub fn leaf_byte_range(&self) -> Option<Range<usize>> {
+        self.leaf_byte_range.as_deref().cloned()
     }
 }
 
@@ -55,7 +82,7 @@ pub enum RdShapeErrorKind {
     },
     Duplicate {
         construct: RdConstruct,
-        first_path: crate::RdPath,
+        first_path: crate::RdAstPath,
     },
     UnexpectedContent {
         actual: RdNodeKind,
@@ -237,7 +264,7 @@ impl fmt::Display for RdConstruct {
 
 impl UnexpectedRawNode {
     /// Converts corpus classification details into the shared shape vocabulary.
-    pub fn shape_error(&self, path: crate::RdPath) -> RdShapeError {
+    pub fn shape_error(&self, path: crate::RdAstPath) -> RdShapeError {
         RdShapeError::new(
             path,
             self.tag().map(RdTag::from_rd_tag),
@@ -257,7 +284,7 @@ mod tests {
     #[test]
     fn displays_shape_error() {
         let error = RdShapeError::new(
-            crate::RdPath::new(vec![crate::RdPathSegment::TopLevel(2)]),
+            crate::RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(2)]),
             Some(RdTag::Title),
             RdShapeErrorKind::UnexpectedOption,
         );
@@ -269,7 +296,7 @@ mod tests {
 
     #[test]
     fn displays_value_and_count_shape_errors() {
-        let path = crate::RdPath::new(vec![crate::RdPathSegment::TopLevel(0)]);
+        let path = crate::RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(0)]);
         let invalid = RdShapeError::new(
             path.clone(),
             None,
@@ -305,7 +332,7 @@ mod tests {
         else {
             panic!("expected an unexpected raw classification");
         };
-        let path = crate::RdPath::new(vec![crate::RdPathSegment::TopLevel(4)]);
+        let path = crate::RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(4)]);
         let error = unexpected.shape_error(path.clone());
         assert_eq!(error.path(), &path);
         assert_eq!(error.tag(), Some(&crate::RdTag::Unknown("OTHER".into())));

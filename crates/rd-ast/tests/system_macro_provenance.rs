@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use flate2::read::GzDecoder;
 use rd_ast::{
-    RdDocument, RdNode, RdPath, RdPathSegment, RdSystemMacroItem, RdSystemMacroItems,
+    RdAstPath, RdAstPathSegment, RdDocument, RdNode, RdSystemMacroItem, RdSystemMacroItems,
     RdSystemMacroItemsStrict, RdTag, lower_r_object,
 };
 use rd_rds::{RObject, RValue, parse};
@@ -68,11 +68,15 @@ fn usermacro_srcfile_provenance(object: &RObject) -> Vec<&'static str> {
     found
 }
 
-fn tagged<'a>(nodes: &'a [RdNode], wanted: &RdTag, path: &RdPath) -> Vec<(&'a RdNode, RdPath)> {
+fn tagged<'a>(
+    nodes: &'a [RdNode],
+    wanted: &RdTag,
+    path: &RdAstPath,
+) -> Vec<(&'a RdNode, RdAstPath)> {
     let mut found = Vec::new();
     for (index, node) in nodes.iter().enumerate() {
         let child_path = if path.segments().is_empty() {
-            RdPath::new(vec![RdPathSegment::TopLevel(index)])
+            RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])
         } else {
             path.with_child(index)
         };
@@ -89,7 +93,7 @@ fn tagged<'a>(nodes: &'a [RdNode], wanted: &RdTag, path: &RdPath) -> Vec<(&'a Rd
 }
 
 fn macro_summary(document: &RdDocument) -> (usize, BTreeMap<String, usize>) {
-    let root = RdPath::new(vec![]);
+    let root = RdAstPath::new(vec![]);
     let (description, path) = tagged(document.nodes(), &RdTag::Description, &root)
         .into_iter()
         .next()
@@ -146,7 +150,7 @@ fn assert_fixture(name: &str, compressed: bool) -> RObject {
     assert_eq!(names.get("\\fixtureWrap"), Some(&2));
     assert_eq!(names.get("\\fixtureInsert"), Some(&1));
 
-    let root = RdPath::new(vec![]);
+    let root = RdAstPath::new(vec![]);
     let (description, path) = tagged(document.nodes(), &RdTag::Description, &root)
         .into_iter()
         .next()

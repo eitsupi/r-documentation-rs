@@ -61,7 +61,7 @@ pub(super) fn lower_character_vector(
             continue;
         };
         let decoded = decoded.map_err(|_| {
-            context.scoped(RdPathSegment::CharacterElement(index), |context| {
+            context.scoped(LowerPathSegment::CharacterElement(index), |context| {
                 context.invalid_string(tag, attribute, string)
             })
         })?;
@@ -99,7 +99,7 @@ pub(super) fn rd_tag_string(
     };
     Ok(Some(
         context
-            .scoped(RdPathSegment::CharacterElement(0), |context| {
+            .scoped(LowerPathSegment::CharacterElement(0), |context| {
                 decoded.map_err(|_| context.invalid_string(None, Some("Rd_tag"), value))
             })?
             .into_owned(),

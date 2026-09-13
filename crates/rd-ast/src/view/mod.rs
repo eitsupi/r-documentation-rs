@@ -38,8 +38,8 @@
 //! recognizes only fully validated corpus-pinned `USERMACRO` sequences.
 
 use crate::{
-    RdArity, RdConstruct, RdDocument, RdExpectedNode, RdNode, RdNodeKind, RdPath, RdPathSegment,
-    RdShapeError, RdShapeErrorKind, RdTag, RdTagged, is_inter_item_trivia,
+    RdArity, RdAstPath, RdAstPathSegment, RdConstruct, RdDocument, RdExpectedNode, RdNode,
+    RdNodeKind, RdShapeError, RdShapeErrorKind, RdTag, RdTagged, is_inter_item_trivia,
 };
 use crate::{
     RdEffectiveSexprOptions, RdOptionError, RdOptionList, RdSexprOptionOverrides, RdSexprStage,
@@ -87,14 +87,14 @@ pub use system_macro::{
 pub use tabular::{RdColumnAlign, RdTableCell, RdTableRow, RdTabular};
 pub use text::text_contents;
 
-pub(super) fn top_path(index: usize) -> RdPath {
-    RdPath::new(vec![RdPathSegment::TopLevel(index)])
+pub(super) fn top_path(index: usize) -> RdAstPath {
+    RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])
 }
 
-pub(super) fn child_path(parent: usize, index: usize) -> RdPath {
-    RdPath::new(vec![
-        RdPathSegment::TopLevel(parent),
-        RdPathSegment::Child(index),
+pub(super) fn child_path(parent: usize, index: usize) -> RdAstPath {
+    RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(parent),
+        RdAstPathSegment::Child(index),
     ])
 }
 
@@ -104,14 +104,14 @@ pub(super) fn node_tag(node: &RdNode) -> Option<RdTag> {
         .or_else(|| node.as_raw().and_then(|n| n.tag().map(RdTag::from_rd_tag)))
 }
 
-pub(super) fn shape(path: RdPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> RdShapeError {
+pub(super) fn shape(path: RdAstPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> RdShapeError {
     RdShapeError::new(path, tag, kind)
 }
 
 pub(super) fn concat_exact(
     nodes: &[RdNode],
     required: RdNodeKind,
-    group_path: &RdPath,
+    group_path: &RdAstPath,
     tag: &RdTag,
 ) -> Result<String, RdShapeError> {
     let mut value = String::new();

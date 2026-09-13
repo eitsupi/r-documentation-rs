@@ -117,7 +117,7 @@ impl<'a> RdLifecycleBadge<'a> {
     pub fn figure(&self) -> &RdFigure<'a> {
         &self.figure
     }
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         self.figure.path()
     }
     pub fn canonical_shape(&self) -> Option<&RdLifecycleBadgeShape<'a>> {
@@ -163,12 +163,12 @@ fn significant(nodes: &[RdNode]) -> impl Iterator<Item = (usize, &RdNode)> {
 
 fn canonical_match<'a>(
     node: &'a RdNode,
-    path: &RdPath,
+    path: &RdAstPath,
 ) -> Option<(
     RdLifecycleBadgeShape<'a>,
     RdFigure<'a>,
     RdLifecycleStage,
-    RdPath,
+    RdAstPath,
 )> {
     let conditional = node.inspect_conditional(path).ok().flatten()?;
     if conditional.kind() != RdConditionalKind::IfElse || conditional.format() != "html" {
@@ -234,7 +234,7 @@ struct Collector<'a> {
 }
 
 impl<'a> Collector<'a> {
-    fn visit(&mut self, nodes: &'a [RdNode], base: &RdPath, skip: Option<&RdPath>) {
+    fn visit(&mut self, nodes: &'a [RdNode], base: &RdAstPath, skip: Option<&RdAstPath>) {
         for (index, node) in nodes.iter().enumerate() {
             let path = base.with_child(index);
             let mut nested_skip = None;

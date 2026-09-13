@@ -20,7 +20,9 @@ pub use option::{
     RdOptionValueKind, RdSexprOptionKey, RdSexprOptionOverrides, RdSexprResults, RdSexprStage,
     RdStripWhite,
 };
-pub use path::{RdPath, RdPathSegment};
+#[cfg(feature = "rds")]
+pub use path::{LowerPath, LowerPathSegment};
+pub use path::{RdAstPath, RdAstPathSegment};
 pub use raw::{
     RawRdEnvironment, RawRdNode, RawRdObject, RawRdReal, RawRdValue, RdAttribute, producer,
 };

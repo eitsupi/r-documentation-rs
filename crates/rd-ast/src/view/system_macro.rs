@@ -1,7 +1,7 @@
 //! Producer-neutral views of the four documented Rd system-macro profiles.
 
 use crate::{
-    RawRdValue, RdArity, RdConstruct, RdDocument, RdNode, RdNodeKind, RdPath, RdShapeError,
+    RawRdValue, RdArity, RdAstPath, RdConstruct, RdDocument, RdNode, RdNodeKind, RdShapeError,
     RdShapeErrorKind, RdTag, classify_raw_node,
 };
 
@@ -23,14 +23,14 @@ pub enum RdSystemMacro<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdSystemMacroMatch<'a> {
-    path: RdPath,
+    path: RdAstPath,
     semantic: RdSystemMacro<'a>,
     origin: RdSystemMacroOrigin,
     consumed: usize,
 }
 
 impl<'a> RdSystemMacroMatch<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     /// Returns the producer-neutral meaning of the matched sibling sequence.
@@ -49,20 +49,20 @@ impl<'a> RdSystemMacroMatch<'a> {
 #[non_exhaustive]
 pub enum RdSystemMacroItem<'a> {
     Macro(RdSystemMacroMatch<'a>),
-    Node { path: RdPath, node: &'a RdNode },
+    Node { path: RdAstPath, node: &'a RdNode },
 }
 
 #[derive(Debug, Clone)]
 pub struct RdSystemMacroItems<'a> {
     nodes: &'a [RdNode],
-    parent_path: Option<RdPath>,
+    parent_path: Option<RdAstPath>,
     index: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct RdSystemMacroItemsStrict<'a> {
     nodes: &'a [RdNode],
-    parent_path: Option<RdPath>,
+    parent_path: Option<RdAstPath>,
     index: usize,
 }
 
@@ -83,16 +83,16 @@ impl<'a> RdSystemMacroItems<'a> {
             index: 0,
         }
     }
-    pub fn children(nodes: &'a [RdNode], parent_path: &RdPath) -> Self {
+    pub fn children(nodes: &'a [RdNode], parent_path: &RdAstPath) -> Self {
         Self {
             nodes,
             parent_path: Some(parent_path.clone()),
             index: 0,
         }
     }
-    fn path(&self, index: usize) -> RdPath {
+    fn path(&self, index: usize) -> RdAstPath {
         self.parent_path.as_ref().map_or_else(
-            || RdPath::new(vec![crate::RdPathSegment::TopLevel(index)]),
+            || RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(index)]),
             |path| path.with_child(index),
         )
     }
@@ -106,16 +106,16 @@ impl<'a> RdSystemMacroItemsStrict<'a> {
             index: 0,
         }
     }
-    pub fn children(nodes: &'a [RdNode], parent_path: &RdPath) -> Self {
+    pub fn children(nodes: &'a [RdNode], parent_path: &RdAstPath) -> Self {
         Self {
             nodes,
             parent_path: Some(parent_path.clone()),
             index: 0,
         }
     }
-    fn path(&self, index: usize) -> RdPath {
+    fn path(&self, index: usize) -> RdAstPath {
         self.parent_path.as_ref().map_or_else(
-            || RdPath::new(vec![crate::RdPathSegment::TopLevel(index)]),
+            || RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(index)]),
             |path| path.with_child(index),
         )
     }
@@ -185,8 +185,8 @@ fn origin(node: &RdNode, consumed: usize) -> RdSystemMacroOrigin {
 fn recognize<'a>(
     node: &'a RdNode,
     following: Option<&RdNode>,
-    path: &RdPath,
-    following_path: &RdPath,
+    path: &RdAstPath,
+    following_path: &RdAstPath,
 ) -> Option<(RdSystemMacro<'a>, usize)> {
     if let Some(tagged) = node.as_tagged() {
         return curated(tagged.tag(), tagged.option(), tagged.children(), path)
@@ -216,8 +216,8 @@ fn recognize<'a>(
 fn inspect<'a>(
     node: &'a RdNode,
     following: Option<&RdNode>,
-    path: &RdPath,
-    following_path: &RdPath,
+    path: &RdAstPath,
+    following_path: &RdAstPath,
 ) -> Result<Option<(RdSystemMacro<'a>, usize, RdSystemMacroOrigin)>, RdShapeError> {
     if let Some(tagged) = node.as_tagged() {
         return curated(tagged.tag(), tagged.option(), tagged.children(), path)
@@ -399,7 +399,7 @@ fn valid_expansion(
     name: &str,
     arg: &str,
     node: &RdNode,
-    path: &RdPath,
+    path: &RdAstPath,
 ) -> Result<(), RdShapeError> {
     let mismatch = || {
         error(
@@ -498,7 +498,7 @@ fn curated<'a>(
     tag: &RdTag,
     option: Option<&[RdNode]>,
     children: &'a [RdNode],
-    path: &RdPath,
+    path: &RdAstPath,
 ) -> Result<Option<RdSystemMacro<'a>>, RdShapeError> {
     if !matches!(tag, RdTag::Doi | RdTag::CranPkg | RdTag::Sspace | RdTag::I) {
         return Ok(None);
@@ -539,7 +539,7 @@ fn curated<'a>(
 fn one_text<'a>(
     children: &'a [RdNode],
     tag: &RdTag,
-    path: &RdPath,
+    path: &RdAstPath,
 ) -> Result<&'a str, RdShapeError> {
     if children.len() != 1 {
         return Err(error(
@@ -563,6 +563,6 @@ fn one_text<'a>(
     }
 }
 
-fn error(path: RdPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> RdShapeError {
+fn error(path: RdAstPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> RdShapeError {
     RdShapeError::new(path, tag, kind)
 }

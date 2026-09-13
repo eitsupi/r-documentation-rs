@@ -2,13 +2,13 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdLink<'a> {
-    path: RdPath,
+    path: RdAstPath,
     display: &'a [RdNode],
     destination: RdLinkDestination<'a>,
 }
 
 impl<'a> RdLink<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn display(&self) -> &'a [RdNode] {
@@ -43,12 +43,12 @@ pub enum RdLinkTopic<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdHref<'a> {
-    path: RdPath,
+    path: RdAstPath,
     url: &'a [RdNode],
     display: &'a [RdNode],
 }
 impl<'a> RdHref<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn url(&self) -> &'a [RdNode] {
@@ -63,13 +63,13 @@ impl<'a> RdHref<'a> {
 /// belongs to consumers, and differs from [`RdLink`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdS4ClassLink<'a> {
-    path: RdPath,
+    path: RdAstPath,
     class: &'a [RdNode],
     package: Option<&'a [RdNode]>,
 }
 
 impl<'a> RdS4ClassLink<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn class(&self) -> &'a [RdNode] {
@@ -98,12 +98,12 @@ fn text_only(nodes: &[RdNode]) -> Option<String> {
 }
 
 impl RdNode {
-    pub fn s4_class_link(&self, base_path: &RdPath) -> Option<RdS4ClassLink<'_>> {
+    pub fn s4_class_link(&self, base_path: &RdAstPath) -> Option<RdS4ClassLink<'_>> {
         self.inspect_s4_class_link(base_path).ok().flatten()
     }
     pub fn inspect_s4_class_link(
         &self,
-        base_path: &RdPath,
+        base_path: &RdAstPath,
     ) -> Result<Option<RdS4ClassLink<'_>>, RdShapeError> {
         let tagged = match self {
             RdNode::Tagged(tagged) => tagged,
@@ -139,7 +139,7 @@ impl RdNode {
 impl RdTagged {
     /// A wrong tag uses `UnexpectedNode`; `actual: Tagged` identifies the
     /// node kind while the expected variant identifies the requested view.
-    pub fn inspect_link<'a>(&'a self, base_path: &RdPath) -> Result<RdLink<'a>, RdShapeError> {
+    pub fn inspect_link<'a>(&'a self, base_path: &RdAstPath) -> Result<RdLink<'a>, RdShapeError> {
         if self.tag() != &RdTag::Link {
             return Err(shape(
                 base_path.clone(),
@@ -151,7 +151,7 @@ impl RdTagged {
             ));
         }
         let display = self.children();
-        let all_text = |nodes: &[RdNode], path: &RdPath| -> Result<(), RdShapeError> {
+        let all_text = |nodes: &[RdNode], path: &RdAstPath| -> Result<(), RdShapeError> {
             for (index, node) in nodes.iter().enumerate() {
                 if !matches!(node, RdNode::Text(_)) {
                     return Err(shape(
@@ -215,7 +215,7 @@ impl RdTagged {
         })
     }
 
-    pub fn inspect_href<'a>(&'a self, base_path: &RdPath) -> Result<RdHref<'a>, RdShapeError> {
+    pub fn inspect_href<'a>(&'a self, base_path: &RdAstPath) -> Result<RdHref<'a>, RdShapeError> {
         if self.tag() != &RdTag::Href {
             return Err(shape(
                 base_path.clone(),

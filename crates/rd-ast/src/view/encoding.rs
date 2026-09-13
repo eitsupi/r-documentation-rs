@@ -2,13 +2,13 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdEnc<'a> {
-    path: RdPath,
+    path: RdAstPath,
     encoded: &'a [RdNode],
     ascii: &'a [RdNode],
 }
 
 impl<'a> RdEnc<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     /// Encoding-dependent Latex-mode markup; encoding-side selection is consumer policy.
@@ -22,11 +22,11 @@ impl<'a> RdEnc<'a> {
 }
 
 impl RdNode {
-    pub fn enc(&self, base_path: &RdPath) -> Option<RdEnc<'_>> {
+    pub fn enc(&self, base_path: &RdAstPath) -> Option<RdEnc<'_>> {
         self.inspect_enc(base_path).ok().flatten()
     }
 
-    pub fn inspect_enc(&self, base_path: &RdPath) -> Result<Option<RdEnc<'_>>, RdShapeError> {
+    pub fn inspect_enc(&self, base_path: &RdAstPath) -> Result<Option<RdEnc<'_>>, RdShapeError> {
         let tagged = match self {
             RdNode::Tagged(tagged) => tagged,
             RdNode::Raw(raw) => {

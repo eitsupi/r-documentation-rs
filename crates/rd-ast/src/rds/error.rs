@@ -17,13 +17,13 @@ pub enum LowerError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LowerLocation {
-    pub(super) path: RdPath,
+    pub(super) path: LowerPath,
     pub(super) tag: Option<String>,
     pub(super) attribute: Option<String>,
 }
 
 impl LowerLocation {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &LowerPath {
         &self.path
     }
     pub fn tag(&self) -> Option<&str> {

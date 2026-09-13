@@ -1,4 +1,4 @@
-use rd_ast::{RdDocument, RdNode, RdPath, RdPathSegment, RdTag};
+use rd_ast::{RdAstPath, RdAstPathSegment, RdDocument, RdNode, RdTag};
 use rd_writer::{UnserializableKind, WriteError};
 
 fn write_error(node: RdNode) -> WriteError {
@@ -24,19 +24,19 @@ fn document_error(nodes: Vec<RdNode>) -> UnserializableKind {
     }
 }
 
-fn assert_path(node: RdNode, expected: RdPath) {
+fn assert_path(node: RdNode, expected: RdAstPath) {
     let error = write_error(node);
     assert!(matches!(error, WriteError::Unserializable { .. }));
     assert_eq!(error.ast_path(), Some(&expected), "error: {error:?}");
 }
 
-fn assert_document_path(nodes: Vec<RdNode>, expected: RdPath) {
+fn assert_document_path(nodes: Vec<RdNode>, expected: RdAstPath) {
     let error = document_write_error(nodes);
     assert!(matches!(error, WriteError::Unserializable { .. }));
     assert_eq!(error.ast_path(), Some(&expected));
 }
 
-fn assert_kind_path(node: RdNode, expected_kind: UnserializableKind, expected_path: RdPath) {
+fn assert_kind_path(node: RdNode, expected_kind: UnserializableKind, expected_path: RdAstPath) {
     match write_error(node) {
         WriteError::Unserializable { kind, path } => {
             assert_eq!(kind, expected_kind);
@@ -49,7 +49,7 @@ fn assert_kind_path(node: RdNode, expected_kind: UnserializableKind, expected_pa
 fn assert_document_kind_path(
     nodes: Vec<RdNode>,
     expected_kind: UnserializableKind,
-    expected_path: RdPath,
+    expected_path: RdAstPath,
 ) {
     match document_write_error(nodes) {
         WriteError::Unserializable { kind, path } => {
@@ -60,8 +60,8 @@ fn assert_document_kind_path(
     }
 }
 
-fn path(segments: Vec<RdPathSegment>) -> RdPath {
-    RdPath::new(segments)
+fn path(segments: Vec<RdAstPathSegment>) -> RdAstPath {
+    RdAstPath::new(segments)
 }
 
 fn group(children: Vec<RdNode>) -> RdNode {
@@ -76,14 +76,14 @@ fn raw() -> RdNode {
 fn rejects_raw_empty_and_unknown_tags() {
     let raw_value = rd_ast::producer::raw_node(None, None, vec![], None, vec![]);
     assert_eq!(error(RdNode::Raw(raw_value)), UnserializableKind::RawNode);
-    assert_document_path(vec![raw()], path(vec![RdPathSegment::TopLevel(0)]));
+    assert_document_path(vec![raw()], path(vec![RdAstPathSegment::TopLevel(0)]));
     assert_eq!(
         error(RdNode::Text(String::new())),
         UnserializableKind::UnrepresentableLeaf
     );
     assert_path(
         RdNode::Text(String::new()),
-        path(vec![RdPathSegment::TopLevel(0)]),
+        path(vec![RdAstPathSegment::TopLevel(0)]),
     );
     assert_eq!(
         error(RdNode::tagged(
@@ -99,7 +99,7 @@ fn rejects_raw_empty_and_unknown_tags() {
             None,
             vec![RdNode::Text("x".into())],
         ),
-        path(vec![RdPathSegment::TopLevel(0)]),
+        path(vec![RdAstPathSegment::TopLevel(0)]),
     );
     assert_eq!(
         error(RdNode::tagged(
@@ -115,7 +115,7 @@ fn rejects_raw_empty_and_unknown_tags() {
             None,
             vec![RdNode::Text("x".into())],
         ),
-        path(vec![RdPathSegment::TopLevel(0)]),
+        path(vec![RdAstPathSegment::TopLevel(0)]),
     );
 }
 
@@ -162,7 +162,10 @@ fn rejects_illegal_contexts_and_unclosed_r_like_frames() {
                 vec![RdNode::Verb("x".into())],
             )],
         ),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
     let section_in_latex = RdNode::tagged(
         RdTag::Title,
@@ -187,7 +190,10 @@ fn rejects_illegal_contexts_and_unclosed_r_like_frames() {
                 vec![RdNode::Verb("x".into())],
             )],
         ),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
     let structured_in_verbatim = RdNode::tagged(
         RdTag::Verb,
@@ -212,7 +218,10 @@ fn rejects_illegal_contexts_and_unclosed_r_like_frames() {
                 vec![RdNode::Text("x".into())],
             )],
         ),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
     let tab_in_r_like = RdNode::tagged(
         RdTag::Examples,
@@ -235,7 +244,10 @@ fn rejects_illegal_contexts_and_unclosed_r_like_frames() {
                 RdNode::RCode("\n".into()),
             ],
         ),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
     let unterminated = RdNode::tagged(
         RdTag::Examples,
@@ -252,7 +264,7 @@ fn rejects_illegal_contexts_and_unclosed_r_like_frames() {
             None,
             vec![RdNode::RCode(r#""unterminated"#.into())],
         ),
-        path(vec![RdPathSegment::TopLevel(0)]),
+        path(vec![RdAstPathSegment::TopLevel(0)]),
     );
     let quoted_tag = RdNode::tagged(
         RdTag::Examples,
@@ -277,7 +289,10 @@ fn rejects_illegal_contexts_and_unclosed_r_like_frames() {
                 RdNode::RCode("\"\n".into()),
             ],
         ),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(1)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(1),
+        ]),
     );
 }
 
@@ -300,9 +315,9 @@ fn rejects_noncanonical_conditional_targets_and_equations() {
             vec![group(vec![RdNode::Text("pkg".into())]), group(vec![])],
         ),
         path(vec![
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Child(0),
-            RdPathSegment::Child(0),
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(0),
         ]),
     );
     assert_eq!(
@@ -315,7 +330,10 @@ fn rejects_noncanonical_conditional_targets_and_equations() {
     );
     assert_path(
         RdNode::tagged(RdTag::Eqn, None, vec![RdNode::Verb(r"abc\".into())]),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
 }
 
@@ -331,7 +349,10 @@ fn rejects_wrong_leaf_kind_and_equation() {
     );
     assert_path(
         RdNode::tagged(RdTag::Name, None, vec![RdNode::Text("x".into())]),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
     assert_eq!(
         error(RdNode::tagged(
@@ -343,7 +364,10 @@ fn rejects_wrong_leaf_kind_and_equation() {
     );
     assert_path(
         RdNode::tagged(RdTag::Eqn, None, vec![RdNode::Verb("{".into())]),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
     assert_eq!(
         error(RdNode::Text("x\r".into())),
@@ -351,7 +375,7 @@ fn rejects_wrong_leaf_kind_and_equation() {
     );
     assert_path(
         RdNode::Text("x\r".into()),
-        path(vec![RdPathSegment::TopLevel(0)]),
+        path(vec![RdAstPathSegment::TopLevel(0)]),
     );
 }
 
@@ -369,7 +393,7 @@ fn rejects_comment_and_option_terminator() {
             RdNode::Comment("% comment".into()),
             RdNode::Text("x".into()),
         ],
-        path(vec![RdPathSegment::TopLevel(0)]),
+        path(vec![RdAstPathSegment::TopLevel(0)]),
     );
     assert_eq!(
         error(RdNode::tagged(
@@ -386,9 +410,9 @@ fn rejects_comment_and_option_terminator() {
             vec![RdNode::Text("x".into())],
         ),
         path(vec![
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Option,
-            RdPathSegment::Child(0),
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Option,
+            RdAstPathSegment::Child(0),
         ]),
     );
     assert_eq!(
@@ -403,7 +427,10 @@ fn rejects_comment_and_option_terminator() {
     );
     assert_path(
         RdNode::tagged(RdTag::Title, Some(vec![]), vec![RdNode::Text("x".into())]),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Option]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Option,
+        ]),
     );
 }
 
@@ -421,7 +448,10 @@ fn rejects_conditional_option_at_option_path() {
         UnserializableKind::InvalidTagShape {
             tag: "#ifdef".into(),
         },
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Option]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Option,
+        ]),
     );
 }
 
@@ -435,9 +465,9 @@ fn reports_first_invalid_option_sibling() {
         ),
         UnserializableKind::InvalidOptionContent,
         path(vec![
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Option,
-            RdPathSegment::Child(1),
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Option,
+            RdAstPathSegment::Child(1),
         ]),
     );
 }
@@ -456,11 +486,11 @@ fn reports_nested_tag_option_before_children_in_invalid_option() {
         ),
         UnserializableKind::InvalidOptionContent,
         path(vec![
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Option,
-            RdPathSegment::Child(0),
-            RdPathSegment::Option,
-            RdPathSegment::Child(0),
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Option,
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Option,
+            RdAstPathSegment::Child(0),
         ]),
     );
 }
@@ -480,7 +510,10 @@ fn rejects_contextual_tag_shapes() {
         ));
         assert_path(
             RdNode::tagged(parent, None, vec![item(vec![RdNode::Text("x".into())])]),
-            path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+            path(vec![
+                RdAstPathSegment::TopLevel(0),
+                RdAstPathSegment::Child(0),
+            ]),
         );
     }
     for parent in [RdTag::Arguments, RdTag::Value, RdTag::Describe] {
@@ -490,7 +523,10 @@ fn rejects_contextual_tag_shapes() {
         ));
         assert_path(
             RdNode::tagged(parent, None, vec![item(vec![])]),
-            path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+            path(vec![
+                RdAstPathSegment::TopLevel(0),
+                RdAstPathSegment::Child(0),
+            ]),
         );
     }
     let figure = RdNode::tagged(RdTag::Figure, None, vec![group("f"), group("o")]);
@@ -512,7 +548,10 @@ fn rejects_contextual_tag_shapes() {
                 ],
             )],
         ),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
     assert!(matches!(
         error(RdNode::tagged(
@@ -524,7 +563,7 @@ fn rejects_contextual_tag_shapes() {
     ));
     assert_path(
         RdNode::tagged(RdTag::Section, None, vec![RdNode::Text("a".into()); 3]),
-        path(vec![RdPathSegment::TopLevel(0)]),
+        path(vec![RdAstPathSegment::TopLevel(0)]),
     );
     assert!(matches!(
         error(RdNode::tagged(RdTag::Title, None, vec![group("a")])),
@@ -536,7 +575,10 @@ fn rejects_contextual_tag_shapes() {
             None,
             vec![RdNode::group(vec![RdNode::Text("a".into())])],
         ),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+        ]),
     );
 }
 
@@ -561,10 +603,10 @@ fn rejects_item_options_at_the_option_path_in_each_context() {
             tag: "\\item".into(),
         },
         path(vec![
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Child(0),
-            RdPathSegment::Child(0),
-            RdPathSegment::Option,
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Option,
         ]),
     );
 
@@ -586,17 +628,17 @@ fn rejects_item_options_at_the_option_path_in_each_context() {
             tag: "\\item".into(),
         },
         path(vec![
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Child(0),
-            RdPathSegment::Option,
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Option,
         ]),
     );
 }
 
 #[test]
 fn reports_canonical_paths_for_invalid_shapes() {
-    let top = |index| path(vec![RdPathSegment::TopLevel(index)]);
-    let child = |index| RdPathSegment::Child(index);
+    let top = |index| path(vec![RdAstPathSegment::TopLevel(index)]);
+    let child = |index| RdAstPathSegment::Child(index);
 
     assert_document_kind_path(
         vec![RdNode::Text("ok\n".into()), raw()],
@@ -714,7 +756,7 @@ fn reports_canonical_paths_for_invalid_shapes() {
         UnserializableKind::UnrepresentableLeaf,
         path(vec![
             top(0).segments()[0].clone(),
-            RdPathSegment::Option,
+            RdAstPathSegment::Option,
             child(0),
         ]),
     );
@@ -727,7 +769,7 @@ fn reports_canonical_paths_for_invalid_shapes() {
         UnserializableKind::InvalidOptionContent,
         path(vec![
             top(0).segments()[0].clone(),
-            RdPathSegment::Option,
+            RdAstPathSegment::Option,
             child(0),
         ]),
     );
@@ -744,7 +786,7 @@ fn reports_canonical_paths_for_invalid_shapes() {
         UnserializableKind::InvalidOptionContent,
         path(vec![
             top(0).segments()[0].clone(),
-            RdPathSegment::Option,
+            RdAstPathSegment::Option,
             child(0),
             child(0),
         ]),
@@ -762,9 +804,9 @@ fn reports_canonical_paths_for_invalid_shapes() {
         UnserializableKind::InvalidOptionContent,
         path(vec![
             top(0).segments()[0].clone(),
-            RdPathSegment::Option,
+            RdAstPathSegment::Option,
             child(0),
-            RdPathSegment::Option,
+            RdAstPathSegment::Option,
             child(0),
         ]),
     );
@@ -872,7 +914,7 @@ fn reports_unrepresentable_leaf_boundary_at_later_leaf() {
     assert_document_kind_path(
         vec![RdNode::Text("a".into()), RdNode::Text("b".into())],
         kind.clone(),
-        path(vec![RdPathSegment::TopLevel(1)]),
+        path(vec![RdAstPathSegment::TopLevel(1)]),
     );
     assert_kind_path(
         RdNode::tagged(
@@ -881,7 +923,10 @@ fn reports_unrepresentable_leaf_boundary_at_later_leaf() {
             vec![RdNode::Text("a".into()), RdNode::Text("b".into())],
         ),
         kind.clone(),
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(1)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(1),
+        ]),
     );
     assert_kind_path(
         RdNode::tagged(
@@ -894,9 +939,9 @@ fn reports_unrepresentable_leaf_boundary_at_later_leaf() {
         ),
         kind.clone(),
         path(vec![
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Child(0),
-            RdPathSegment::Child(1),
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(1),
         ]),
     );
     assert_kind_path(
@@ -906,7 +951,10 @@ fn reports_unrepresentable_leaf_boundary_at_later_leaf() {
             vec![RdNode::RCode("a".into()), RdNode::RCode("b".into())],
         ),
         kind,
-        path(vec![RdPathSegment::TopLevel(0), RdPathSegment::Child(1)]),
+        path(vec![
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(1),
+        ]),
     );
 }
 

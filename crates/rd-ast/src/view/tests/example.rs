@@ -1,7 +1,7 @@
 use super::*;
 
-fn base_path() -> RdPath {
-    RdPath::new(vec![RdPathSegment::TopLevel(3)])
+fn base_path() -> RdAstPath {
+    RdAstPath::new(vec![RdAstPathSegment::TopLevel(3)])
 }
 
 #[test]
@@ -138,7 +138,10 @@ fn unrelated_nodes_and_raw_nodes_follow_example_control_boundary() {
 
 #[test]
 fn raw_children_are_preserved_and_errors_propagate_full_paths() {
-    let path = RdPath::new(vec![RdPathSegment::TopLevel(7), RdPathSegment::Child(2)]);
+    let path = RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(7),
+        RdAstPathSegment::Child(2),
+    ]);
     let raw_child = RdNode::Raw(crate::producer::raw_node(
         Some(r"\opaque".into()),
         None,

@@ -6,7 +6,10 @@ fn delimiter_item() -> RdNode {
 
 #[test]
 fn lists_split_delimited_items_without_synthesizing_labels() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(4), RdPathSegment::Child(2)]);
+    let base = RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(4),
+        RdAstPathSegment::Child(2),
+    ]);
     let list = RdTagged::new(
         RdTag::Itemize,
         None,
@@ -47,7 +50,7 @@ fn enumerate_has_the_same_delimiter_semantics() {
         None,
         vec![delimiter_item(), RdNode::Text("one".into())],
     );
-    let view = list.inspect_list(&RdPath::new(vec![])).unwrap();
+    let view = list.inspect_list(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(view.kind(), RdListKind::Enumerate);
     assert!(
         matches!(view.items().next().unwrap(), Ok(RdListItem::Delimited(item)) if item.body().len() == 1)
@@ -56,7 +59,7 @@ fn enumerate_has_the_same_delimiter_semantics() {
 
 #[test]
 fn describe_items_validate_two_groups_and_keep_scanning() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(3)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(3)]);
     let item = |children| RdNode::tagged(RdTag::Item, None, children);
     let list = RdTagged::new(
         RdTag::Describe,
@@ -84,7 +87,7 @@ fn describe_items_validate_two_groups_and_keep_scanning() {
 
 #[test]
 fn inspect_list_reports_wrong_tag_and_container_option() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(1)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(1)]);
     let wrong = RdTagged::new(RdTag::Title, None, vec![])
         .inspect_list(&base)
         .unwrap_err();

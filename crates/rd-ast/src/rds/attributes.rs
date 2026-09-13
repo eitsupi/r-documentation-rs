@@ -142,7 +142,7 @@ pub(super) fn lower_attributes(
         }
 
         attributes.push(
-            context.scoped(RdPathSegment::Attribute(name.to_string()), |context| {
+            context.scoped(LowerPathSegment::Attribute(name.to_string()), |context| {
                 lower_attribute(context, tag, attribute)
             })?,
         );
@@ -158,7 +158,7 @@ pub(super) fn lower_attribute(
 ) -> Result<RdAttribute, LowerError> {
     Ok(producer::raw_attribute(
         attribute.name().as_str().to_string(),
-        context.scoped(RdPathSegment::AttributeValue, |context| {
+        context.scoped(LowerPathSegment::AttributeValue, |context| {
             lower_raw_object(
                 context,
                 tag,

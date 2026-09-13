@@ -20,7 +20,7 @@ fn equations_borrow_arguments_and_record_display_mode() {
         None,
         vec![raw_group(vec![RdNode::Text("sum".into())])],
     );
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(4)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(4)]);
     let one = one.as_tagged().unwrap().inspect_equation(&base).unwrap();
     assert_eq!(one.display(), RdEquationDisplay::Inline);
     assert_eq!(one.ascii(), None);
@@ -33,7 +33,7 @@ fn equations_borrow_arguments_and_record_display_mode() {
 
 #[test]
 fn equations_report_shape_errors_and_propagate_paths() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(2)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(2)]);
     let option = RdNode::tagged(RdTag::Eqn, Some(vec![]), vec![]);
     assert!(matches!(
         option
@@ -66,7 +66,7 @@ fn equations_report_shape_errors_and_propagate_paths() {
         .unwrap_err();
     assert_eq!(
         error.path().segments(),
-        &[RdPathSegment::TopLevel(2), RdPathSegment::Child(0)]
+        &[RdAstPathSegment::TopLevel(2), RdAstPathSegment::Child(0)]
     );
     assert!(matches!(
         error.kind(),

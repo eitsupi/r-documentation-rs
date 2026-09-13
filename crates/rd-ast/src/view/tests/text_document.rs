@@ -60,7 +60,7 @@ fn strict_views_report_shape_errors_with_paths() {
     let error = RdDocument::new(vec![RdNode::tagged(RdTag::Title, None, vec![]), raw()])
         .inspect_title()
         .unwrap_err();
-    assert_eq!(error.path().segments(), &[RdPathSegment::TopLevel(1)]);
+    assert_eq!(error.path().segments(), &[RdAstPathSegment::TopLevel(1)]);
     assert_eq!(error.tag(), Some(&RdTag::Title));
     assert!(matches!(
         error.kind(),
@@ -77,7 +77,7 @@ fn strict_views_report_shape_errors_with_paths() {
     .inspect_title()
     .unwrap_err();
     assert!(
-        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdPathSegment::TopLevel(0)])
+        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdAstPathSegment::TopLevel(0)])
     );
 
     let error = RdDocument::new(vec![RdNode::tagged(
@@ -89,7 +89,7 @@ fn strict_views_report_shape_errors_with_paths() {
     .next()
     .unwrap()
     .unwrap_err();
-    assert_eq!(error.path().segments(), &[RdPathSegment::TopLevel(0)]);
+    assert_eq!(error.path().segments(), &[RdAstPathSegment::TopLevel(0)]);
     assert!(matches!(
         error.kind(),
         RdShapeErrorKind::WrongArity {
@@ -110,7 +110,7 @@ fn strict_views_report_shape_errors_with_paths() {
     .unwrap_err();
     assert_eq!(
         error.path().segments(),
-        &[RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]
+        &[RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)]
     );
     assert!(matches!(
         error.kind(),
@@ -155,9 +155,9 @@ fn strict_arguments_report_item_option_and_non_group_child() {
     assert_eq!(
         error.path().segments(),
         &[
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Child(1),
-            RdPathSegment::Child(0)
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(1),
+            RdAstPathSegment::Child(0)
         ]
     );
     assert!(matches!(
@@ -195,7 +195,7 @@ fn strict_aliases_sections_and_argument_containers_report_errors() {
     let error = section.inspect_sections().next().unwrap().unwrap_err();
     assert_eq!(
         error.path().segments(),
-        &[RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]
+        &[RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)]
     );
     assert!(matches!(
         error.kind(),
@@ -211,7 +211,7 @@ fn strict_aliases_sections_and_argument_containers_report_errors() {
     ]);
     let error = duplicate.inspect_arguments().err().unwrap();
     assert!(
-        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdPathSegment::TopLevel(0)])
+        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdAstPathSegment::TopLevel(0)])
     );
     let raw = RdDocument::new(vec![RdNode::Raw(crate::producer::raw_node(
         Some(r"\arguments".into()),
@@ -517,7 +517,7 @@ fn fixed_section_accessors_cover_the_remaining_vocabulary() {
     assert!(matches!(
         duplicate.inspect_name().unwrap_err().kind(),
         RdShapeErrorKind::Duplicate { first_path, .. }
-            if first_path.segments() == [RdPathSegment::TopLevel(0)]
+            if first_path.segments() == [RdAstPathSegment::TopLevel(0)]
     ));
     let option = RdDocument::new(vec![RdNode::tagged(RdTag::Name, Some(vec![]), vec![])]);
     assert!(matches!(
@@ -642,20 +642,20 @@ fn section_tree_is_preorder_path_aware_and_ignores_orphans() {
             .map(|visit| visit.path().segments())
             .collect::<Vec<_>>(),
         vec![
-            &[RdPathSegment::TopLevel(1)][..],
+            &[RdAstPathSegment::TopLevel(1)][..],
             &[
-                RdPathSegment::TopLevel(1),
-                RdPathSegment::Child(1),
-                RdPathSegment::Child(2)
+                RdAstPathSegment::TopLevel(1),
+                RdAstPathSegment::Child(1),
+                RdAstPathSegment::Child(2)
             ][..],
             &[
-                RdPathSegment::TopLevel(1),
-                RdPathSegment::Child(1),
-                RdPathSegment::Child(2),
-                RdPathSegment::Child(1),
-                RdPathSegment::Child(0),
+                RdAstPathSegment::TopLevel(1),
+                RdAstPathSegment::Child(1),
+                RdAstPathSegment::Child(2),
+                RdAstPathSegment::Child(1),
+                RdAstPathSegment::Child(0),
             ][..],
-            &[RdPathSegment::TopLevel(3)][..],
+            &[RdAstPathSegment::TopLevel(3)][..],
         ]
     );
     assert_eq!(doc.sections().count(), 2);

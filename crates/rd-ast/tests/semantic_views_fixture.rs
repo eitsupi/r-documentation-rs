@@ -4,9 +4,9 @@ use std::{fs, io::Read, path::PathBuf};
 
 use flate2::read::GzDecoder;
 use rd_ast::{
-    RdColumnAlign, RdDocument, RdDynamicMarkupEvent, RdDynamicMarkupState, RdEquationDisplay,
-    RdLifecycleStage, RdLinkDestination, RdLinkTopic, RdListItem, RdNode, RdPath, RdPathSegment,
-    RdSexprResults, RdSexprStage, RdTag, lower_r_object, text_contents,
+    RdAstPath, RdAstPathSegment, RdColumnAlign, RdDocument, RdDynamicMarkupEvent,
+    RdDynamicMarkupState, RdEquationDisplay, RdLifecycleStage, RdLinkDestination, RdLinkTopic,
+    RdListItem, RdNode, RdSexprResults, RdSexprStage, RdTag, lower_r_object, text_contents,
 };
 use rd_rds::parse;
 
@@ -25,12 +25,12 @@ fn fixture(version: u8) -> rd_rds::RObject {
 fn tagged<'a>(
     nodes: &'a [RdNode],
     wanted: &RdTag,
-    path: &RdPath,
-) -> Vec<(&'a rd_ast::RdTagged, RdPath)> {
+    path: &RdAstPath,
+) -> Vec<(&'a rd_ast::RdTagged, RdAstPath)> {
     let mut found = Vec::new();
     for (index, node) in nodes.iter().enumerate() {
         let child_path = if path.segments().is_empty() {
-            RdPath::new(vec![RdPathSegment::TopLevel(index)])
+            RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])
         } else {
             path.with_child(index)
         };
@@ -57,7 +57,7 @@ fn normalize(nodes: &[RdNode]) -> String {
 fn real_r_semantics_fixture_conforms_for_rds_versions() {
     for version in [2, 3] {
         let document: RdDocument = lower_r_object(&fixture(version)).unwrap();
-        let root = RdPath::new(vec![]);
+        let root = RdAstPath::new(vec![]);
 
         let links = tagged(document.nodes(), &RdTag::Link, &root);
         assert_eq!(links.len(), 4, "version {version}");
@@ -233,7 +233,7 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
                 && resolved.state() == RdDynamicMarkupState::Unresolved { stage: RdSexprStage::Render }));
         assert_eq!(
             sexprs[0].1.segments(),
-            &[RdPathSegment::TopLevel(4), RdPathSegment::Child(1)]
+            &[RdAstPathSegment::TopLevel(4), RdAstPathSegment::Child(1)]
         );
         assert_eq!(
             sexprs[1].0.inspect_sexpr(&sexprs[1].1).unwrap().code(),

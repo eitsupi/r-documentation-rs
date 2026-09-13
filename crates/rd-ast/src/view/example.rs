@@ -19,13 +19,13 @@ pub enum RdExampleControlKind {
 /// A borrowed, structurally valid example-control wrapper view.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdExampleControl<'a> {
-    path: RdPath,
+    path: RdAstPath,
     kind: RdExampleControlKind,
     body: &'a [RdNode],
 }
 
 impl<'a> RdExampleControl<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
 
@@ -54,7 +54,7 @@ fn example_control_kind(tag: &RdTag) -> Option<RdExampleControlKind> {
 
 impl RdNode {
     /// Lossily views a canonical example-control wrapper without an option.
-    pub fn example_control(&self, base_path: &RdPath) -> Option<RdExampleControl<'_>> {
+    pub fn example_control(&self, base_path: &RdAstPath) -> Option<RdExampleControl<'_>> {
         let tagged = self.as_tagged()?;
         let kind = example_control_kind(tagged.tag())?;
         tagged.option().is_none().then(|| RdExampleControl {
@@ -68,7 +68,7 @@ impl RdNode {
     /// or validating any of its direct children.
     pub fn inspect_example_control(
         &self,
-        base_path: &RdPath,
+        base_path: &RdAstPath,
     ) -> Result<Option<RdExampleControl<'_>>, RdShapeError> {
         match self {
             RdNode::Tagged(tagged) => {

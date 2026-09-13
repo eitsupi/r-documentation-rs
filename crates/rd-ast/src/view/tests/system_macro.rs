@@ -231,17 +231,17 @@ fn malformed_curated_and_nested_paths_are_reported() {
     );
     let document = RdDocument::new(vec![parent]);
     let description = document.nodes()[0].as_tagged().unwrap();
-    let parent_path = RdPath::new(vec![RdPathSegment::TopLevel(0)]);
+    let parent_path = RdAstPath::new(vec![RdAstPathSegment::TopLevel(0)]);
     let mut strict = RdSystemMacroItemsStrict::children(description.children(), &parent_path);
     let error = strict.next().unwrap().unwrap_err();
     assert_eq!(
         error.path().segments(),
-        &[RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]
+        &[RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)]
     );
     let mut nested = RdSystemMacroItems::children(description.children(), &parent_path);
     assert!(
         matches!(nested.next().unwrap(), RdSystemMacroItem::Node { path, .. }
-        if path.segments() == [RdPathSegment::TopLevel(0), RdPathSegment::Child(0)])
+        if path.segments() == [RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)])
     );
 }
 

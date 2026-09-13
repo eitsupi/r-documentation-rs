@@ -1,8 +1,9 @@
 use rd_ast::{
-    RawRdValue, RdDocument, RdDynamicMarkupEvent, RdDynamicMarkupState, RdEffectiveSexprOptions,
-    RdGenerationHeader, RdGenerator, RdNode, RdOptionError, RdOptionList, RdOptionPairErrorKind,
-    RdOptionValueKind, RdPath, RdPathSegment, RdSectionKind, RdSexprOptionKey,
-    RdSexprOptionOverrides, RdSexprResults, RdSexprStage, RdStripWhite, RdTag, producer,
+    RawRdValue, RdAstPath, RdAstPathSegment, RdDocument, RdDynamicMarkupEvent,
+    RdDynamicMarkupState, RdEffectiveSexprOptions, RdGenerationHeader, RdGenerator, RdNode,
+    RdOptionError, RdOptionList, RdOptionPairErrorKind, RdOptionValueKind, RdSectionKind,
+    RdSexprOptionKey, RdSexprOptionOverrides, RdSexprResults, RdSexprStage, RdStripWhite, RdTag,
+    producer,
 };
 
 fn document_from_public_producer_api() -> RdDocument {
@@ -190,7 +191,7 @@ fn generation_header_view_is_public() {
 
 #[test]
 fn option_parser_public_api() -> Result<(), Box<dyn std::error::Error>> {
-    let path = RdPath::new(vec![RdPathSegment::TopLevel(0)]);
+    let path = RdAstPath::new(vec![RdAstPathSegment::TopLevel(0)]);
     let nodes = [RdNode::Text("echo=true,results=rd".into())];
     let parsed = RdOptionList::parse(&nodes, path.clone())?;
     assert_eq!(parsed.path(), &path);
@@ -214,6 +215,22 @@ fn option_parser_public_api() -> Result<(), Box<dyn std::error::Error>> {
         RdOptionList::parse(&[RdNode::Comment("%".into())], path).unwrap_err();
     assert!(shape.path().to_string().contains("child[0]"));
     Ok(())
+}
+
+#[cfg(feature = "rds")]
+#[test]
+fn lowering_paths_keep_producer_detail() {
+    let path = rd_ast::LowerPath::new(vec![
+        rd_ast::LowerPathSegment::TopLevel(0),
+        rd_ast::LowerPathSegment::Attribute("srcref".into()),
+        rd_ast::LowerPathSegment::AttributeValue,
+        rd_ast::LowerPathSegment::ListElement(1),
+        rd_ast::LowerPathSegment::CharacterElement(0),
+    ]);
+    assert_eq!(
+        path.to_string(),
+        "top-level[0] / @attr(srcref) / value / list[1] / character[0]"
+    );
 }
 
 #[test]

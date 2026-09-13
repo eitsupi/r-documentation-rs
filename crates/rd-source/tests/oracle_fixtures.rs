@@ -177,7 +177,7 @@ comments = 0
 
 #[test]
 fn comparator_reports_all_mismatch_kinds_with_paths() {
-    let path = |i| rd_ast::RdPath::new(vec![rd_ast::RdPathSegment::TopLevel(i)]);
+    let path = |i| rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(i)]);
     let expected = RdDocument::new(vec![
         RdNode::tagged(RdTag::Link, Some(vec![]), vec![RdNode::Text("a\n".into())]),
         RdNode::Comment("% c".into()),

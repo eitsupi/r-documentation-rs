@@ -1,7 +1,7 @@
 use super::*;
 
-fn test_base() -> RdPath {
-    RdPath::new(vec![RdPathSegment::TopLevel(4)])
+fn test_base() -> RdAstPath {
+    RdAstPath::new(vec![RdAstPathSegment::TopLevel(4)])
 }
 
 fn sexpr(option: Option<Vec<RdNode>>, children: Vec<RdNode>) -> RdNode {
@@ -64,7 +64,7 @@ fn sexpr_constructor_view_validates_shape_and_options() {
         error,
         RdOptionError::Shape(ref error)
             if error.path().segments()
-                == [RdPathSegment::TopLevel(4), RdPathSegment::Child(0)]
+                == [RdAstPathSegment::TopLevel(4), RdAstPathSegment::Child(0)]
                 && matches!(error.kind(), RdShapeErrorKind::UnexpectedContent {
                     actual: RdNodeKind::Text
                 })
@@ -206,10 +206,10 @@ fn dynamic_markup_traverses_nested_nodes_and_preserves_state_on_errors() {
         &events[0],
         Ok(RdDynamicMarkupEvent::Sexpr(resolved))
             if resolved.view().path().segments()
-                == [RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]
+                == [RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)]
     ));
     assert!(matches!(&events[1], Err(error) if error.path().segments()
-            == [RdPathSegment::TopLevel(1), RdPathSegment::Child(0)]));
+            == [RdAstPathSegment::TopLevel(1), RdAstPathSegment::Child(0)]));
     assert!(matches!(
         &events[2],
         Ok(RdDynamicMarkupEvent::Sexpr(resolved))

@@ -2,13 +2,13 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdList<'a> {
-    path: RdPath,
+    path: RdAstPath,
     kind: RdListKind,
     children: &'a [RdNode],
 }
 
 impl<'a> RdList<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn kind(&self) -> RdListKind {
@@ -43,12 +43,12 @@ pub enum RdListItem<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdDelimitedItem<'a> {
-    path: RdPath,
+    path: RdAstPath,
     body: &'a [RdNode],
 }
 
 impl<'a> RdDelimitedItem<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn body(&self) -> &'a [RdNode] {
@@ -58,13 +58,13 @@ impl<'a> RdDelimitedItem<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdDescribedItem<'a> {
-    path: RdPath,
+    path: RdAstPath,
     label: &'a [RdNode],
     body: &'a [RdNode],
 }
 
 impl<'a> RdDescribedItem<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn label(&self) -> &'a [RdNode] {
@@ -77,7 +77,7 @@ impl<'a> RdDescribedItem<'a> {
 impl RdTagged {
     /// Strictly inspects a single list container. Itemize and enumerate use
     /// zero-child item markers; describe uses two positional groups per item.
-    pub fn inspect_list<'a>(&'a self, base_path: &RdPath) -> Result<RdList<'a>, RdShapeError> {
+    pub fn inspect_list<'a>(&'a self, base_path: &RdAstPath) -> Result<RdList<'a>, RdShapeError> {
         let kind = match self.tag() {
             RdTag::Itemize => RdListKind::Itemize,
             RdTag::Enumerate => RdListKind::Enumerate,
@@ -219,7 +219,7 @@ impl<'list, 'a> Iterator for ListItems<'list, 'a> {
 
 pub(super) fn inspect_two_group_item<'a>(
     tagged: &'a RdTagged,
-    item_path: &RdPath,
+    item_path: &RdAstPath,
 ) -> Result<(&'a [RdNode], &'a [RdNode]), RdShapeError> {
     if tagged.option().is_some() {
         return Err(shape(

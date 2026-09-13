@@ -1,4 +1,4 @@
-use rd_ast::{RdNode, RdPath, RdTag};
+use rd_ast::{RdAstPath, RdNode, RdTag};
 
 fn parse(input: &str) -> rd_ast::RdDocument {
     let parsed = rd_source::parse(input.as_bytes()).unwrap();
@@ -10,7 +10,7 @@ fn parse(input: &str) -> rd_ast::RdDocument {
     parsed.document().clone()
 }
 
-fn walk<'a>(nodes: &'a [RdNode], path: RdPath, out: &mut Vec<(&'a RdNode, RdPath)>) {
+fn walk<'a>(nodes: &'a [RdNode], path: RdAstPath, out: &mut Vec<(&'a RdNode, RdAstPath)>) {
     for (index, node) in nodes.iter().enumerate() {
         let child_path = path.with_child(index);
         out.push((node, child_path.clone()));
@@ -22,9 +22,9 @@ fn walk<'a>(nodes: &'a [RdNode], path: RdPath, out: &mut Vec<(&'a RdNode, RdPath
     }
 }
 
-fn nodes(document: &rd_ast::RdDocument) -> Vec<(&RdNode, RdPath)> {
+fn nodes(document: &rd_ast::RdDocument) -> Vec<(&RdNode, RdAstPath)> {
     let mut out = Vec::new();
-    walk(document.nodes(), RdPath::new(vec![]), &mut out);
+    walk(document.nodes(), RdAstPath::new(vec![]), &mut out);
     out
 }
 
@@ -254,7 +254,7 @@ fn producer_system_macro_view_uses_curated_tags() {
         .unwrap();
     let items: Vec<_> = rd_ast::RdSystemMacroItems::children(
         description,
-        &RdPath::new(vec![rd_ast::RdPathSegment::TopLevel(0)]),
+        &RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]),
     )
     .collect();
     let macros: Vec<_> = items

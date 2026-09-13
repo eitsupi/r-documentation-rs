@@ -1,8 +1,8 @@
 use super::*;
 use crate::{RdFigureSecondArgument, producer};
 
-fn base() -> RdPath {
-    RdPath::new(vec![RdPathSegment::TopLevel(2)])
+fn base() -> RdAstPath {
+    RdAstPath::new(vec![RdAstPathSegment::TopLevel(2)])
 }
 fn group(nodes: Vec<RdNode>) -> RdNode {
     RdNode::group(nodes)

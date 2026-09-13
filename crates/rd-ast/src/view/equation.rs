@@ -11,14 +11,14 @@ pub enum RdEquationDisplay {
 /// A borrowed, structurally valid `\eqn{latex}{ascii}` or `\deqn{latex}{ascii}` view.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdEquation<'a> {
-    path: RdPath,
+    path: RdAstPath,
     display: RdEquationDisplay,
     latex: &'a [RdNode],
     ascii: Option<&'a [RdNode]>,
 }
 
 impl<'a> RdEquation<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn display(&self) -> RdEquationDisplay {
@@ -36,7 +36,7 @@ impl RdTagged {
     /// LaTeX and the optional second argument is its ASCII/text fallback.
     pub fn inspect_equation<'a>(
         &'a self,
-        base_path: &RdPath,
+        base_path: &RdAstPath,
     ) -> Result<RdEquation<'a>, RdShapeError> {
         let display = match self.tag() {
             RdTag::Eqn => RdEquationDisplay::Inline,

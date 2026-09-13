@@ -1,8 +1,11 @@
 use super::*;
-use crate::{RdEnc, RdNode, RdPath, RdPathSegment, RdTag, producer};
+use crate::{RdAstPath, RdAstPathSegment, RdEnc, RdNode, RdTag, producer};
 
-fn base() -> RdPath {
-    RdPath::new(vec![RdPathSegment::TopLevel(1), RdPathSegment::Child(3)])
+fn base() -> RdAstPath {
+    RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(1),
+        RdAstPathSegment::Child(3),
+    ])
 }
 fn group(nodes: Vec<RdNode>) -> RdNode {
     RdNode::group(nodes)

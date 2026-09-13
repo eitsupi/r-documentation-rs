@@ -9,7 +9,7 @@ pub enum RdConditionalKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdConditional<'a> {
-    path: RdPath,
+    path: RdAstPath,
     kind: RdConditionalKind,
     format_nodes: &'a [RdNode],
     format: String,
@@ -18,7 +18,7 @@ pub struct RdConditional<'a> {
 }
 
 impl<'a> RdConditional<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn kind(&self) -> RdConditionalKind {
@@ -48,13 +48,13 @@ fn kind(tag: &RdTag) -> Option<RdConditionalKind> {
 }
 
 impl RdNode {
-    pub fn conditional(&self, base_path: &RdPath) -> Option<RdConditional<'_>> {
+    pub fn conditional(&self, base_path: &RdAstPath) -> Option<RdConditional<'_>> {
         self.inspect_conditional(base_path).ok().flatten()
     }
 
     pub fn inspect_conditional(
         &self,
-        base_path: &RdPath,
+        base_path: &RdAstPath,
     ) -> Result<Option<RdConditional<'_>>, RdShapeError> {
         let tagged = match self {
             RdNode::Tagged(tagged) => tagged,

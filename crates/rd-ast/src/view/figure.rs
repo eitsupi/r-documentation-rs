@@ -43,14 +43,14 @@ impl<'a> RdFigureSecondArgument<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdFigure<'a> {
-    path: RdPath,
+    path: RdAstPath,
     file_nodes: &'a [RdNode],
     file: String,
     second: Option<RdFigureSecondArgument<'a>>,
 }
 
 impl<'a> RdFigure<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn file_nodes(&self) -> &'a [RdNode] {
@@ -65,10 +65,13 @@ impl<'a> RdFigure<'a> {
 }
 
 impl RdNode {
-    pub fn figure(&self, base_path: &RdPath) -> Option<RdFigure<'_>> {
+    pub fn figure(&self, base_path: &RdAstPath) -> Option<RdFigure<'_>> {
         self.inspect_figure(base_path).ok().flatten()
     }
-    pub fn inspect_figure(&self, base_path: &RdPath) -> Result<Option<RdFigure<'_>>, RdShapeError> {
+    pub fn inspect_figure(
+        &self,
+        base_path: &RdAstPath,
+    ) -> Result<Option<RdFigure<'_>>, RdShapeError> {
         let tagged = match self {
             RdNode::Tagged(tagged) => tagged,
             RdNode::Raw(raw) => {

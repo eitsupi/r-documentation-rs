@@ -13,7 +13,7 @@ pub enum RdMethodKind {
 /// The following call syntax `(x, ...)` in `\usage` is not part of this
 /// method node; it remains a sibling `RCode` leaf of the parent section.
 pub struct RdMethod<'a> {
-    path: RdPath,
+    path: RdAstPath,
     kind: RdMethodKind,
     generic_nodes: &'a [RdNode],
     generic: String,
@@ -22,7 +22,7 @@ pub struct RdMethod<'a> {
 }
 
 impl<'a> RdMethod<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn kind(&self) -> RdMethodKind {
@@ -53,11 +53,14 @@ fn kind(tag: &RdTag) -> Option<RdMethodKind> {
 }
 
 impl RdNode {
-    pub fn method(&self, base_path: &RdPath) -> Option<RdMethod<'_>> {
+    pub fn method(&self, base_path: &RdAstPath) -> Option<RdMethod<'_>> {
         self.inspect_method(base_path).ok().flatten()
     }
 
-    pub fn inspect_method(&self, base_path: &RdPath) -> Result<Option<RdMethod<'_>>, RdShapeError> {
+    pub fn inspect_method(
+        &self,
+        base_path: &RdAstPath,
+    ) -> Result<Option<RdMethod<'_>>, RdShapeError> {
         let tagged = match self {
             RdNode::Tagged(tagged) => tagged,
             RdNode::Raw(raw) => {

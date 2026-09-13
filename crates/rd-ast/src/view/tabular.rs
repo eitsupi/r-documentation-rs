@@ -19,14 +19,14 @@ pub enum RdColumnAlign {
 /// `r`; whitespace and every other character are reported and skipped.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdTabular<'a> {
-    path: RdPath,
+    path: RdAstPath,
     columns: Vec<RdColumnAlign>,
     rows: Vec<RdTableRow<'a>>,
     diagnostics: Vec<RdShapeError>,
 }
 
 impl<'a> RdTabular<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn columns(&self) -> &[RdColumnAlign] {
@@ -43,12 +43,12 @@ impl<'a> RdTabular<'a> {
 /// One row of a borrowed `\\tabular` view.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdTableRow<'a> {
-    path: RdPath,
+    path: RdAstPath,
     cells: Vec<RdTableCell<'a>>,
 }
 
 impl<'a> RdTableRow<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn cells(&self) -> &[RdTableCell<'a>] {
@@ -59,12 +59,12 @@ impl<'a> RdTableRow<'a> {
 /// One cell of a borrowed `\\tabular` view.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdTableCell<'a> {
-    path: RdPath,
+    path: RdAstPath,
     nodes: &'a [RdNode],
 }
 
 impl<'a> RdTableCell<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn nodes(&self) -> &'a [RdNode] {
@@ -80,7 +80,7 @@ impl RdTagged {
     /// R's `Rd2HTML` rendering.
     pub fn inspect_tabular<'a>(
         &'a self,
-        base_path: &RdPath,
+        base_path: &RdAstPath,
     ) -> Result<RdTabular<'a>, RdShapeError> {
         if self.tag() != &RdTag::Tabular {
             return Err(shape(
@@ -159,19 +159,21 @@ impl RdTagged {
         let mut columns = Vec::new();
         let mut diagnostics = Vec::new();
         let spec_path = base_path.with_child(0).with_child(0);
-        for (index, character) in spec.chars().enumerate() {
+        for (start, character) in spec.char_indices() {
+            let end = start + character.len_utf8();
             let alignment = match character {
                 'l' => Some(RdColumnAlign::Left),
                 'c' => Some(RdColumnAlign::Center),
                 'r' => Some(RdColumnAlign::Right),
                 _ => {
-                    diagnostics.push(shape(
-                        spec_path.clone().with_character(index),
+                    diagnostics.push(RdShapeError::with_leaf_byte_range(
+                        spec_path.clone(),
                         Some(RdTag::Tabular),
                         RdShapeErrorKind::InvalidValue {
                             construct: RdConstruct::ColumnSpec,
                             value: character.to_string(),
                         },
+                        start..end,
                     ));
                     None
                 }
@@ -289,7 +291,7 @@ fn finish_table_row<'a>(
     rows: &mut Vec<RdTableRow<'a>>,
     cells: &mut Vec<RdTableCell<'a>>,
     diagnostics: &mut Vec<RdShapeError>,
-    path: RdPath,
+    path: RdAstPath,
     expected_columns: usize,
 ) {
     if cells.len() != expected_columns {
