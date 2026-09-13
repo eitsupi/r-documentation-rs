@@ -33,6 +33,13 @@
 
 ### Changed
 
+- [rd-ast] Split the breaking location model: canonical `RdAstPath` is now
+  separate from producer-side `LowerPath`; position-aware cursors and sibling
+  ranges are available, and node-level semantic inspection goes through
+  `RdNodeRef`.
+- [rd-ast] Rename intentional best-effort APIs with `*_lossy`. Singleton
+  lossy section accessors now return located `RdField` values; obtain the
+  legacy slice projection with `body()`.
 - [rd-rds] Extract crate-private serialized-wire state shared by strict
   decoding and future bounded inspection, including a configurable reference
   table limit enforced before registration.
