@@ -40,13 +40,14 @@ pub use view::{
     RdAlias, RdArgument, RdColumnAlign, RdConcept, RdConditional, RdConditionalKind,
     RdDelimitedItem, RdDescribedItem, RdDynamicMarkupEvent, RdDynamicMarkupIter,
     RdDynamicMarkupState, RdEnc, RdEquation, RdEquationDisplay, RdExampleControl,
-    RdExampleControlKind, RdFigure, RdFigureSecondArgument, RdGenerationHeader, RdGenerator,
-    RdHref, RdInlineSpan, RdInlineSpanKind, RdKeyword, RdLifecycleBadge, RdLifecycleBadgeShape,
-    RdLifecycleBadges, RdLifecycleStage, RdLink, RdLinkDestination, RdLinkTopic, RdList,
-    RdListItem, RdListKind, RdMethod, RdMethodKind, RdOpts, RdResolvedSexpr, RdS4ClassLink,
-    RdSection, RdSectionKind, RdSectionVisit, RdSexpr, RdSystemMacro, RdSystemMacroItem,
-    RdSystemMacroItems, RdSystemMacroItemsStrict, RdSystemMacroMatch, RdSystemMacroOrigin,
-    RdTableCell, RdTableRow, RdTabular, RdTextSymbol, RdTextSymbolKind, text_contents,
+    RdExampleControlKind, RdField, RdFigure, RdFigureSecondArgument, RdGenerationHeader,
+    RdGenerator, RdHref, RdInlineSpan, RdInlineSpanKind, RdKeyword, RdLifecycleBadge,
+    RdLifecycleBadgeShape, RdLifecycleBadges, RdLifecycleStage, RdLink, RdLinkDestination,
+    RdLinkTopic, RdList, RdListItem, RdListKind, RdMethod, RdMethodKind, RdOpts, RdResolvedSexpr,
+    RdS4ClassLink, RdSection, RdSectionKind, RdSectionVisit, RdSexpr, RdSystemMacro,
+    RdSystemMacroItem, RdSystemMacroItems, RdSystemMacroItemsStrict, RdSystemMacroMatch,
+    RdSystemMacroOrigin, RdTableCell, RdTableRow, RdTabular, RdTextSymbol, RdTextSymbolKind,
+    text_contents,
 };
 
 #[cfg(feature = "rds")]

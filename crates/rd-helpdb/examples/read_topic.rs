@@ -77,8 +77,8 @@ fn run() -> Result<(), String> {
     let mut printed_any_argument = false;
     for argument in document.arguments() {
         printed_any_argument = true;
-        let name = normalize_whitespace(&text_contents(argument.name));
-        let description = normalize_whitespace(&text_contents(argument.description));
+        let name = normalize_whitespace(&text_contents(argument.name()));
+        let description = normalize_whitespace(&text_contents(argument.description()));
         println!("  {name}: {description}");
     }
     if !printed_any_argument {

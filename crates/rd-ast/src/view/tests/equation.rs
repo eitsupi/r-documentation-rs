@@ -135,8 +135,8 @@ mod rds_tests {
                 .arguments()
                 .map(|argument| {
                     (
-                        text_contents(argument.name),
-                        text_contents(argument.description),
+                        text_contents(argument.name()),
+                        text_contents(argument.description()),
                     )
                 })
                 .collect();
@@ -160,8 +160,8 @@ mod rds_tests {
                 .map(|result| {
                     let argument = result.expect("fixture arguments are structurally valid");
                     (
-                        text_contents(argument.name),
-                        text_contents(argument.description),
+                        text_contents(argument.name()),
+                        text_contents(argument.description()),
                     )
                 })
                 .collect();

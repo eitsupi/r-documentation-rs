@@ -1,115 +1,5 @@
 use super::list::inspect_two_group_item;
 use super::*;
-
-/// A custom `\section{title}{body}` node (see [`RdDocument::sections`]).
-///
-/// Not the standard, fixed-vocabulary sections (`\description`, `\value`,
-/// ...) -- those are read individually via
-/// [`RdDocument::title`]/[`RdDocument::description`]/etc.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RdSection<'a> {
-    /// The section's title, i.e. `\section{title}{...}`'s first argument
-    /// group.
-    pub title: &'a [RdNode],
-    /// The section's body, i.e. `\section{...}{body}`'s second argument
-    /// group.
-    pub body: &'a [RdNode],
-}
-
-/// A single `\item{name}{description}` entry within `\arguments` (see
-/// [`RdDocument::arguments`]).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RdArgument<'a> {
-    /// The argument's name, i.e. `\item{name}{...}`'s first argument
-    /// group.
-    pub name: &'a [RdNode],
-    /// The argument's description, i.e. `\item{...}{description}`'s
-    /// second argument group.
-    pub description: &'a [RdNode],
-}
-
-/// A borrowed, structurally valid `\alias{...}` view.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RdAlias<'a> {
-    nodes: &'a [RdNode],
-}
-
-/// A borrowed, structurally valid `\keyword{...}` view.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RdKeyword<'a> {
-    nodes: &'a [RdNode],
-}
-
-impl<'a> RdKeyword<'a> {
-    pub fn nodes(&self) -> &'a [RdNode] {
-        self.nodes
-    }
-    pub fn text_contents(&self) -> String {
-        text_contents(self.nodes)
-    }
-}
-
-/// A borrowed, structurally valid `\concept{...}` view.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RdConcept<'a> {
-    nodes: &'a [RdNode],
-}
-
-impl<'a> RdConcept<'a> {
-    pub fn nodes(&self) -> &'a [RdNode] {
-        self.nodes
-    }
-    pub fn text_contents(&self) -> String {
-        text_contents(self.nodes)
-    }
-}
-
-/// The kind of custom section-family node visited by [`RdDocument::section_tree`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum RdSectionKind {
-    Section,
-    Subsection,
-}
-
-/// A structurally valid custom section-family node in a document.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RdSectionVisit<'a> {
-    path: RdAstPath,
-    kind: RdSectionKind,
-    nesting: usize,
-    title: &'a [RdNode],
-    body: &'a [RdNode],
-}
-
-impl<'a> RdSectionVisit<'a> {
-    pub fn path(&self) -> &RdAstPath {
-        &self.path
-    }
-    pub fn kind(&self) -> RdSectionKind {
-        self.kind
-    }
-    /// Returns syntactic nesting only; heading-level and rendering policy
-    /// belong to consumers.
-    pub fn nesting(&self) -> usize {
-        self.nesting
-    }
-    pub fn title(&self) -> &'a [RdNode] {
-        self.title
-    }
-    pub fn body(&self) -> &'a [RdNode] {
-        self.body
-    }
-}
-
-impl<'a> RdAlias<'a> {
-    pub fn nodes(&self) -> &'a [RdNode] {
-        self.nodes
-    }
-    pub fn text_contents(&self) -> String {
-        text_contents(self.nodes)
-    }
-}
 impl RdDocument {
     /// Lossy: returns the first top-level `\title{...}`'s children, if any.
     /// See [`Self::inspect_title`] for diagnostics.
@@ -277,17 +167,24 @@ impl RdDocument {
     /// silently skipped rather than erroring.
     /// For nested `\subsection` traversal, see [`Self::section_tree`].
     pub fn sections(&self) -> impl Iterator<Item = RdSection<'_>> {
-        self.nodes().iter().filter_map(|node| {
+        self.nodes().iter().enumerate().filter_map(|(index, node)| {
             let tagged = node.as_tagged()?;
             if tagged.tag() != &RdTag::Section || tagged.option().is_some() {
                 return None;
             }
-            let [RdNode::Group(title), RdNode::Group(body)] = tagged.children() else {
+            let [title, body] = tagged.children() else {
                 return None;
             };
+            if title.as_group().is_none() || body.as_group().is_none() {
+                return None;
+            }
             Some(RdSection {
-                title: title.children(),
-                body: body.children(),
+                path: top_path(index),
+                node,
+                title_group: title,
+                body_group: body,
+                title: title.as_group().unwrap().children(),
+                body: body.as_group().unwrap().children(),
             })
         })
     }
@@ -318,94 +215,116 @@ impl RdDocument {
     /// (see the module-level documentation on why `Raw` is never
     /// interpreted), this yields no items.
     pub fn arguments(&self) -> impl Iterator<Item = RdArgument<'_>> {
-        let children = self.first_tagged_children(RdTag::Arguments).unwrap_or(&[]);
-        children.iter().filter_map(|node| {
-            let tagged = node.as_tagged()?;
-            if tagged.tag() != &RdTag::Item || tagged.option().is_some() {
-                return None;
-            }
-            let [RdNode::Group(name), RdNode::Group(description)] = tagged.children() else {
-                return None;
-            };
-            Some(RdArgument {
-                name: name.children(),
-                description: description.children(),
+        let (parent_index, children) = self
+            .nodes()
+            .iter()
+            .enumerate()
+            .find_map(|(index, node)| {
+                let tagged = node.as_tagged()?;
+                (tagged.tag() == &RdTag::Arguments).then(|| (index, tagged.children()))
             })
-        })
+            .unwrap_or((0, &[]));
+        children
+            .iter()
+            .enumerate()
+            .filter_map(move |(index, node)| {
+                let tagged = node.as_tagged()?;
+                if tagged.tag() != &RdTag::Item || tagged.option().is_some() {
+                    return None;
+                }
+                let [name_group, description_group] = tagged.children() else {
+                    return None;
+                };
+                let (name, description) =
+                    match (name_group.as_group(), description_group.as_group()) {
+                        (Some(name), Some(description)) => {
+                            (name.children(), description.children())
+                        }
+                        _ => return None,
+                    };
+                Some(RdArgument {
+                    path: child_path(parent_index, index),
+                    node,
+                    name_group,
+                    description_group,
+                    name,
+                    description,
+                })
+            })
     }
 
     /// Strict counterpart to the lossy [`Self::title`] accessor.
-    pub fn inspect_title(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_title(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Title)
     }
     /// Strict counterpart to the lossy [`Self::description`] accessor.
-    pub fn inspect_description(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_description(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Description)
     }
     /// Strict counterpart to the lossy [`Self::usage`] accessor.
-    pub fn inspect_usage(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_usage(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Usage)
     }
     /// Strict counterpart to the lossy [`Self::value`] accessor.
-    pub fn inspect_value(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_value(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Value)
     }
 
     /// Strict counterpart to the lossy [`Self::name`] accessor.
-    pub fn inspect_name(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_name(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Name)
     }
     /// Strict counterpart to the lossy [`Self::details`] accessor.
-    pub fn inspect_details(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_details(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Details)
     }
     /// Strict counterpart to the lossy [`Self::note`] accessor.
-    pub fn inspect_note(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_note(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Note)
     }
     /// Strict counterpart to the lossy [`Self::author`] accessor.
-    pub fn inspect_author(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_author(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Author)
     }
     /// Strict counterpart to the lossy [`Self::references`] accessor.
-    pub fn inspect_references(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_references(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::References)
     }
     /// Strict counterpart to the lossy [`Self::see_also`] accessor.
-    pub fn inspect_see_also(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_see_also(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::SeeAlso)
     }
     /// Strict counterpart to the lossy [`Self::examples`] accessor.
-    pub fn inspect_examples(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_examples(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Examples)
     }
     /// Strict counterpart to the lossy [`Self::format`] accessor.
-    pub fn inspect_format(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_format(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Format)
     }
     /// Strict counterpart to the lossy [`Self::source`] accessor.
-    pub fn inspect_source(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_source(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Source)
     }
     /// Strict counterpart to the lossy [`Self::encoding`] accessor.
-    pub fn inspect_encoding(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_encoding(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Encoding)
     }
     /// Strict counterpart to the lossy [`Self::doc_type`] accessor.
-    pub fn inspect_doc_type(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_doc_type(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::DocType)
     }
     /// Strict counterpart to the lossy [`Self::rd_version`] accessor.
-    pub fn inspect_rd_version(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_rd_version(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Rdversion)
     }
     /// Strict counterpart to the lossy [`Self::synopsis`] accessor.
-    pub fn inspect_synopsis(&self) -> Result<Option<&[RdNode]>, RdShapeError> {
+    pub fn inspect_synopsis(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Synopsis)
     }
 
-    fn inspect_fixed(&self, wanted: RdTag) -> Result<Option<&[RdNode]>, RdShapeError> {
-        let mut found: Option<(usize, &[RdNode])> = None;
+    fn inspect_fixed(&self, wanted: RdTag) -> Result<Option<RdField<'_>>, RdShapeError> {
+        let mut found: Option<usize> = None;
         for (index, node) in self.nodes().iter().enumerate() {
             let path = top_path(index);
             if let Some(raw) = node.as_raw() {
@@ -427,7 +346,7 @@ impl RdDocument {
             if tagged.tag() != &wanted {
                 continue;
             }
-            if let Some((first_index, _)) = found {
+            if let Some(first_index) = found {
                 let first_path = top_path(first_index);
                 return Err(shape(
                     path,
@@ -445,9 +364,20 @@ impl RdDocument {
                     RdShapeErrorKind::UnexpectedOption,
                 ));
             }
-            found = Some((index, tagged.children()));
+            found = Some(index);
         }
-        Ok(found.map(|(_, children)| children))
+        Ok(found.map(|index| {
+            let cursor = self
+                .top_level()
+                .get(index)
+                .expect("validated top-level node");
+            RdField::new(
+                cursor.node(),
+                cursor.path().clone(),
+                wanted,
+                cursor.children(),
+            )
+        }))
     }
 
     /// Strict counterpart to the lossy [`Self::aliases`] accessor.
@@ -479,6 +409,8 @@ impl RdDocument {
                 )));
             }
             Some(Ok(RdAlias {
+                node,
+                path,
                 nodes: tagged.children(),
             }))
         })
@@ -515,6 +447,8 @@ impl RdDocument {
                 )));
             }
             Some(Ok(RdKeyword {
+                node,
+                path,
                 nodes: tagged.children(),
             }))
         })
@@ -551,6 +485,8 @@ impl RdDocument {
                 )));
             }
             Some(Ok(RdConcept {
+                node,
+                path,
                 nodes: tagged.children(),
             }))
         })
@@ -657,6 +593,10 @@ impl RdDocument {
                 }
             }
             Some(Ok(RdSection {
+                path,
+                node,
+                title_group: title,
+                body_group: body,
                 title: title.as_group().unwrap().children(),
                 body: body.as_group().unwrap().children(),
             }))
@@ -741,7 +681,17 @@ impl RdDocument {
                     Ok(groups) => groups,
                     Err(error) => return Some(Err(error)),
                 };
-                Some(Ok(RdArgument { name, description }))
+                let [name_group, description_group] = tagged.children() else {
+                    unreachable!()
+                };
+                Some(Ok(RdArgument {
+                    path,
+                    node,
+                    name_group,
+                    description_group,
+                    name,
+                    description,
+                }))
             }))
     }
 }
@@ -822,18 +772,21 @@ fn collect_section_visits<'a>(
         }
         return;
     }
-    let title = title.as_group().unwrap().children();
-    let body = body.as_group().unwrap().children();
+    let title_nodes = title.as_group().unwrap().children();
+    let body_nodes = body.as_group().unwrap().children();
     output.push(Ok(RdSectionVisit {
         path: path.clone(),
+        node,
         kind,
         nesting,
-        title,
-        body,
+        title: title_nodes,
+        body: body_nodes,
+        title_group: title,
+        body_group: body,
     }));
 
     let body_path = path.with_child(1);
-    for (index, child) in body.iter().enumerate() {
+    for (index, child) in body_nodes.iter().enumerate() {
         collect_section_visits(
             child,
             body_path.with_child(index),

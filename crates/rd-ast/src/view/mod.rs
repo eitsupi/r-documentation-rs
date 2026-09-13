@@ -47,6 +47,7 @@ use crate::{
 
 mod conditional;
 mod document;
+mod document_types;
 mod dynamic;
 mod encoding;
 mod equation;
@@ -63,8 +64,8 @@ mod tabular;
 mod text;
 
 pub use conditional::{RdConditional, RdConditionalKind};
-pub use document::{
-    RdAlias, RdArgument, RdConcept, RdKeyword, RdSection, RdSectionKind, RdSectionVisit,
+pub use document_types::{
+    RdAlias, RdArgument, RdConcept, RdField, RdKeyword, RdSection, RdSectionKind, RdSectionVisit,
 };
 pub use dynamic::{
     RdDynamicMarkupEvent, RdDynamicMarkupIter, RdDynamicMarkupState, RdOpts, RdResolvedSexpr,

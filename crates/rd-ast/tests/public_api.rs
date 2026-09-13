@@ -1,7 +1,7 @@
 use rd_ast::{
     RawRdValue, RdAstPath, RdAstPathSegment, RdDocument, RdDynamicMarkupEvent,
-    RdDynamicMarkupState, RdEffectiveSexprOptions, RdGenerationHeader, RdGenerator, RdNode,
-    RdOptionError, RdOptionList, RdOptionPairErrorKind, RdOptionValueKind, RdSectionKind,
+    RdDynamicMarkupState, RdEffectiveSexprOptions, RdField, RdGenerationHeader, RdGenerator,
+    RdNode, RdOptionError, RdOptionList, RdOptionPairErrorKind, RdOptionValueKind, RdSectionKind,
     RdSexprOptionKey, RdSexprOptionOverrides, RdSexprResults, RdSexprStage, RdStripWhite, RdTag,
     producer,
 };
@@ -193,6 +193,22 @@ fn new_document_views_are_public() {
         0
     );
     assert!(document.inspect_name().unwrap().is_some());
+}
+
+#[test]
+fn located_document_views_are_public() {
+    let document = RdDocument::new(vec![RdNode::tagged(
+        RdTag::Title,
+        None,
+        vec![RdNode::Text("title".into())],
+    )]);
+    let field: RdField<'_> = document.inspect_title().unwrap().unwrap();
+    assert_eq!(field.tag(), &RdTag::Title);
+    assert_eq!(field.body(), &[RdNode::Text("title".into())]);
+    assert_eq!(
+        field.body_ref().get(0).unwrap().node(),
+        &RdNode::Text("title".into())
+    );
 }
 
 #[test]
