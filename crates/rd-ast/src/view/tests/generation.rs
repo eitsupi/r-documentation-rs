@@ -68,6 +68,28 @@ fn source_origins_preserve_each_comment_and_duplicate_order() {
 }
 
 #[test]
+fn equality_ignores_provenance_positions() {
+    let first_document = document(vec![
+        comment(GENERATED),
+        comment("% Please edit documentation in R/foo.R"),
+    ]);
+    let second_document = document(vec![
+        text("\n"),
+        comment(GENERATED),
+        comment("% Please edit documentation in R/foo.R"),
+    ]);
+    let first = first_document.generation_header().unwrap();
+    let second = second_document.generation_header().unwrap();
+
+    assert_eq!(first, second);
+    assert_ne!(first.generator_path(), second.generator_path());
+    assert_ne!(
+        first.source_origins()[0].path(),
+        second.source_origins()[0].path()
+    );
+}
+
+#[test]
 fn preserves_source_order_and_wrapped_files() {
     let doc = document(vec![
         comment("% Please edit documentation in R/a.R, R/a.R, ./weird.R,, R/b.R"),

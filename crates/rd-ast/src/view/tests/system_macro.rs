@@ -161,7 +161,7 @@ fn curated_profiles_are_recognized() {
             item.anchor_path().segments(),
             &[RdAstPathSegment::TopLevel(0)]
         );
-        assert_eq!(item.source_nodes().range().range(), 0..1);
+        assert_eq!(item.source_nodes().sibling_range().range(), 0..1);
     }
     assert!(matches!(&items[1], RdSystemMacroItem::Macro(m)
         if m.semantic() == RdSystemMacro::CranPkg { package: "stats" }));
@@ -203,7 +203,7 @@ fn raw_profiles_collapse_and_keep_expansion_hidden() {
         if m.origin() == RdSystemMacroOrigin::UserMacroExpansion && m.consumed() == 2))
     );
     if let RdSystemMacroItem::Macro(item) = &items[0] {
-        assert_eq!(item.source_nodes().range().range(), 0..2);
+        assert_eq!(item.source_nodes().sibling_range().range(), 0..2);
     }
 }
 
@@ -226,7 +226,7 @@ fn system_macro_views_keep_absolute_positions_after_slicing() {
         item.anchor_path().segments(),
         &[RdAstPathSegment::TopLevel(1)]
     );
-    assert_eq!(item.source_nodes().range().range(), 1..2);
+    assert_eq!(item.source_nodes().sibling_range().range(), 1..2);
 }
 
 #[test]
@@ -250,7 +250,7 @@ fn sliced_system_macro_views_keep_absolute_two_node_ranges() {
         item.anchor_path().segments(),
         &[RdAstPathSegment::TopLevel(1)]
     );
-    assert_eq!(item.source_nodes().range().range(), 1..3);
+    assert_eq!(item.source_nodes().sibling_range().range(), 1..3);
     assert_eq!(
         item.source_nodes().get(0).unwrap().path().segments(),
         &[RdAstPathSegment::TopLevel(1)]

@@ -17,13 +17,21 @@ const GENERATED_SUFFIX: &str = ": do not edit by hand";
 ///
 /// Near-miss header text is simply not recognized. There is deliberately no
 /// `inspect_*` counterpart because no structural error exists for this view.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct RdGenerationHeader<'a> {
     generator: Option<RdGenerator>,
     generator_path: Option<RdAstPath>,
     source_files: Vec<&'a str>,
     source_origins: Vec<RdGenerationSource<'a>>,
 }
+
+impl<'a> PartialEq for RdGenerationHeader<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.generator == other.generator && self.source_files == other.source_files
+    }
+}
+
+impl Eq for RdGenerationHeader<'_> {}
 
 /// A source-file value together with the comment node that produced it.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -171,8 +171,8 @@ impl<'a> RdOptionList<'a> {
     }
     /// Returns the absolute sibling range of the original option or body
     /// sequence. Pair indices are intentionally unrelated to this range.
-    pub fn range(&self) -> RdSiblingRange {
-        self.source_nodes.range()
+    pub fn sibling_range(&self) -> RdSiblingRange {
+        self.source_nodes.sibling_range()
     }
     /// Returns all parsed pairs in source order.
     pub fn pairs(&self) -> &[RdOptionPair<'a>] {
@@ -656,7 +656,10 @@ mod tests {
         let second = RdOptionList::parse(&two_leaves, path()).unwrap();
 
         assert_eq!(first, second);
-        assert_ne!(first.nodes_ref().range(), second.nodes_ref().range());
+        assert_ne!(
+            first.nodes_ref().sibling_range(),
+            second.nodes_ref().sibling_range()
+        );
     }
 
     #[test]

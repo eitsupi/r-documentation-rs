@@ -235,7 +235,7 @@ fn system_macro_view_is_public() {
         item.anchor_path().segments(),
         &[RdAstPathSegment::TopLevel(1)]
     );
-    assert_eq!(item.source_nodes().range().range(), 1..2);
+    assert_eq!(item.source_nodes().sibling_range().range(), 1..2);
 }
 
 #[test]
@@ -295,7 +295,7 @@ fn option_parser_public_api() -> Result<(), Box<dyn std::error::Error>> {
     let parsed = option.parse()?;
     assert_eq!(parsed.path(), &path);
     assert_eq!(parsed.nodes_ref().container_path(), &path);
-    assert_eq!(parsed.range().range(), 0..1);
+    assert_eq!(parsed.sibling_range().range(), 0..1);
     assert_eq!(parsed.pairs()[0].index(), 0);
     assert_eq!(parsed.pairs()[0].key(), "echo");
     assert_eq!(parsed.pairs()[0].value(), "true");
@@ -373,14 +373,14 @@ fn dynamic_markup_public_api() {
                 && resolved.state() == RdDynamicMarkupState::Unresolved { stage: RdSexprStage::Install }
                 && resolved.view().options_ref().is_some_and(|option| {
                 option.path().segments() == [RdAstPathSegment::TopLevel(0), RdAstPathSegment::Option]
-                    && option.range().range() == (0..1)
+                    && option.sibling_range().range() == (0..1)
             })
     ));
     assert!(matches!(
         &events[1],
         Ok(RdDynamicMarkupEvent::OptionsChanged { view, effective })
             if view.options_ref().container_path().segments() == [RdAstPathSegment::TopLevel(1)]
-                && view.options_ref().range().range() == (0..1)
+                && view.options_ref().sibling_range().range() == (0..1)
                 && effective.stage == RdSexprStage::Render
     ));
 }

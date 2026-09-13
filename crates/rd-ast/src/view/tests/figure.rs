@@ -38,6 +38,11 @@ fn figures_project_filename_and_second_argument() {
     ]);
     let options = options_node.figure(&base()).unwrap();
     assert_eq!(options.second().unwrap().option_attributes(), Some("a b "));
+    assert_eq!(options.second().unwrap().path(), &base().with_child(1));
+    assert_eq!(
+        options.second().unwrap().nodes_ref().container_path(),
+        &base().with_child(1)
+    );
     let tab_node = figure(vec![
         group(vec![verb("f")]),
         group(vec![verb("options:\talt='x'")]),

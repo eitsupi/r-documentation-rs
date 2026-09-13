@@ -54,7 +54,7 @@ impl<'a> RdNodeRef<'a> {
 
 /// A borrowed sequence of sibling nodes in one AST container.
 ///
-/// The range returned by [`Self::range`] uses absolute sibling indices in the
+/// The range returned by [`Self::sibling_range`] uses absolute sibling indices in the
 /// original container. Slicing never renumbers nodes, including after several
 /// successive slices.
 #[derive(Debug, Clone, PartialEq)]
@@ -141,22 +141,12 @@ impl<'a> RdNodesRef<'a> {
         &self.container_path
     }
 
-    /// Alias for [`Self::container_path`].
-    pub fn path(&self) -> &RdAstPath {
-        self.container_path()
-    }
-
     /// Returns the absolute sibling range represented by this sequence.
-    pub fn range(&self) -> RdSiblingRange {
+    pub fn sibling_range(&self) -> RdSiblingRange {
         RdSiblingRange::new(
             self.container_path.clone(),
             self.start..self.start + self.nodes.len(),
         )
-    }
-
-    /// Alias for [`Self::range`].
-    pub fn sibling_range(&self) -> RdSiblingRange {
-        self.range()
     }
 
     pub fn as_slice(&self) -> &'a [RdNode] {
@@ -289,8 +279,9 @@ impl<'a> RdOptionRef<'a> {
         self.nodes_ref()
     }
 
-    pub fn range(&self) -> RdSiblingRange {
-        self.nodes.range()
+    /// Returns the absolute sibling range of the option's positioned nodes.
+    pub fn sibling_range(&self) -> RdSiblingRange {
+        self.nodes.sibling_range()
     }
 
     pub fn as_slice(&self) -> &'a [RdNode] {
@@ -369,10 +360,6 @@ impl RdSiblingRange {
 
     pub fn container_path(&self) -> &RdAstPath {
         &self.container_path
-    }
-
-    pub fn path(&self) -> &RdAstPath {
-        self.container_path()
     }
 
     pub fn range(&self) -> Range<usize> {
@@ -599,7 +586,7 @@ mod tests {
         let empty_document = RdDocument::new(vec![]);
         let empty_root = empty_document.top_level();
         assert!(empty_root.is_empty());
-        assert_eq!(empty_root.range().range(), 0..0);
+        assert_eq!(empty_root.sibling_range().range(), 0..0);
         assert_eq!(empty_root.container_path(), &RdAstPath::new(vec![]));
 
         let document = RdDocument::new(vec![
@@ -613,7 +600,7 @@ mod tests {
             empty_group.container_path(),
             &RdAstPath::new(vec![RdAstPathSegment::TopLevel(0)])
         );
-        assert_eq!(empty_group.range().range(), 0..0);
+        assert_eq!(empty_group.sibling_range().range(), 0..0);
 
         let empty_tagged = document.top_level().get(1).unwrap().children();
         assert!(empty_tagged.is_empty());
@@ -621,7 +608,7 @@ mod tests {
             empty_tagged.container_path(),
             &RdAstPath::new(vec![RdAstPathSegment::TopLevel(1)])
         );
-        assert_eq!(empty_tagged.range().range(), 0..0);
+        assert_eq!(empty_tagged.sibling_range().range(), 0..0);
 
         let empty = document.top_level().get(1).unwrap().option().unwrap();
         assert!(empty.is_empty());
@@ -656,7 +643,7 @@ mod tests {
             slice.get(0).unwrap().path().segments().last(),
             Some(&RdAstPathSegment::Child(4))
         );
-        assert_eq!(slice.range().range(), 4..5);
+        assert_eq!(slice.sibling_range().range(), 4..5);
     }
 
     #[test]

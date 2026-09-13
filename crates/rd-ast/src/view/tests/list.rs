@@ -35,8 +35,8 @@ fn lists_split_delimited_items_without_synthesizing_labels() {
         matches!(first.body(), [RdNode::Text(label), RdNode::Tagged(_),] if label == "[label] body")
     );
     assert_eq!(first.anchor_path(), &base.with_child(2));
-    assert_eq!(first.body_ref().range().range(), 3..5);
-    assert_eq!(first.source_nodes().range().range(), 2..5);
+    assert_eq!(first.body_ref().sibling_range().range(), 3..5);
+    assert_eq!(first.source_nodes().sibling_range().range(), 2..5);
     assert_eq!(
         first.source_nodes().get(0).unwrap().path(),
         &base.with_child(2)
@@ -48,8 +48,8 @@ fn lists_split_delimited_items_without_synthesizing_labels() {
     };
     assert_eq!(empty.anchor_path(), &base.with_child(5));
     assert!(empty.body_ref().is_empty());
-    assert_eq!(empty.body_ref().range().range(), 6..6);
-    assert_eq!(empty.source_nodes().range().range(), 5..6);
+    assert_eq!(empty.body_ref().sibling_range().range(), 6..6);
+    assert_eq!(empty.source_nodes().sibling_range().range(), 5..6);
     assert!(
         matches!(items.next().unwrap(), Ok(RdListItem::Delimited(item)) if matches!(item.body(), [RdNode::Text(text)] if text == "last"))
     );

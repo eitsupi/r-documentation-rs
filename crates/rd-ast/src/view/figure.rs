@@ -24,6 +24,13 @@ pub enum RdFigureSecondArgument<'a> {
 }
 
 impl<'a> RdFigureSecondArgument<'a> {
+    /// Returns the path of the second argument's single `Group` node.
+    pub fn path(&self) -> &RdAstPath {
+        match self {
+            Self::AltText { path, .. } | Self::Options { path, .. } => path,
+        }
+    }
+
     pub fn nodes(&self) -> &'a [RdNode] {
         match self {
             Self::AltText { nodes, .. } | Self::Options { nodes, .. } => nodes,

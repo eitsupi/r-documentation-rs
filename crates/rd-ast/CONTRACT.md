@@ -122,8 +122,8 @@ empty; producers MUST preserve that distinction.
 MUST NOT replace or mutate syntax-layer storage.
 
 **[AST contract]** A parsed `RdOptionList` retains access to its original
-positioned option or body sequence through `nodes_ref()` and `range()`. Pair
-indices are parser-local metadata, not `Child` path segments or substring
+positioned option or body sequence through `nodes_ref()` and `sibling_range()`.
+Pair indices are parser-local metadata, not `Child` path segments or substring
 source spans. `Sexpr` options use an `Option` container; `RdOpts` bodies use
 the tagged node's child container.
 

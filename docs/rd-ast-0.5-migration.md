@@ -121,6 +121,13 @@ diagnostic anchor. Empty cells have an empty sibling range and an anchor for
 an existing boundary node when one exists. They must not invent a child node.
 `RdLocated` is not introduced as a catch-all trait in this release.
 
+Single-node semantic views keep their location-sensitive derived equality: two
+otherwise identical views at different canonical paths are unequal. Aggregate
+views whose provenance is exposed per fact use their established value
+projection for equality; in particular, `RdGenerationHeader` compares its
+generator and source-file values while excluding `generator_path()` and
+`source_origins()` metadata.
+
 `leaf_byte_range()` is measured in the canonical leaf's UTF-8 bytes, not in
 the original source bytes. For canonical text `léc`, the byte range of `é` is
 `1..3`; source spelling, escapes, CRLF, and decoded text are handled by the
@@ -221,7 +228,7 @@ order, duplicate handling, and `RdOptionError` details remain unchanged;
 malformed syntax and non-text children are errors, while unknown keys and
 invalid typed values remain soft diagnostics. Pair indices are not sibling
 paths, and this release does not promise a source span for an option-pair
-substring. `RdOptionList::nodes_ref()` and `range()` return the original
+substring. `RdOptionList::nodes_ref()` and `sibling_range()` return the original
 positioned option or body sequence and its absolute sibling range; `Sexpr`
 options use an `Option` container while `RdOpts` bodies use the tagged node's
 child container.

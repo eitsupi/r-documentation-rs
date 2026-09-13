@@ -120,12 +120,12 @@ fn table_cells_keep_body_ranges_for_empty_and_nonempty_content() {
 
     let leading_empty = view.rows()[0].cells()[0].nodes_ref();
     assert_eq!(leading_empty.container_path(), &body_path);
-    assert_eq!(leading_empty.range().range(), 0..0);
+    assert_eq!(leading_empty.sibling_range().range(), 0..0);
     assert!(leading_empty.is_empty());
 
     let first_content = view.rows()[0].cells()[1].nodes_ref();
     assert_eq!(first_content.container_path(), &body_path);
-    assert_eq!(first_content.range().range(), 1..2);
+    assert_eq!(first_content.sibling_range().range(), 1..2);
     assert_eq!(
         first_content.get(0).unwrap().path(),
         &body_path.with_child(1)
@@ -133,11 +133,11 @@ fn table_cells_keep_body_ranges_for_empty_and_nonempty_content() {
 
     let trailing_empty = view.rows()[1].cells()[1].nodes_ref();
     assert_eq!(trailing_empty.container_path(), &body_path);
-    assert_eq!(trailing_empty.range().range(), 6..6);
+    assert_eq!(trailing_empty.sibling_range().range(), 6..6);
     assert!(trailing_empty.is_empty());
 
     let sliced = view.rows()[1].cells()[0].nodes_ref().slice(0..1).unwrap();
-    assert_eq!(sliced.range().range(), 4..5);
+    assert_eq!(sliced.sibling_range().range(), 4..5);
     assert_eq!(sliced.get(0).unwrap().path(), &body_path.with_child(4));
 }
 
@@ -164,7 +164,7 @@ fn table_rows_keep_absolute_ranges_and_real_empty_anchors() {
     assert_eq!(view.rows().len(), 3);
     let first = &view.rows()[0];
     assert_eq!(first.nodes_ref().container_path(), &body_path);
-    assert_eq!(first.nodes_ref().range().range(), 0..5);
+    assert_eq!(first.nodes_ref().sibling_range().range(), 0..5);
     assert_eq!(first.nodes_ref().len(), 5);
     assert_eq!(
         first.nodes_ref().get(1).unwrap().path(),
@@ -178,13 +178,13 @@ fn table_rows_keep_absolute_ranges_and_real_empty_anchors() {
 
     let empty = &view.rows()[1];
     assert_eq!(empty.nodes_ref().container_path(), &body_path);
-    assert_eq!(empty.nodes_ref().range().range(), 6..6);
+    assert_eq!(empty.nodes_ref().sibling_range().range(), 6..6);
     assert_eq!(empty.anchor_path(), &body_path.with_child(6));
     assert_eq!(empty.cells().len(), 1);
     assert!(empty.nodes_ref().is_empty());
 
     let terminal_tab = &view.rows()[2];
-    assert_eq!(terminal_tab.nodes_ref().range().range(), 7..9);
+    assert_eq!(terminal_tab.nodes_ref().sibling_range().range(), 7..9);
     assert_eq!(
         terminal_tab.nodes_ref().get(1).unwrap().path(),
         &body_path.with_child(8)
