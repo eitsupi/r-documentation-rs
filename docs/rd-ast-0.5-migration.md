@@ -217,27 +217,34 @@ and this release does not promise a source span for an option-pair substring.
 
 ## Source-map contract
 
-`rd-source::Parsed` gains a private `RdSourceMap` and a `source_map()`
-accessor. `into_parts()` remains a two-tuple `(RdDocument, Vec<Diagnostic>)`
-for consumers that intentionally discard provenance. A separate
-`into_parts_with_source_map()` returns all three values.
+`rd-source::Parsed` gains a private field whose type is the public, opaque
+`rd_source::RdSourceMap`, plus a `source_map()` accessor. The `RdSourceMap`
+type is publicly re-exported and nameable, but its fields and representation
+remain private; consumers use its public methods. `into_parts()` remains a
+two-tuple `(RdDocument, Vec<Diagnostic>)` for consumers that intentionally
+discard provenance. A separate `into_parts_with_source_map()` returns all
+three values.
 
 `RdSourceMap::span(&RdAstPath)` performs exact path lookup. It does not return
 a parent's span for an unregistered path. The map covers the document root,
-every parsed node (including unknown and recovered nodes), and every present
-option container. It has no entry for a missing argument or other invented
-node. Hard parse errors return no document or map.
+every node actually emitted into the final AST (including unknown, recovered,
+and synthetic conditional target/body `Group` nodes), and every present option
+container. The parser does not emit or invent an `RdNode` for a missing
+argument, so no path or map entry exists for one. Hard parse errors return no
+document or map.
 
 Each returned `SourceSpan` is the smallest original-source range covering the
 source consumed to construct that AST structure. It is a byte range in the
 original input with the existing one-based line and Unicode-scalar column
 rules. It is not a token stream, edit script, or guarantee that every byte in
 the range belongs to the node. Source-syntax groups and options include their
-actual opening and closing delimiters. Synthetic conditional groups need not
-be brace-shaped. Missing or virtual delimiters are never invented and
-contribute no source bytes; decoded escapes include their original spelling;
-and CRLF includes both bytes. Recovery ends at the actual synchronization
-point or EOF and does not include an unconsumed following section.
+actual opening and closing delimiters. Synthetic conditional groups map to
+the real directive regions that produced them, need not be brace-shaped, and
+may be zero-width when the corresponding region is empty. Missing or virtual
+delimiters are never invented and contribute no source bytes; decoded escapes
+include their original spelling; and CRLF includes both bytes. Recovery ends
+at the actual synchronization point or EOF and does not include an unconsumed
+following section.
 When recovery promotes children after discarding a bare brace, child spans
 remain tied to their own source while paths follow their final AST indices.
 

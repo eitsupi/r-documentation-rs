@@ -335,6 +335,10 @@ documented view explicitly permits a validated Raw sequence.
 **[AST contract]** The v1 AST has no source-span or `srcref` API. Consumers
 MUST NOT rely on spans in `RdDocument` or `RdNode`.
 
+**[AST contract]** A source parser MAY provide a separate public opaque source
+map beside its `Parsed` result. Such a map is not part of `RdDocument` or
+`RdNode` and does not change this no-spans rule.
+
 **[RDS producer profile]** Raw-embedded `srcref` is producer provenance for
 Raw losslessness, not a source-span API. Recognized `srcref` is discarded on
 successful structured lowering.

@@ -362,10 +362,12 @@ per-R-version recovery parity; and resource-limit customization.
 
 ## 15. 0.5.0 source-map extension
 
-The 0.5.0 parser result adds a private `RdSourceMap` beside the existing
-document and diagnostics. This map is the source parser's provenance layer;
-source locations are not embedded in `RdDocument` or `RdNode`. The public
-shape is:
+The 0.5.0 parser result adds a private field to `Parsed` whose type is the
+public, opaque `rd_source::RdSourceMap`, beside the existing document and
+diagnostics. `RdSourceMap` is publicly re-exported and nameable, but its
+fields and representation remain private; consumers use its public methods.
+This map is the source parser's provenance layer; source locations are not
+embedded in `RdDocument` or `RdNode`. The public shape is:
 
 ```rust
 impl Parsed {
@@ -374,6 +376,8 @@ impl Parsed {
     pub fn into_parts_with_source_map(self)
         -> (RdDocument, Vec<Diagnostic>, RdSourceMap);
 }
+
+pub struct RdSourceMap { /* opaque; fields are private */ }
 
 impl RdSourceMap {
     pub fn span(&self, path: &rd_ast::RdAstPath) -> Option<SourceSpan>;
@@ -392,11 +396,17 @@ document snapshot. It MUST NOT silently return a parent span for an unknown
 path. Paths and map entries are snapshot-local; using a path from another
 document is misuse even when the segment sequence happens to exist there.
 
-The map MUST cover the document root, every output `RdNode` (including
-unknown and recovered nodes), and every present option container. Missing
-arguments and other invented nodes have no entry. Hard parse errors return no
-document and no map. The map includes Raw's stored AST children when those
-nodes are present, but does not invent entries for Raw payloads or attributes.
+The map MUST cover the document root, every `RdNode` actually emitted into
+the final AST (including unknown, recovered, and synthetic conditional
+target/body `Group` nodes), and every present option container. Missing
+arguments are not emitted as `RdNode` values: the parser does not invent a
+missing node, so there is no corresponding path or map entry. Every emitted
+node has an entry. Synthetic conditional target and body `Group` nodes are
+mapped to the real directive regions that produced them; their spans need not
+be brace-shaped and may be zero-width when the corresponding region is empty.
+Hard parse errors return no document and no map. The map includes Raw's
+stored AST children when those nodes are present, but does not invent entries
+for Raw payloads or attributes.
 
 Each span is the smallest original-input byte range covering the source
 consumed to construct that AST structure. It is a half-open range in the
@@ -404,10 +414,11 @@ original bytes with the existing one-based line and Unicode-scalar column
 rules. This is an extent contract, not a token stream, edit script, or claim
 that every byte in the range is node content. Source-syntax groups and options
 include their actual opening and closing delimiters. Synthetic conditional
-groups need not have braces. Missing or virtual delimiters are never invented
-and contribute no source bytes; a decoded escape includes its original
-spelling; and CRLF includes both source bytes even when the canonical leaf
-contains one line break. A zero-argument tag covers its macro token.
+groups map to their real directive regions, need not have braces, and may be
+zero-width. Missing or virtual delimiters are never invented and contribute
+no source bytes; a decoded escape includes its original spelling; and CRLF
+includes both source bytes even when the canonical leaf contains one line
+break. A zero-argument tag covers its macro token.
 
 Recovery spans end at the actual synchronization point or EOF and MUST NOT
 include an unconsumed following section or delimiter. Conditional target and

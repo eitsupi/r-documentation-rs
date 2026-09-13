@@ -49,7 +49,9 @@ strict `inspect_*` names remain, while best-effort accessors gain an explicit
 `*_lossy` suffix. These are source-breaking changes and belong in 0.5.0.
 
 The 0.5.0 source parser map is an external provenance layer owned by
-`rd-source::Parsed`; it does not add spans to `RdDocument` or `RdNode`.
+`rd-source::Parsed`; its field on `Parsed` is private, while
+`rd_source::RdSourceMap` is a public opaque, re-exported type used through
+public methods. It does not add spans to `RdDocument` or `RdNode`.
 `Parsed::into_parts()` remains a two-value projection and a new projection
 returns the map. `Parsed` equality continues to compare the document and
 diagnostics while excluding the map. This preserves the existing comparison
