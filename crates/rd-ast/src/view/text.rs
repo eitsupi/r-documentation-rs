@@ -29,7 +29,7 @@ use super::*;
 ///
 /// The AST itself remains lossless; this function is where the crate's
 /// one deliberately lossy flattening lives.
-pub fn text_contents(nodes: &[RdNode]) -> String {
+pub fn text_contents_lossy(nodes: &[RdNode]) -> String {
     let mut out = String::new();
     push_text_contents(nodes, &mut out);
     out

@@ -94,7 +94,7 @@ fn stages_and_filename_rules() {
     ];
     for (name, expected) in names {
         let document = description(vec![figure(&format!("lifecycle-{name}.svg"))]);
-        let badges = document.lifecycle_badges();
+        let badges = document.lifecycle_badges_lossy();
         assert_eq!(badges.first().unwrap().stage(), &expected);
         assert_eq!(badges.first().unwrap().stage().as_str(), name);
     }
@@ -104,7 +104,7 @@ fn stages_and_filename_rules() {
     assert!(!unknown.is_current() && !unknown.is_legacy() && !unknown.is_known());
     assert_eq!(
         description(vec![figure("lifecycle-STABLE.PNG")])
-            .lifecycle_badges()
+            .lifecycle_badges_lossy()
             .first()
             .unwrap()
             .stage(),
@@ -112,19 +112,19 @@ fn stages_and_filename_rules() {
     );
     assert!(
         description(vec![figure("Lifecycle-stable.svg")])
-            .lifecycle_badges()
+            .lifecycle_badges_lossy()
             .first()
             .is_none()
     );
     assert!(
         description(vec![figure("lifecycle-stable")])
-            .lifecycle_badges()
+            .lifecycle_badges_lossy()
             .first()
             .is_some()
     );
     assert_eq!(
         description(vec![figure("lifecycle-preview.svg")])
-            .lifecycle_badges()
+            .lifecycle_badges_lossy()
             .first()
             .unwrap()
             .stage(),
@@ -132,7 +132,7 @@ fn stages_and_filename_rules() {
     );
     assert!(
         description(vec![figure("lifecycle-.svg"), figure("ordinary.svg")])
-            .lifecycle_badges()
+            .lifecycle_badges_lossy()
             .first()
             .is_none()
     );
@@ -141,7 +141,7 @@ fn stages_and_filename_rules() {
 #[test]
 fn bare_badge_has_path_and_no_shape() {
     let document = description(vec![figure("lifecycle-stable.svg")]);
-    let badges = document.lifecycle_badges();
+    let badges = document.lifecycle_badges_lossy();
     let badge = badges.first().unwrap();
     assert_eq!(badge.figure().file(), "lifecycle-stable.svg");
     assert_eq!(
@@ -174,7 +174,7 @@ fn canonical_badge_is_matched_before_recursing() {
         ],
     );
     let document = description(vec![conditional]);
-    let badges = document.lifecycle_badges();
+    let badges = document.lifecycle_badges_lossy();
     assert_eq!(badges.as_slice().len(), 1);
     let badge = badges.first().unwrap();
     let shape = badge.canonical_shape().unwrap();
@@ -302,7 +302,7 @@ fn trivia_inside_canonical_groups_is_ignored() {
         "lifecycle-stable.svg",
         "[Stable]",
     )]);
-    let badges = document.lifecycle_badges();
+    let badges = document.lifecycle_badges_lossy();
     assert_eq!(badges.as_slice().len(), 1);
     assert!(badges.first().unwrap().canonical_shape().is_some());
 }
@@ -317,7 +317,7 @@ fn nested_badges_are_collected_in_source_order() {
         None,
         vec![RdNode::group(vec![first]), canonical, last],
     )]);
-    let badges = document.lifecycle_badges();
+    let badges = document.lifecycle_badges_lossy();
     assert_eq!(badges.as_slice().len(), 3);
     assert_eq!(
         badges.as_slice()[0].figure().file(),
@@ -349,7 +349,7 @@ fn option_and_raw_children_are_not_recursed() {
         vec![],
     ));
     let document = description(vec![option_figure, raw_figure]);
-    let badges = document.lifecycle_badges();
+    let badges = document.lifecycle_badges_lossy();
     assert!(badges.as_slice().is_empty());
     assert!(badges.diagnostics().is_empty());
 }
@@ -449,7 +449,7 @@ fn unknown_stage_fallbacks_are_normalized_strictly() {
             fallback,
             "https://example.test",
         )]);
-        let badges = document.lifecycle_badges();
+        let badges = document.lifecycle_badges_lossy();
         assert!(badges.first().unwrap().canonical_shape().is_some());
         assert_eq!(
             badges.first().unwrap().stage(),
@@ -464,7 +464,7 @@ fn unknown_stage_fallbacks_are_normalized_strictly() {
         "[sneak peek]",
         "https://example.test",
     )]);
-    let badges = document.lifecycle_badges();
+    let badges = document.lifecycle_badges_lossy();
     assert_eq!(badges.as_slice().len(), 1);
     assert!(badges.first().unwrap().canonical_shape().is_none());
 
@@ -479,7 +479,7 @@ fn unknown_stage_fallbacks_are_normalized_strictly() {
             fallback,
             "https://example.test",
         )]);
-        let badges = document.lifecycle_badges();
+        let badges = document.lifecycle_badges_lossy();
         assert_eq!(
             badges.first().unwrap().stage(),
             &RdLifecycleStage::Unknown("Preview".into())
@@ -496,7 +496,7 @@ fn nested_figure_inside_malformed_figure_is_still_discovered() {
         vec![RdNode::group(vec![figure("lifecycle-stable.svg")])],
     );
     let document = description(vec![malformed_outer]);
-    let lossy = document.lifecycle_badges();
+    let lossy = document.lifecycle_badges_lossy();
     assert_eq!(lossy.as_slice().len(), 1);
     assert_eq!(lossy.first().unwrap().stage(), &RdLifecycleStage::Stable);
     assert!(lossy.diagnostics().is_empty());
@@ -519,7 +519,7 @@ fn all_descriptions_are_scanned_and_duplicates_inspected() {
             vec![figure("lifecycle-retired.svg")],
         ),
     ]);
-    assert_eq!(document.lifecycle_badges().as_slice().len(), 2);
-    assert!(document.lifecycle_badges().diagnostics().is_empty());
+    assert_eq!(document.lifecycle_badges_lossy().as_slice().len(), 2);
+    assert!(document.lifecycle_badges_lossy().diagnostics().is_empty());
     assert_eq!(document.inspect_lifecycle_badges().diagnostics().len(), 1);
 }

@@ -181,7 +181,7 @@ rules even where the table groups several methods.
 | `section_tree` | `section_tree_lossy()` yields located `RdSectionVisit` values; syntactic `kind` and `nesting` remain, and positioned title/body accessors are added |
 | `RdDocument::generation_header` | `generation_header_lossy()` remains a document-level heuristic; its result exposes the locations of the generator marker and each source-file comment rather than claiming one node path |
 | `RdDocument::lifecycle_badges` | `lifecycle_badges_lossy()` remains the best-effort document-level collector; each badge gains its underlying location, while `inspect_lifecycle_badges` keeps the diagnostic-bearing result |
-| `rd_ast::text_contents`, `RdAlias::text_contents`, `RdKeyword::text_contents`, `RdConcept::text_contents`, `RdSectionVisit::text_contents` | `text_contents_lossy` at the free-function and view-method entry points; comment skipping and markup flattening remain explicit |
+| `rd_ast::text_contents`, `RdAlias::text_contents`, `RdKeyword::text_contents`, `RdConcept::text_contents` | `text_contents_lossy` at the free-function and view-method entry points; comment skipping and markup flattening remain explicit |
 | `inspect_title`, `inspect_description`, `inspect_usage`, `inspect_value`, `inspect_name`, `inspect_details`, `inspect_note`, `inspect_author`, `inspect_references`, `inspect_see_also`, `inspect_examples`, `inspect_format`, `inspect_source`, `inspect_encoding`, `inspect_doc_type`, `inspect_rd_version`, `inspect_synopsis` | Same names, strict result, located success value |
 | `inspect_aliases`, `inspect_keywords`, `inspect_concepts` | Same names, strict located item results |
 | `inspect_sections`, `inspect_section_tree` | Same names, strict container/item validation with located views |
@@ -215,6 +215,61 @@ standard-section classification are unchanged.
 `text_contents` becomes `text_contents_lossy`. It continues to skip comments
 and flatten content according to its existing contract. No strict whole-tree
 text reconstruction is implied by the rename.
+
+These outcomes remain separate. Parser diagnostics belong to `rd-source`'s
+`Parsed` result, strict shape errors belong to `inspect_*`, and a successful
+view can retain construct-specific diagnostics. The following uses only the
+public APIs and shows the control flow for each case:
+
+```rust
+use rd_ast::{producer, RdDocument, RdNode, RdTag};
+
+fn inspect_outcomes(input: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    let parsed = rd_source::parse(input)?;
+    for diagnostic in parsed.diagnostics() {
+        eprintln!("parser diagnostic: {diagnostic:?}");
+    }
+
+    let document = parsed.document();
+    match document.inspect_title()? {
+        Some(field) => eprintln!("title: {:?}", field.body()),
+        None => eprintln!("title is absent"),
+    }
+
+    let table_document = RdDocument::new(vec![RdNode::tagged(
+        RdTag::Tabular,
+        None,
+        vec![
+            RdNode::group(vec![RdNode::Text("léc".into())]),
+            RdNode::group(vec![]),
+        ],
+    )]);
+    let table = table_document
+        .top_level()
+        .get(0)
+        .expect("table root")
+        .inspect_tabular()?
+        .expect("matching tabular node");
+    for diagnostic in table.diagnostics() {
+        eprintln!("successful-view diagnostic: {diagnostic}");
+    }
+
+    let matching_raw = RdDocument::new(vec![RdNode::Raw(producer::raw_node(
+        Some(r"\title".into()), None, vec![], None, vec![],
+    ))]);
+    assert!(matching_raw.inspect_title().is_err());
+    let unrelated_raw = RdDocument::new(vec![RdNode::Raw(producer::raw_node(
+        Some(r"\description".into()), None, vec![], None, vec![],
+    ))]);
+    assert!(unrelated_raw.inspect_title()?.is_none());
+    Ok(())
+}
+```
+
+Unsupported producer syntax that reaches `Raw` is skipped by lossy document
+accessors; a strict inspector reports a matching `Raw` as an error and returns
+`Ok(None)` for unrelated syntax. Renaming a lossy accessor does not change any
+of these behaviors.
 
 Generation-header results remain aggregate values without a fabricated header
 path. `RdGenerationHeader::generator_path()` identifies the marker comment,

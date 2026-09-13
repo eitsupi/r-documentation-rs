@@ -9,7 +9,7 @@
 
 use std::process::ExitCode;
 
-use rd_ast::{RdDocument, text_contents};
+use rd_ast::{RdDocument, text_contents_lossy};
 use rd_helpdb::PackageHelpDb;
 
 fn main() -> ExitCode {
@@ -63,22 +63,22 @@ fn run() -> Result<(), String> {
     println!("topic: {topic}");
 
     let title = document
-        .title()
-        .map(|nodes| normalize_whitespace(&text_contents(nodes)))
+        .title_lossy()
+        .map(|field| normalize_whitespace(&text_contents_lossy(field.body())))
         .unwrap_or_else(|| r"(no \title section)".to_string());
     println!("title: {title}");
 
     println!("aliases:");
-    for alias in document.aliases() {
+    for alias in document.aliases_lossy() {
         println!("  {}", normalize_whitespace(&alias));
     }
 
     println!("arguments:");
     let mut printed_any_argument = false;
-    for argument in document.arguments() {
+    for argument in document.arguments_lossy() {
         printed_any_argument = true;
-        let name = normalize_whitespace(&text_contents(argument.name()));
-        let description = normalize_whitespace(&text_contents(argument.description()));
+        let name = normalize_whitespace(&text_contents_lossy(argument.name()));
+        let description = normalize_whitespace(&text_contents_lossy(argument.description()));
         println!("  {name}: {description}");
     }
     if !printed_any_argument {

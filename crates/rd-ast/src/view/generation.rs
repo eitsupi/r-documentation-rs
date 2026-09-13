@@ -95,7 +95,7 @@ impl RdDocument {
     /// The view scans only leading comments interleaved with whitespace text.
     /// It is lossy: near-miss text is not recognized, and there is deliberately
     /// no inspection variant because this view has no structural error state.
-    pub fn generation_header(&self) -> Option<RdGenerationHeader<'_>> {
+    pub fn generation_header_lossy(&self) -> Option<RdGenerationHeader<'_>> {
         let mut generator = None;
         let mut generator_path = None;
         let mut source_files = Vec::new();

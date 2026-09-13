@@ -23,13 +23,13 @@ fn strict_views_agree_on_well_formed_shapes_and_ignore_trivia() {
     ]);
     assert_eq!(
         doc.inspect_title().unwrap().unwrap().body(),
-        doc.title().unwrap()
+        doc.title_lossy().unwrap().body()
     );
     assert_eq!(
         doc.inspect_aliases()
             .collect::<Result<Vec<_>, _>>()
             .unwrap()[0]
-            .text_contents(),
+            .text_contents_lossy(),
         "a"
     );
     assert_eq!(
@@ -37,7 +37,7 @@ fn strict_views_agree_on_well_formed_shapes_and_ignore_trivia() {
             .collect::<Result<Vec<_>, _>>()
             .unwrap()
             .len(),
-        doc.sections().count()
+        doc.sections_lossy().count()
     );
     assert_eq!(
         doc.inspect_arguments()
@@ -45,7 +45,7 @@ fn strict_views_agree_on_well_formed_shapes_and_ignore_trivia() {
             .collect::<Result<Vec<_>, _>>()
             .unwrap()
             .len(),
-        doc.arguments().count()
+        doc.arguments_lossy().count()
     );
 }
 
@@ -280,7 +280,7 @@ fn text_contents_flattens_nested_tagged_raw_comment_and_option() {
     ];
 
     assert_eq!(
-        text_contents(&nodes),
+        text_contents_lossy(&nodes),
         "See print and genericclass.".to_string()
     );
 }
@@ -293,8 +293,8 @@ fn title_first_wins_on_duplicates() {
     ]);
 
     assert_eq!(
-        doc.title(),
-        Some(vec![RdNode::Text("first".to_string())].as_slice())
+        doc.title_lossy().unwrap().body(),
+        &[RdNode::Text("first".to_string())]
     );
 }
 
@@ -308,7 +308,7 @@ fn title_ignores_raw_node_with_matching_tag_string() {
         Vec::new(),
     ))]);
 
-    assert_eq!(doc.title(), None);
+    assert_eq!(doc.title_lossy(), None);
 }
 
 #[test]
@@ -328,18 +328,18 @@ fn description_usage_value_find_their_respective_tags() {
     ]);
 
     assert_eq!(
-        doc.description(),
-        Some(vec![RdNode::Text("desc".to_string())].as_slice())
+        doc.description_lossy().unwrap().body(),
+        &[RdNode::Text("desc".to_string())]
     );
     assert_eq!(
-        doc.usage(),
-        Some(vec![RdNode::RCode("f(x)".to_string())].as_slice())
+        doc.usage_lossy().unwrap().body(),
+        &[RdNode::RCode("f(x)".to_string())]
     );
     assert_eq!(
-        doc.value(),
-        Some(vec![RdNode::Text("a value".to_string())].as_slice())
+        doc.value_lossy().unwrap().body(),
+        &[RdNode::Text("a value".to_string())]
     );
-    assert_eq!(doc.title(), None);
+    assert_eq!(doc.title_lossy(), None);
 }
 
 #[test]
@@ -358,7 +358,7 @@ fn aliases_yields_text_contents_with_markup_inside() {
         RdNode::tagged(RdTag::Alias, None, vec![]),
     ]);
 
-    let aliases: Vec<String> = doc.aliases().collect();
+    let aliases: Vec<String> = doc.aliases_lossy().collect();
     assert_eq!(
         aliases,
         vec![
@@ -403,14 +403,14 @@ fn sections_recognizes_custom_section_shape() {
         ),
     ]);
 
-    let sections: Vec<RdSection<'_>> = doc.sections().collect();
+    let sections: Vec<RdSection<'_>> = doc.sections_lossy().collect();
     assert_eq!(sections.len(), 1);
     assert_eq!(
-        text_contents(sections[0].title()),
+        text_contents_lossy(sections[0].title()),
         "Custom Title".to_string()
     );
     assert_eq!(
-        text_contents(sections[0].body()),
+        text_contents_lossy(sections[0].body()),
         "Custom body.".to_string()
     );
 }
@@ -459,7 +459,7 @@ fn successful_document_views_retain_node_and_child_locations() {
         &[RdAstPathSegment::TopLevel(2), RdAstPathSegment::Child(0),]
     );
 
-    let section = doc.sections().next().unwrap();
+    let section = doc.sections_lossy().next().unwrap();
     assert_eq!(section.path().segments(), &[RdAstPathSegment::TopLevel(3)]);
     assert_eq!(
         section.title_ref().get(0).unwrap().path().segments(),
@@ -478,7 +478,7 @@ fn successful_document_views_retain_node_and_child_locations() {
         ]
     );
 
-    let argument = doc.arguments().next().unwrap();
+    let argument = doc.arguments_lossy().next().unwrap();
     assert_eq!(
         argument.path().segments(),
         &[RdAstPathSegment::TopLevel(4), RdAstPathSegment::Child(0),]
@@ -538,8 +538,13 @@ fn arguments_pairs_items_and_skips_whitespace_and_malformed_entries() {
     )]);
 
     let arguments: Vec<(String, String)> = doc
-        .arguments()
-        .map(|arg| (text_contents(arg.name()), text_contents(arg.description())))
+        .arguments_lossy()
+        .map(|arg| {
+            (
+                text_contents_lossy(arg.name()),
+                text_contents_lossy(arg.description()),
+            )
+        })
         .collect();
     assert_eq!(
         arguments,
@@ -558,7 +563,7 @@ fn arguments_empty_when_no_top_level_arguments_node() {
         vec![RdNode::Text("t".to_string())],
     )]);
 
-    assert_eq!(doc.arguments().count(), 0);
+    assert_eq!(doc.arguments_lossy().count(), 0);
 }
 
 #[test]
@@ -586,43 +591,58 @@ fn fixed_section_accessors_cover_the_remaining_vocabulary() {
     macro_rules! assert_fixed_accessor {
         ($accessor:ident, $inspect:ident) => {
             assert_eq!(
-                doc.$accessor(),
+                doc.$accessor().map(|field| field.body()),
                 doc.$inspect().unwrap().map(|field| field.body())
             );
             assert!(RdDocument::new(vec![]).$accessor().is_none());
         };
     }
-    assert_fixed_accessor!(name, inspect_name);
-    assert_fixed_accessor!(details, inspect_details);
-    assert_fixed_accessor!(note, inspect_note);
-    assert_fixed_accessor!(author, inspect_author);
-    assert_fixed_accessor!(references, inspect_references);
-    assert_fixed_accessor!(see_also, inspect_see_also);
-    assert_fixed_accessor!(examples, inspect_examples);
-    assert_fixed_accessor!(format, inspect_format);
-    assert_fixed_accessor!(source, inspect_source);
-    assert_fixed_accessor!(encoding, inspect_encoding);
-    assert_fixed_accessor!(doc_type, inspect_doc_type);
-    assert_fixed_accessor!(rd_version, inspect_rd_version);
-    assert_fixed_accessor!(synopsis, inspect_synopsis);
+    assert_fixed_accessor!(name_lossy, inspect_name);
+    assert_fixed_accessor!(details_lossy, inspect_details);
+    assert_fixed_accessor!(note_lossy, inspect_note);
+    assert_fixed_accessor!(author_lossy, inspect_author);
+    assert_fixed_accessor!(references_lossy, inspect_references);
+    assert_fixed_accessor!(see_also_lossy, inspect_see_also);
+    assert_fixed_accessor!(examples_lossy, inspect_examples);
+    assert_fixed_accessor!(format_lossy, inspect_format);
+    assert_fixed_accessor!(source_lossy, inspect_source);
+    assert_fixed_accessor!(encoding_lossy, inspect_encoding);
+    assert_fixed_accessor!(doc_type_lossy, inspect_doc_type);
+    assert_fixed_accessor!(rd_version_lossy, inspect_rd_version);
+    assert_fixed_accessor!(synopsis_lossy, inspect_synopsis);
     assert_eq!(
-        doc.name(),
+        doc.name_lossy().map(|field| field.body()),
         doc.inspect_name().unwrap().map(|field| field.body())
     );
-    assert_eq!(doc.name().map(text_contents), Some("name".into()));
+    assert_eq!(
+        doc.name_lossy()
+            .map(|field| text_contents_lossy(field.body())),
+        Some("name".into())
+    );
     assert!(RdDocument::new(vec![]).inspect_name().unwrap().is_none());
 
     let duplicate = RdDocument::new(vec![
         RdNode::tagged(RdTag::Name, None, vec![RdNode::Text("first".into())]),
         RdNode::tagged(RdTag::Name, None, vec![RdNode::Text("second".into())]),
     ]);
-    assert_eq!(text_contents(duplicate.name().unwrap()), "first");
+    assert_eq!(
+        text_contents_lossy(duplicate.name_lossy().unwrap().body()),
+        "first"
+    );
     assert!(matches!(
         duplicate.inspect_name().unwrap_err().kind(),
         RdShapeErrorKind::Duplicate { first_path, .. }
             if first_path.segments() == [RdAstPathSegment::TopLevel(0)]
     ));
-    let option = RdDocument::new(vec![RdNode::tagged(RdTag::Name, Some(vec![]), vec![])]);
+    let option = RdDocument::new(vec![RdNode::tagged(
+        RdTag::Name,
+        Some(vec![]),
+        vec![RdNode::Text("body".into())],
+    )]);
+    let lossy_option = option
+        .name_lossy()
+        .expect("lossy singleton keeps matching tagged nodes with options");
+    assert_eq!(lossy_option.body(), &[RdNode::Text("body".into())]);
     assert!(matches!(
         option.inspect_name().unwrap_err().kind(),
         RdShapeErrorKind::UnexpectedOption
@@ -651,7 +671,7 @@ fn keywords_and_concepts_are_repeatable_strict_views() {
         RdNode::tagged(RdTag::Keyword, None, vec![RdNode::Text("two".into())]),
         RdNode::tagged(RdTag::Concept, None, vec![RdNode::Text("second".into())]),
     ]);
-    assert_eq!(doc.keywords().collect::<Vec<_>>(), ["one", "two"]);
+    assert_eq!(doc.keywords_lossy().collect::<Vec<_>>(), ["one", "two"]);
     let keywords = doc
         .inspect_keywords()
         .map(|entry| entry.unwrap())
@@ -659,7 +679,7 @@ fn keywords_and_concepts_are_repeatable_strict_views() {
     assert_eq!(
         keywords
             .iter()
-            .map(|entry| entry.text_contents())
+            .map(|entry| entry.text_contents_lossy())
             .collect::<Vec<_>>(),
         ["one", "two"]
     );
@@ -673,7 +693,10 @@ fn keywords_and_concepts_are_repeatable_strict_views() {
             &[RdAstPathSegment::TopLevel(2)][..],
         ]
     );
-    assert_eq!(doc.concepts().collect::<Vec<_>>(), ["first", "second"]);
+    assert_eq!(
+        doc.concepts_lossy().collect::<Vec<_>>(),
+        ["first", "second"]
+    );
     let concepts = doc
         .inspect_concepts()
         .map(|entry| entry.unwrap())
@@ -753,11 +776,15 @@ fn section_tree_is_preorder_path_aware_and_ignores_orphans() {
         custom_section("two", vec![RdNode::Text("second".into())]),
         custom_subsection("orphan", vec![]),
     ]);
-    let visits: Vec<_> = doc.section_tree().collect();
+    let visits: Vec<_> = doc.section_tree_lossy().collect();
     assert_eq!(
         visits
             .iter()
-            .map(|visit| (visit.kind(), visit.nesting(), text_contents(visit.title())))
+            .map(|visit| (
+                visit.kind(),
+                visit.nesting(),
+                text_contents_lossy(visit.title())
+            ))
             .collect::<Vec<_>>(),
         vec![
             (RdSectionKind::Section, 0, "one".into()),
@@ -786,8 +813,11 @@ fn section_tree_is_preorder_path_aware_and_ignores_orphans() {
             RdAstPathSegment::Child(0),
         ]
     );
-    assert_eq!(text_contents(visits[0].body()), "bodyone-aone-a-ideep");
-    assert_eq!(text_contents(visits[2].body()), "deep");
+    assert_eq!(
+        text_contents_lossy(visits[0].body()),
+        "bodyone-aone-a-ideep"
+    );
+    assert_eq!(text_contents_lossy(visits[2].body()), "deep");
     assert_eq!(
         visits
             .iter()
@@ -810,7 +840,7 @@ fn section_tree_is_preorder_path_aware_and_ignores_orphans() {
             &[RdAstPathSegment::TopLevel(3)][..],
         ]
     );
-    assert_eq!(doc.sections().count(), 2);
+    assert_eq!(doc.sections_lossy().count(), 2);
     assert_eq!(doc.inspect_section_tree().count(), 4);
 }
 
@@ -831,16 +861,22 @@ fn section_tree_skips_malformed_candidate_and_descendants() {
         custom_section("last", vec![]),
     ]);
     assert_eq!(
-        doc.section_tree()
-            .map(|v| text_contents(v.title()))
+        doc.section_tree_lossy()
+            .map(|v| text_contents_lossy(v.title()))
             .collect::<Vec<_>>(),
         ["first", "last"]
     );
     let results: Vec<_> = doc.inspect_section_tree().collect();
     assert_eq!(results.len(), 3);
-    assert_eq!(text_contents(results[0].as_ref().unwrap().title()), "first");
+    assert_eq!(
+        text_contents_lossy(results[0].as_ref().unwrap().title()),
+        "first"
+    );
     assert!(
         matches!(results[1], Err(ref error) if matches!(error.kind(), RdShapeErrorKind::WrongArity { .. }))
     );
-    assert_eq!(text_contents(results[2].as_ref().unwrap().title()), "last");
+    assert_eq!(
+        text_contents_lossy(results[2].as_ref().unwrap().title()),
+        "last"
+    );
 }

@@ -1,5 +1,6 @@
 //! Compares `rd-ast`'s high-level [`RdDocument`] view accessors --
-//! [`RdDocument::title`], [`RdDocument::arguments`], and [`text_contents`]
+//! [`RdDocument::title_lossy`], [`RdDocument::arguments_lossy`], and
+//! [`text_contents_lossy`]
 //! -- against an independent R-side re-implementation of the same
 //! semantics, applied to the same real installed-package topics used by
 //! `oracle_read_topic.rs`.
@@ -42,7 +43,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rd_ast::{RdDocument, RdNode, RdTag, text_contents};
+use rd_ast::{RdDocument, RdNode, RdTag, text_contents_lossy};
 use rd_helpdb::PackageHelpDb;
 
 /// `(package, topic)` pairs to compare -- the same trio used by
@@ -259,7 +260,7 @@ fn parse_oracle_output(stdout: &str) -> Vec<TopicBlock> {
 
 /// `true` iff `document` has a top-level `Tagged` node with `RdTag::Arguments`
 /// -- i.e. whether `\arguments` itself was recognized (as
-/// opposed to `RdDocument::arguments()`'s item count, which is also zero
+/// opposed to `RdDocument::arguments_lossy()`'s item count, which is also zero
 /// when `\arguments` is altogether absent or lowered to `Raw`).
 ///
 /// The public `RdDocument::nodes()` accessor allows this ad hoc structural
@@ -355,7 +356,7 @@ fn oracle_matches_rd_ast_view() {
             .unwrap_or_else(|err| panic!("{}: lower_r_object failed: {err}", block.topic));
 
         // -- title --
-        let rust_title_present = document.title().is_some();
+        let rust_title_present = document.title_lossy().is_some();
         let oracle_title_present = block
             .title_present
             .unwrap_or_else(|| panic!("{}: missing title_present fact", block.topic));
@@ -365,10 +366,11 @@ fn oracle_matches_rd_ast_view() {
             block.topic
         );
         if oracle_title_present {
-            let rust_title = normalize_whitespace(&text_contents(
+            let rust_title = normalize_whitespace(&text_contents_lossy(
                 document
-                    .title()
-                    .expect("title() is Some when rust_title_present"),
+                    .title_lossy()
+                    .expect("title_lossy() is Some when rust_title_present")
+                    .body(),
             ));
             let oracle_title = block
                 .title
@@ -394,11 +396,11 @@ fn oracle_matches_rd_ast_view() {
         );
 
         let rust_arguments: Vec<(String, String)> = document
-            .arguments()
+            .arguments_lossy()
             .map(|argument| {
                 (
-                    normalize_whitespace(&text_contents(argument.name())),
-                    normalize_whitespace(&text_contents(argument.description())),
+                    normalize_whitespace(&text_contents_lossy(argument.name())),
+                    normalize_whitespace(&text_contents_lossy(argument.description())),
                 )
             })
             .collect();
