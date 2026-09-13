@@ -6,7 +6,7 @@ use flate2::read::GzDecoder;
 use rd_ast::{
     RdAstPath, RdAstPathSegment, RdColumnAlign, RdDocument, RdDynamicMarkupEvent,
     RdDynamicMarkupState, RdEquationDisplay, RdLifecycleStage, RdLinkDestination, RdLinkTopic,
-    RdListItem, RdNode, RdSexprResults, RdSexprStage, RdTag, lower_r_object, text_contents,
+    RdListItem, RdNode, RdSexprResults, RdSexprStage, RdTag, lower_r_object, text_contents_lossy,
 };
 use rd_rds::parse;
 
@@ -54,7 +54,7 @@ fn cursor<'a>(
 }
 
 fn normalize(nodes: &[RdNode]) -> String {
-    text_contents(nodes)
+    text_contents_lossy(nodes)
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -110,7 +110,7 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
         assert_eq!(normalize(href.url()), "https://example.org");
         assert_eq!(normalize(href.display()), "the site");
 
-        let badges = document.lifecycle_badges();
+        let badges = document.lifecycle_badges_lossy();
         assert_eq!(badges.as_slice().len(), 1, "version {version}");
         let badge = badges.first().unwrap();
         assert_eq!(badge.stage(), &RdLifecycleStage::Stable);

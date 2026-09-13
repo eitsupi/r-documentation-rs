@@ -59,11 +59,11 @@ impl<'a> RdField<'a> {
     }
 }
 
-/// A custom `\section{title}{body}` node (see [`RdDocument::sections`]).
+/// A custom `\section{title}{body}` node (see [`RdDocument::sections_lossy`]).
 ///
 /// Not the standard, fixed-vocabulary sections (`\description`, `\value`,
 /// ...) -- those are read individually via
-/// [`RdDocument::title`]/[`RdDocument::description`]/etc.
+/// [`RdDocument::title_lossy`]/[`RdDocument::description_lossy`]/etc.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdSection<'a> {
     pub(super) path: RdAstPath,
@@ -112,7 +112,7 @@ impl<'a> RdSection<'a> {
 }
 
 /// A single `\item{name}{description}` entry within `\arguments` (see
-/// [`RdDocument::arguments`]).
+/// [`RdDocument::arguments_lossy`]).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdArgument<'a> {
     pub(super) path: RdAstPath,
@@ -198,8 +198,8 @@ impl<'a> RdKeyword<'a> {
     }
 
     /// Returns the lossy flattened keyword text.
-    pub fn text_contents(&self) -> String {
-        text_contents(self.nodes)
+    pub fn text_contents_lossy(&self) -> String {
+        text_contents_lossy(self.nodes)
     }
 }
 
@@ -233,12 +233,12 @@ impl<'a> RdConcept<'a> {
     }
 
     /// Returns the lossy flattened concept text.
-    pub fn text_contents(&self) -> String {
-        text_contents(self.nodes)
+    pub fn text_contents_lossy(&self) -> String {
+        text_contents_lossy(self.nodes)
     }
 }
 
-/// The kind of custom section-family node visited by [`RdDocument::section_tree`].
+/// The kind of custom section-family node visited by [`RdDocument::section_tree_lossy`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum RdSectionKind {
@@ -323,7 +323,7 @@ impl<'a> RdAlias<'a> {
     }
 
     /// Returns the lossy flattened alias text.
-    pub fn text_contents(&self) -> String {
-        text_contents(self.nodes)
+    pub fn text_contents_lossy(&self) -> String {
+        text_contents_lossy(self.nodes)
     }
 }

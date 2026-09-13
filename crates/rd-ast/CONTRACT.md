@@ -164,6 +164,9 @@ changing the tree.
 duplicates; strict counterparts report duplicates as errors. Repeatable
 sections preserve source order. Custom section traversal is depth-first
 preorder, and `nesting` is syntactic information rather than rendering policy.
+In 0.5.0, a successful singleton accessor returns a located `RdField`; use its
+`body()` method for the legacy unpositioned body slice and `body_ref()` for
+the positioned sequence.
 Matching `Raw` nodes are strict errors and MUST NOT be interpreted. Orphan
 subsections are outside the section view's scope.
 

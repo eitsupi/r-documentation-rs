@@ -87,7 +87,7 @@ fn equations_report_shape_errors_and_propagate_paths() {
     );
 }
 /// Tests that lower a real fixture (via the `rds` feature) and exercise
-/// [`RdDocument::arguments`] against it.
+/// [`RdDocument::arguments_lossy`] against it.
 #[cfg(feature = "rds")]
 mod rds_tests {
     use std::{fs, io::Read, path::PathBuf};
@@ -119,12 +119,12 @@ mod rds_tests {
     /// `srcref` attribute to every node; the lowering discards `srcref` as
     /// known producer metadata (see the `rds` module documentation), so
     /// `\arguments` and its `\item`s lower structurally to
-    /// [`crate::RdNode::Tagged`] and [`RdDocument::arguments`] pairs all
+    /// [`crate::RdNode::Tagged`] and [`RdDocument::arguments_lossy`] pairs all
     /// five entries. The `\dots` item's name group contains only the
-    /// (childless) `\dots` macro node, so its [`text_contents`] is empty.
+    /// (childless) `\dots` macro node, so its [`text_contents_lossy`] is empty.
     #[test]
     fn arguments_fixture_yields_five_expected_arguments() {
-        use super::super::text_contents;
+        use super::super::text_contents_lossy;
         use crate::RdDocument;
 
         for version in [2, 3] {
@@ -132,11 +132,11 @@ mod rds_tests {
             let doc: RdDocument = lower_r_object(&root).expect("lower document");
 
             let arguments: Vec<(String, String)> = doc
-                .arguments()
+                .arguments_lossy()
                 .map(|argument| {
                     (
-                        text_contents(argument.name()),
-                        text_contents(argument.description()),
+                        text_contents_lossy(argument.name()),
+                        text_contents_lossy(argument.description()),
                     )
                 })
                 .collect();
@@ -160,16 +160,16 @@ mod rds_tests {
                 .map(|result| {
                     let argument = result.expect("fixture arguments are structurally valid");
                     (
-                        text_contents(argument.name()),
-                        text_contents(argument.description()),
+                        text_contents_lossy(argument.name()),
+                        text_contents_lossy(argument.description()),
                     )
                 })
                 .collect();
             assert_eq!(inspected, arguments);
 
-            let title = doc.title().expect(r"\title lowers to Tagged");
+            let title = doc.title_lossy().expect(r"\title lowers to Tagged");
             assert_eq!(
-                text_contents(title),
+                text_contents_lossy(title.body()),
                 "A Topic With Several Arguments".to_string()
             );
         }

@@ -47,7 +47,7 @@ pub use view::{
     RdResolvedSexpr, RdS4ClassLink, RdSection, RdSectionKind, RdSectionVisit, RdSexpr,
     RdSystemMacro, RdSystemMacroItem, RdSystemMacroItems, RdSystemMacroItemsStrict,
     RdSystemMacroMatch, RdSystemMacroOrigin, RdTableCell, RdTableRow, RdTabular, RdTextSymbol,
-    RdTextSymbolKind, text_contents,
+    RdTextSymbolKind, text_contents_lossy,
 };
 
 #[cfg(feature = "rds")]

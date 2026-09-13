@@ -88,7 +88,7 @@ pub use system_macro::{
     RdSystemMacroMatch, RdSystemMacroOrigin,
 };
 pub use tabular::{RdColumnAlign, RdTableCell, RdTableRow, RdTabular};
-pub use text::text_contents;
+pub use text::text_contents_lossy;
 
 pub(super) fn top_path(index: usize) -> RdAstPath {
     RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])

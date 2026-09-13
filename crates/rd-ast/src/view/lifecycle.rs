@@ -284,9 +284,17 @@ impl<'a> Collector<'a> {
 }
 
 impl RdDocument {
-    pub fn lifecycle_badges(&self) -> RdLifecycleBadges<'_> {
+    /// Lossily collects recognized lifecycle badges from the document.
+    ///
+    /// Malformed or unsupported badge candidates are skipped while recognized
+    /// badges retain their source locations. Use [`Self::inspect_lifecycle_badges`]
+    /// when those candidates should instead be reported as diagnostics.
+    pub fn lifecycle_badges_lossy(&self) -> RdLifecycleBadges<'_> {
         self.collect_lifecycle(false)
     }
+
+    /// Strictly collects lifecycle badges and retains diagnostics for malformed
+    /// or unsupported badge candidates.
     pub fn inspect_lifecycle_badges(&self) -> RdLifecycleBadges<'_> {
         self.collect_lifecycle(true)
     }

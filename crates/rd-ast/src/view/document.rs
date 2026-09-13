@@ -1,7 +1,8 @@
 use super::list::inspect_two_group_item;
 use super::*;
 impl RdDocument {
-    /// Lossy: returns the first top-level `\title{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\title{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_title`] for diagnostics.
     ///
     /// "First-wins": if `\title` appears more than once at the top level
@@ -9,114 +10,134 @@ impl RdDocument {
     /// [`RdNode::Tagged`] top-level nodes are considered -- see the
     /// module-level documentation for why a top-level [`RdNode::Raw`] node
     /// whose tag string happens to be `"\\title"` is not matched.
-    pub fn title(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Title)
+    pub fn title_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Title)
     }
 
-    /// Lossy: returns the first top-level `\description{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\description{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_description`] for diagnostics.
     ///
     /// Same first-wins-on-duplicates and `Tagged`-only semantics as
-    /// [`RdDocument::title`].
-    pub fn description(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Description)
+    /// [`RdDocument::title_lossy`].
+    pub fn description_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Description)
     }
 
-    /// Lossy: returns the first top-level `\usage{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\usage{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_usage`] for diagnostics.
     ///
     /// Same first-wins-on-duplicates and `Tagged`-only semantics as
-    /// [`RdDocument::title`].
-    pub fn usage(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Usage)
+    /// [`RdDocument::title_lossy`].
+    pub fn usage_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Usage)
     }
 
-    /// Lossy: returns the first top-level `\value{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\value{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_value`] for diagnostics.
     ///
     /// Same first-wins-on-duplicates and `Tagged`-only semantics as
-    /// [`RdDocument::title`].
-    pub fn value(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Value)
+    /// [`RdDocument::title_lossy`].
+    pub fn value_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Value)
     }
 
-    /// Lossy: returns the first top-level `\name{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\name{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_name`] for diagnostics. First-wins on duplicates.
-    pub fn name(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Name)
+    pub fn name_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Name)
     }
-    /// Lossy: returns the first top-level `\details{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\details{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_details`] for diagnostics. First-wins on duplicates.
-    pub fn details(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Details)
+    pub fn details_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Details)
     }
-    /// Lossy: returns the first top-level `\note{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\note{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_note`] for diagnostics. First-wins on duplicates.
-    pub fn note(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Note)
+    pub fn note_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Note)
     }
-    /// Lossy: returns the first top-level `\author{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\author{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_author`] for diagnostics. First-wins on duplicates.
-    pub fn author(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Author)
+    pub fn author_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Author)
     }
-    /// Lossy: returns the first top-level `\references{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\references{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_references`] for diagnostics. First-wins on duplicates.
-    pub fn references(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::References)
+    pub fn references_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::References)
     }
-    /// Lossy: returns the first top-level `\seealso{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\seealso{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_see_also`] for diagnostics. First-wins on duplicates.
-    pub fn see_also(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::SeeAlso)
+    pub fn see_also_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::SeeAlso)
     }
-    /// Lossy: returns the first top-level `\examples{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\examples{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_examples`] for diagnostics. First-wins on duplicates.
-    pub fn examples(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Examples)
+    pub fn examples_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Examples)
     }
-    /// Lossy: returns the first top-level `\format{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\format{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_format`] for diagnostics. First-wins on duplicates.
-    pub fn format(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Format)
+    pub fn format_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Format)
     }
-    /// Lossy: returns the first top-level `\source{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\source{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_source`] for diagnostics. First-wins on duplicates.
-    pub fn source(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Source)
+    pub fn source_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Source)
     }
-    /// Lossy: returns the first top-level `\encoding{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\encoding{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_encoding`] for diagnostics. First-wins on duplicates.
-    pub fn encoding(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Encoding)
+    pub fn encoding_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Encoding)
     }
-    /// Lossy: returns the first top-level `\docType{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\docType{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_doc_type`] for diagnostics. First-wins on duplicates.
-    pub fn doc_type(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::DocType)
+    pub fn doc_type_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::DocType)
     }
-    /// Lossy: returns the first top-level `\Rdversion{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\Rdversion{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_rd_version`] for diagnostics. First-wins on duplicates.
-    pub fn rd_version(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Rdversion)
+    pub fn rd_version_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Rdversion)
     }
-    /// Lossy: returns the first top-level `\synopsis{...}`'s children, if any.
+    /// Lossy: returns the first top-level `\synopsis{...}` field, if any.
+    /// Use [`RdField::body`] to obtain its legacy body slice.
     /// See [`Self::inspect_synopsis`] for diagnostics. First-wins on duplicates.
-    pub fn synopsis(&self) -> Option<&[RdNode]> {
-        self.first_tagged_children(RdTag::Synopsis)
+    pub fn synopsis_lossy(&self) -> Option<RdField<'_>> {
+        self.first_tagged_field(RdTag::Synopsis)
     }
 
-    /// The children of the first top-level `Tagged` node with the given
-    /// `tag`, if any.
-    fn first_tagged_children(&self, tag: RdTag) -> Option<&[RdNode]> {
-        self.nodes().iter().find_map(|node| {
+    /// The first top-level `Tagged` node with the given tag, if any.
+    fn first_tagged_field(&self, tag: RdTag) -> Option<RdField<'_>> {
+        self.nodes().iter().enumerate().find_map(|(index, node)| {
             let tagged = node.as_tagged()?;
-            (tagged.tag() == &tag).then(|| tagged.children())
+            if tagged.tag() != &tag {
+                return None;
+            }
+            let path = top_path(index);
+            let cursor = RdNodeRef::new(node, path.clone());
+            Some(RdField::new(node, path, tag.clone(), cursor.children()))
         })
     }
 
     /// Lossy: iterates the current topic's `\alias{...}` declarations, in source
-    /// order, yielding each alias's [`text_contents`] (no splitting, no
+    /// order, yielding each alias's [`crate::text_contents_lossy`] (no splitting, no
     /// trimming -- an alias with empty children yields an empty string).
     ///
     /// This reads the topic's *own* `\alias` markup, i.e. the alias names
@@ -128,26 +149,26 @@ impl RdDocument {
     /// Only top-level [`RdNode::Tagged`] nodes are considered -- see the
     /// module-level documentation for why a top-level [`RdNode::Raw`] node
     /// whose tag string happens to be `"\\alias"` is not matched.
-    pub fn aliases(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn aliases_lossy(&self) -> impl Iterator<Item = String> + '_ {
         self.nodes().iter().filter_map(|node| {
             let tagged = node.as_tagged()?;
-            (tagged.tag() == &RdTag::Alias).then(|| text_contents(tagged.children()))
+            (tagged.tag() == &RdTag::Alias).then(|| text_contents_lossy(tagged.children()))
         })
     }
 
     /// Lossy: iterates top-level `\keyword{...}` declarations in source order.
-    pub fn keywords(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn keywords_lossy(&self) -> impl Iterator<Item = String> + '_ {
         self.nodes().iter().filter_map(|node| {
             let tagged = node.as_tagged()?;
-            (tagged.tag() == &RdTag::Keyword).then(|| text_contents(tagged.children()))
+            (tagged.tag() == &RdTag::Keyword).then(|| text_contents_lossy(tagged.children()))
         })
     }
 
     /// Lossy: iterates top-level `\concept{...}` declarations in source order.
-    pub fn concepts(&self) -> impl Iterator<Item = String> + '_ {
+    pub fn concepts_lossy(&self) -> impl Iterator<Item = String> + '_ {
         self.nodes().iter().filter_map(|node| {
             let tagged = node.as_tagged()?;
-            (tagged.tag() == &RdTag::Concept).then(|| text_contents(tagged.children()))
+            (tagged.tag() == &RdTag::Concept).then(|| text_contents_lossy(tagged.children()))
         })
     }
 
@@ -156,7 +177,7 @@ impl RdDocument {
     ///
     /// This is distinct from the standard, fixed-vocabulary sections
     /// (`\description`, `\value`, `\details`, ...), which are read
-    /// individually (see [`RdDocument::title`], [`RdDocument::description`],
+    /// individually (see [`RdDocument::title_lossy`], [`RdDocument::description_lossy`],
     /// etc.). It only recognizes custom `\section{...}{...}` markup
     /// (`RdTag::Section`).
     ///
@@ -165,8 +186,8 @@ impl RdDocument {
     /// exactly two `RdNode::Group` children (the title/body positional-
     /// argument groups the `\section` macro lowers to). Anything else is
     /// silently skipped rather than erroring.
-    /// For nested `\subsection` traversal, see [`Self::section_tree`].
-    pub fn sections(&self) -> impl Iterator<Item = RdSection<'_>> {
+    /// For nested `\subsection` traversal, see [`Self::section_tree_lossy`].
+    pub fn sections_lossy(&self) -> impl Iterator<Item = RdSection<'_>> {
         self.nodes().iter().enumerate().filter_map(|(index, node)| {
             let tagged = node.as_tagged()?;
             if tagged.tag() != &RdTag::Section || tagged.option().is_some() {
@@ -194,7 +215,7 @@ impl RdDocument {
     ///
     /// Only the FIRST top-level `Tagged` node with `RdTag::Arguments`
     /// node is considered (first-wins on duplicates, like
-    /// [`RdDocument::title`]); its DIRECT children are then scanned --
+    /// [`RdDocument::title_lossy`]); its DIRECT children are then scanned --
     /// nested `\arguments` are not (there is no such thing in valid Rd,
     /// but this function makes no attempt to look for one either way).
     ///
@@ -214,7 +235,7 @@ impl RdDocument {
     /// If `\arguments` itself isn't found as a top-level `Tagged` node
     /// (see the module-level documentation on why `Raw` is never
     /// interpreted), this yields no items.
-    pub fn arguments(&self) -> impl Iterator<Item = RdArgument<'_>> {
+    pub fn arguments_lossy(&self) -> impl Iterator<Item = RdArgument<'_>> {
         let (parent_index, children) = self
             .nodes()
             .iter()
@@ -253,72 +274,72 @@ impl RdDocument {
             })
     }
 
-    /// Strict counterpart to the lossy [`Self::title`] accessor.
+    /// Strict counterpart to the lossy [`Self::title_lossy`] accessor.
     pub fn inspect_title(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Title)
     }
-    /// Strict counterpart to the lossy [`Self::description`] accessor.
+    /// Strict counterpart to the lossy [`Self::description_lossy`] accessor.
     pub fn inspect_description(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Description)
     }
-    /// Strict counterpart to the lossy [`Self::usage`] accessor.
+    /// Strict counterpart to the lossy [`Self::usage_lossy`] accessor.
     pub fn inspect_usage(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Usage)
     }
-    /// Strict counterpart to the lossy [`Self::value`] accessor.
+    /// Strict counterpart to the lossy [`Self::value_lossy`] accessor.
     pub fn inspect_value(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Value)
     }
 
-    /// Strict counterpart to the lossy [`Self::name`] accessor.
+    /// Strict counterpart to the lossy [`Self::name_lossy`] accessor.
     pub fn inspect_name(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Name)
     }
-    /// Strict counterpart to the lossy [`Self::details`] accessor.
+    /// Strict counterpart to the lossy [`Self::details_lossy`] accessor.
     pub fn inspect_details(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Details)
     }
-    /// Strict counterpart to the lossy [`Self::note`] accessor.
+    /// Strict counterpart to the lossy [`Self::note_lossy`] accessor.
     pub fn inspect_note(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Note)
     }
-    /// Strict counterpart to the lossy [`Self::author`] accessor.
+    /// Strict counterpart to the lossy [`Self::author_lossy`] accessor.
     pub fn inspect_author(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Author)
     }
-    /// Strict counterpart to the lossy [`Self::references`] accessor.
+    /// Strict counterpart to the lossy [`Self::references_lossy`] accessor.
     pub fn inspect_references(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::References)
     }
-    /// Strict counterpart to the lossy [`Self::see_also`] accessor.
+    /// Strict counterpart to the lossy [`Self::see_also_lossy`] accessor.
     pub fn inspect_see_also(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::SeeAlso)
     }
-    /// Strict counterpart to the lossy [`Self::examples`] accessor.
+    /// Strict counterpart to the lossy [`Self::examples_lossy`] accessor.
     pub fn inspect_examples(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Examples)
     }
-    /// Strict counterpart to the lossy [`Self::format`] accessor.
+    /// Strict counterpart to the lossy [`Self::format_lossy`] accessor.
     pub fn inspect_format(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Format)
     }
-    /// Strict counterpart to the lossy [`Self::source`] accessor.
+    /// Strict counterpart to the lossy [`Self::source_lossy`] accessor.
     pub fn inspect_source(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Source)
     }
-    /// Strict counterpart to the lossy [`Self::encoding`] accessor.
+    /// Strict counterpart to the lossy [`Self::encoding_lossy`] accessor.
     pub fn inspect_encoding(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Encoding)
     }
-    /// Strict counterpart to the lossy [`Self::doc_type`] accessor.
+    /// Strict counterpart to the lossy [`Self::doc_type_lossy`] accessor.
     pub fn inspect_doc_type(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::DocType)
     }
-    /// Strict counterpart to the lossy [`Self::rd_version`] accessor.
+    /// Strict counterpart to the lossy [`Self::rd_version_lossy`] accessor.
     pub fn inspect_rd_version(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Rdversion)
     }
-    /// Strict counterpart to the lossy [`Self::synopsis`] accessor.
+    /// Strict counterpart to the lossy [`Self::synopsis_lossy`] accessor.
     pub fn inspect_synopsis(&self) -> Result<Option<RdField<'_>>, RdShapeError> {
         self.inspect_fixed(RdTag::Synopsis)
     }
@@ -380,7 +401,7 @@ impl RdDocument {
         }))
     }
 
-    /// Strict counterpart to the lossy [`Self::aliases`] accessor.
+    /// Strict counterpart to the lossy [`Self::aliases_lossy`] accessor.
     pub fn inspect_aliases(&self) -> impl Iterator<Item = Result<RdAlias<'_>, RdShapeError>> + '_ {
         self.nodes().iter().enumerate().filter_map(|(index, node)| {
             let path = top_path(index);
@@ -416,7 +437,7 @@ impl RdDocument {
         })
     }
 
-    /// Strict counterpart to the lossy [`Self::keywords`] accessor.
+    /// Strict counterpart to the lossy [`Self::keywords_lossy`] accessor.
     pub fn inspect_keywords(
         &self,
     ) -> impl Iterator<Item = Result<RdKeyword<'_>, RdShapeError>> + '_ {
@@ -454,7 +475,7 @@ impl RdDocument {
         })
     }
 
-    /// Strict counterpart to the lossy [`Self::concepts`] accessor.
+    /// Strict counterpart to the lossy [`Self::concepts_lossy`] accessor.
     pub fn inspect_concepts(
         &self,
     ) -> impl Iterator<Item = Result<RdConcept<'_>, RdShapeError>> + '_ {
@@ -497,8 +518,8 @@ impl RdDocument {
     ///
     /// Malformed candidates and their descendants are skipped. An orphan
     /// top-level `\subsection` is outside this view; source-parser diagnostics
-    /// own that condition. See [`Self::sections`] for the top-level-only view.
-    pub fn section_tree(&self) -> impl Iterator<Item = RdSectionVisit<'_>> {
+    /// own that condition. See [`Self::sections_lossy`] for the top-level-only view.
+    pub fn section_tree_lossy(&self) -> impl Iterator<Item = RdSectionVisit<'_>> {
         let mut visits = Vec::new();
         for (index, node) in self.nodes().iter().enumerate() {
             collect_section_visits(
@@ -518,7 +539,7 @@ impl RdDocument {
     ///
     /// Each malformed candidate yields one error and its descendants are not
     /// traversed. An orphan top-level `\subsection` is outside this view;
-    /// source-parser diagnostics own that condition. See [`Self::sections`]
+    /// source-parser diagnostics own that condition. See [`Self::sections_lossy`]
     /// for the top-level-only view.
     pub fn inspect_section_tree(
         &self,
@@ -537,7 +558,7 @@ impl RdDocument {
         visits.into_iter()
     }
 
-    /// Strict counterpart to the lossy [`Self::sections`] accessor.
+    /// Strict counterpart to the lossy [`Self::sections_lossy`] accessor.
     pub fn inspect_sections(
         &self,
     ) -> impl Iterator<Item = Result<RdSection<'_>, RdShapeError>> + '_ {
@@ -603,7 +624,7 @@ impl RdDocument {
         })
     }
 
-    /// Strict counterpart to the lossy [`Self::arguments`] accessor.
+    /// Strict counterpart to the lossy [`Self::arguments_lossy`] accessor.
     pub fn inspect_arguments(
         &self,
     ) -> Result<impl Iterator<Item = Result<RdArgument<'_>, RdShapeError>> + '_, RdShapeError> {
