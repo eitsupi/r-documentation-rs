@@ -2,54 +2,56 @@
 
 ## [Unreleased]
 
+## [0.5.0-alpha.1] - 2026-09-13
+
+This prerelease begins the 0.5.0 breaking API series. It makes canonical
+`rd-ast` structure locations explicit and carries them through position-aware
+cursors, sibling ranges, and located semantic views. Intentional best-effort
+APIs now use a `_lossy` suffix. Source-map support is planned for a later
+0.5.0 prerelease and is not included here.
+
 ### Added
 
-- [rd-rds] Add the package-level `package::InstalledCodeDb` API for explicit
-  installed-package `R/<pkg>.rdx`/`.rdb` access, index-order stored bindings,
-  bounded closure-prefix inspection, and best-effort database provenance.
-- [rd-rds] Add the owned `package::NamespaceMetadata` view for static
-  `Meta/nsInfo.rds` declarations, including field-local diagnostics, import
-  aliases and exclusions, source/export name pairs, S3
-  registration/evidence separation, and explicit S4 export declarations.
-- [rd-rds] Add an R CMD INSTALL-generated namespace metadata fixture covering
-  named exports, `import(..., except = ...)`, aliased `importFrom`, and S3
-  declarations.
+- [rd-rds] Add bounded installed-package metadata and code-database inspection:
+  - `package::InstalledCodeDb` provides explicit `R/<pkg>.rdx`/`.rdb` access,
+    index-order stored bindings, last-wins name lookup, direct and compound
+    persistence-reference handling, raw and zlib records, and best-effort
+    database provenance (#40).
+  - The opt-in `lazyload` feature provides bounded `.rdx` index and `.rdb`
+    record reading, preserving stored variables and persistence references in
+    index order. It includes the standalone `gzip` feature required by normal
+    installed-package `.rdx` indexes (#35).
+  - Bounded closure-prefix inspection preserves formal order and default
+    presence, validates reference alignment, stops after the body tag without
+    constructing an `RObject`, and enforces independent byte and formal-count
+    limits (#39).
+  - The owned `package::NamespaceMetadata` view reads static `Meta/nsInfo.rds`
+    declarations with field-local diagnostics, import aliases and exclusions,
+    source/namespace export pairs, separate S3 registration and evidence
+    information, and explicit S4 export declarations (#37).
+  - Add an R CMD INSTALL-generated fixture covering named exports,
+    `import(..., except = ...)`, aliased `importFrom`, and S3 declarations
+    (#37).
 - [rd-helpdb] Move compiled help database `.rdx` parsing and `.rdb` record
   access onto `rd-rds`'s bounded `lazyload` reader while retaining the
-  `PackageHelpDb` API and the lower-level compatibility adapters.
-- [rd-rds] Add the opt-in `lazyload` feature and a bounded reader for installed
-  package `.rdx` indexes and `.rdb` records. The reader preserves stored
-  variables and persistence references in index order, applies last-wins name
-  lookup, recognizes direct and compound references, and supports raw and
-  zlib records. The feature includes the standalone `gzip` feature because
-  normal installed-package `.rdx` indexes use gzip envelopes.
-- [rd-rds] Add a crate-private bounded prefix inspector for serialized closure
-  roots. It preserves formal order and default presence, validates reference
-  alignment, and stops after the body tag without constructing an `RObject`.
-  Inspection-specific byte and formal-count limits complement the shared wire
-  accounting, with deterministic R-generated plain, compiled, and diagnostic
-  fixtures covering unsupported prefix shapes and persisted-reference
-  environments.
+  `PackageHelpDb` API and lower-level compatibility adapters (#36).
 
 ### Changed
 
 - [rd-ast] Split the breaking location model: canonical `RdAstPath` is now
   separate from producer-side `LowerPath`; position-aware cursors and sibling
   ranges are available, and node-level semantic inspection goes through
-  `RdNodeRef`.
+  `RdNodeRef` (#48).
 - [rd-ast] Rename intentional best-effort APIs with `*_lossy`. Singleton
   lossy section accessors now return located `RdField` values; obtain the
-  legacy slice projection with `body()`.
-- [rd-rds] Extract crate-private serialized-wire state shared by strict
-  decoding and future bounded inspection, including a configurable reference
-  table limit enforced before registration.
+  legacy slice projection with `body()` (#49).
 - [rd-rds] Rename the lazy-load `UnsupportedVariableReference` error to
   `UnsupportedRecordReference`, covering both variable reads and persistence
-  reference reads.
+  reference reads (#40).
 - [rd-helpdb] The internal `rd-rds/lazyload` feature is now always enabled;
   because it includes gzip for normal `.rdx` files, `--no-default-features`
   still retains gzip while disabling the optional xz, bzip2, and zstd
-  standalone `.rds` codecs.
+  standalone `.rds` codecs (#36).
 
 ## [0.4.0] - 2026-08-17
 
