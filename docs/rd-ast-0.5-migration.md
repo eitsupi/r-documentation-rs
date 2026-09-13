@@ -19,8 +19,9 @@ crate.
 The release makes structural location explicit. A consumer can obtain a
 borrowed cursor for a node, inspect it without manufacturing a path, and keep
 the original node or sibling range when a view represents more than one node.
-`rd-source` additionally records a source map beside the document. The source
-map is a parser result, not data embedded in `RdDocument` or `RdNode`.
+`rd-source` is planned to record a source map beside the document in a
+follow-up PR. That source map will be a parser result, not data embedded in
+`RdDocument` or `RdNode`.
 
 ## Location vocabulary
 
@@ -236,54 +237,59 @@ positioned option or body sequence and its absolute sibling range; `Sexpr`
 options use an `Option` container while `RdOpts` bodies use the tagged node's
 child container.
 
-## Source-map contract
+## Planned source-map contract
 
-`rd-source::Parsed` gains a private field whose type is the public, opaque
-`rd_source::RdSourceMap`, plus a `source_map()` accessor. The `RdSourceMap`
-type is publicly re-exported and nameable, but its fields and representation
-remain private; consumers use its public methods. `into_parts()` remains a
-two-tuple `(RdDocument, Vec<Diagnostic>)` for consumers that intentionally
-discard provenance. A separate `into_parts_with_source_map()` returns all
-three values.
+The following is a planned design for a follow-up `rd-source` source-map PR.
+It describes the intended future API and is not part of the current normative
+`rd-source` contract.
 
-`RdSourceMap::span(&RdAstPath)` performs exact path lookup. It does not return
-a parent's span for an unregistered path. The map covers the document root,
-every node actually emitted into the final AST (including unknown, recovered,
-and synthetic conditional target/body `Group` nodes), and every present option
-container. The parser does not emit or invent an `RdNode` for a missing
-argument, so no path or map entry exists for one. Hard parse errors return no
-document or map.
+`rd-source::Parsed` is expected to gain a private field whose type is the
+public, opaque `rd_source::RdSourceMap`, plus a `source_map()` accessor. The
+`RdSourceMap` type would be publicly re-exported and nameable, but its fields
+and representation would remain private; consumers would use its public
+methods. `into_parts()` would remain a two-tuple `(RdDocument,
+Vec<Diagnostic>)` for consumers that intentionally discard provenance. A
+separate `into_parts_with_source_map()` would return all three values.
 
-Each returned `SourceSpan` is the smallest original-source range covering the
-source consumed to construct that AST structure. It is a byte range in the
-original input with the existing one-based line and Unicode-scalar column
-rules. It is not a token stream, edit script, or guarantee that every byte in
-the range belongs to the node. Source-syntax groups and options include their
-actual opening and closing delimiters. Synthetic conditional groups map to
-the real directive regions that produced them, need not be brace-shaped, and
-may be zero-width when the corresponding region is empty. Missing or virtual
-delimiters are never invented and contribute no source bytes; decoded escapes
-include their original spelling; and CRLF includes both bytes. Recovery ends
-at the actual synchronization point or EOF and does not include an unconsumed
-following section.
-When recovery promotes children after discarding a bare brace, child spans
-remain tied to their own source while paths follow their final AST indices.
+The planned `RdSourceMap::span(&RdAstPath)` would perform exact path lookup.
+It would not return a parent's span for an unregistered path. The planned map
+would cover the document root, every node actually emitted into the final AST
+(including unknown, recovered, and synthetic conditional target/body `Group`
+nodes), and every present option container. The parser would not emit or
+invent an `RdNode` for a missing argument, so no path or map entry would exist
+for one. Hard parse errors would return no document or map.
 
-`Parsed` keeps its existing `Clone` and `PartialEq` behavior: equality compares
-the document and diagnostics and excludes the source map. This is an existing
-comparison projection, not a promise of source-provenance equality. Thus LF
-and CRLF inputs may compare equal as `Parsed` values while their source-map
-spans differ. `RdSourceMap` does not need public `PartialEq` merely to test
-this behavior.
+Each planned `SourceSpan` would be the smallest original-source range covering
+the source consumed to construct that AST structure. It would be a byte range
+in the original input with the existing one-based line and Unicode-scalar
+column rules. It would not be a token stream, edit script, or guarantee that
+every byte in the range belongs to the node. Source-syntax groups and options
+would include their actual opening and closing delimiters. Synthetic
+conditional groups would map to the real directive regions that produced them,
+need not be brace-shaped, and might be zero-width when the corresponding
+region is empty. Missing or virtual delimiters would never be invented and
+would contribute no source bytes; decoded escapes would include their
+original spelling; and CRLF would include both bytes. Recovery would end at
+the actual synchronization point or EOF and would not include an unconsumed
+following section. When recovery promotes children after discarding a bare
+brace, child spans would remain tied to their own source while paths followed
+their final AST indices.
 
-The map intentionally does not promise exact spans for flattened argument
-contents, empty-cell insertion points, option-pair substrings, decoded
-character-to-source mappings, or synthetic consumer IR. Those are candidates
-for a later release after consumer evidence.
+The planned `Parsed` extension would keep its existing `Clone` and `PartialEq`
+behavior: equality would compare the document and diagnostics and exclude the
+source map. This would be an existing comparison projection, not a promise of
+source-provenance equality. Thus LF and CRLF inputs could compare equal as
+`Parsed` values while their source-map spans differed. `RdSourceMap` would not
+need public `PartialEq` merely to test this behavior.
+
+The planned map would intentionally not promise exact spans for flattened
+argument contents, empty-cell insertion points, option-pair substrings,
+decoded character-to-source mappings, or synthetic consumer IR. Those would
+remain candidates for a later release after consumer evidence.
 
 ## Consumer examples
 
-### Located strict inspection
+### Planned source-map usage after the follow-up
 
 ```rust
 let parsed = rd_source::parse(input)?;
@@ -335,8 +341,8 @@ Consumers should first replace hand-built paths with `document.top_level()` or
 `document.walk()` and use the path carried by each cursor. Replace direct
 public fields on `RdArgument` and `RdSection` with accessors and use `_ref`
 accessors when a recursive converter needs provenance. Keep `into_parts()`
-when provenance is intentionally unused; use the new three-part projection
-only in adapters that need the map.
+when provenance is intentionally unused. After the source-map follow-up lands,
+adapters that need provenance can use the new three-part projection.
 
 The migration changes receiver and result types, path names, view opacity,
 and lossy method names. It does not require a consumer to adopt a cursor for
