@@ -359,3 +359,65 @@ non-UTF-8 transcoding; encoding auto-detection; R warning-wording
 parity; related spans and fix-its; spans inside `RdDocument`; permissive and
 strict modes; semantic checker rules; a stable diagnostic wire format;
 per-R-version recovery parity; and resource-limit customization.
+
+## 15. 0.5.0 source-map extension
+
+The 0.5.0 parser result adds a private `RdSourceMap` beside the existing
+document and diagnostics. This map is the source parser's provenance layer;
+source locations are not embedded in `RdDocument` or `RdNode`. The public
+shape is:
+
+```rust
+impl Parsed {
+    pub fn source_map(&self) -> &RdSourceMap;
+    pub fn into_parts(self) -> (RdDocument, Vec<Diagnostic>);
+    pub fn into_parts_with_source_map(self)
+        -> (RdDocument, Vec<Diagnostic>, RdSourceMap);
+}
+
+impl RdSourceMap {
+    pub fn span(&self, path: &rd_ast::RdAstPath) -> Option<SourceSpan>;
+}
+```
+
+`into_parts` remains the two-value projection used by consumers that do not
+need provenance. The three-value method is additive. `Parsed` retains its
+existing `Clone` and `PartialEq` behavior: equality compares the document and
+diagnostics and excludes the source map. This is an established comparison
+projection, not source-provenance equality. The map does not require public
+`PartialEq` merely for tests.
+
+`RdSourceMap::span` performs exact lookup for the `RdAstPath` from the parsed
+document snapshot. It MUST NOT silently return a parent span for an unknown
+path. Paths and map entries are snapshot-local; using a path from another
+document is misuse even when the segment sequence happens to exist there.
+
+The map MUST cover the document root, every output `RdNode` (including
+unknown and recovered nodes), and every present option container. Missing
+arguments and other invented nodes have no entry. Hard parse errors return no
+document and no map. The map includes Raw's stored AST children when those
+nodes are present, but does not invent entries for Raw payloads or attributes.
+
+Each span is the smallest original-input byte range covering the source
+consumed to construct that AST structure. It is a half-open range in the
+original bytes with the existing one-based line and Unicode-scalar column
+rules. This is an extent contract, not a token stream, edit script, or claim
+that every byte in the range is node content. Source-syntax groups and options
+include their actual opening and closing delimiters. Synthetic conditional
+groups need not have braces. Missing or virtual delimiters are never invented
+and contribute no source bytes; a decoded escape includes its original
+spelling; and CRLF includes both source bytes even when the canonical leaf
+contains one line break. A zero-argument tag covers its macro token.
+
+Recovery spans end at the actual synchronization point or EOF and MUST NOT
+include an unconsumed following section or delimiter. Conditional target and
+body groups need not be brace-shaped. When recovery discards a bare brace and
+promotes its children, each child's source extent remains tied to its original
+bytes while its AST path follows the final child index.
+
+This release does not promise exact source ranges for flattened argument
+contents, empty-cell insertion points, option-pair substrings,
+decoded-character-to-source mappings, or synthetic consumer values. Those
+coordinates are candidates for a later release after consumer evidence. The
+source map is therefore suitable for locating a title, link, argument,
+dynamic-markup node, or shape diagnostic, but not for arbitrary source edits.
