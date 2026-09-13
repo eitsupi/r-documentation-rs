@@ -31,11 +31,19 @@ impl<'a> RdMethod<'a> {
     pub fn generic_nodes(&self) -> &'a [RdNode] {
         self.generic_nodes
     }
+    /// Returns the generic argument as a positioned sibling sequence.
+    pub fn generic_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.generic_nodes, self.path.with_child(0))
+    }
     pub fn generic(&self) -> &str {
         &self.generic
     }
     pub fn qualifier_nodes(&self) -> &'a [RdNode] {
         self.qualifier_nodes
+    }
+    /// Returns the qualifier argument as a positioned sibling sequence.
+    pub fn qualifier_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.qualifier_nodes, self.path.with_child(1))
     }
     /// Class for `\method`/`\S3method`, signature for `\S4method`; consumers branch on `kind()`.
     pub fn qualifier(&self) -> &str {
@@ -53,11 +61,11 @@ fn kind(tag: &RdTag) -> Option<RdMethodKind> {
 }
 
 impl RdNode {
-    pub fn method(&self, base_path: &RdAstPath) -> Option<RdMethod<'_>> {
+    pub(crate) fn method(&self, base_path: &RdAstPath) -> Option<RdMethod<'_>> {
         self.inspect_method(base_path).ok().flatten()
     }
 
-    pub fn inspect_method(
+    pub(crate) fn inspect_method(
         &self,
         base_path: &RdAstPath,
     ) -> Result<Option<RdMethod<'_>>, RdShapeError> {

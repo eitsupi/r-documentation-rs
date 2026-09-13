@@ -27,6 +27,10 @@ impl<'a> RdConditional<'a> {
     pub fn format_nodes(&self) -> &'a [RdNode] {
         self.format_nodes
     }
+    /// Returns the format argument as a positioned sibling sequence.
+    pub fn format_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.format_nodes, self.path.with_child(0))
+    }
     /// An exact Text-leaf scalar; branch selection is consumer policy.
     pub fn format(&self) -> &str {
         &self.format
@@ -34,8 +38,17 @@ impl<'a> RdConditional<'a> {
     pub fn then_branch(&self) -> &'a [RdNode] {
         self.then_branch
     }
+    /// Returns the `if` branch as a positioned sibling sequence.
+    pub fn then_branch_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.then_branch, self.path.with_child(1))
+    }
     pub fn else_branch(&self) -> Option<&'a [RdNode]> {
         self.else_branch
+    }
+    /// Returns the optional `else` branch as a positioned sibling sequence.
+    pub fn else_branch_ref(&self) -> Option<RdNodesRef<'a>> {
+        self.else_branch
+            .map(|nodes| RdNodesRef::from_slice(nodes, self.path.with_child(2)))
     }
 }
 
@@ -48,11 +61,11 @@ fn kind(tag: &RdTag) -> Option<RdConditionalKind> {
 }
 
 impl RdNode {
-    pub fn conditional(&self, base_path: &RdAstPath) -> Option<RdConditional<'_>> {
+    pub(crate) fn conditional(&self, base_path: &RdAstPath) -> Option<RdConditional<'_>> {
         self.inspect_conditional(base_path).ok().flatten()
     }
 
-    pub fn inspect_conditional(
+    pub(crate) fn inspect_conditional(
         &self,
         base_path: &RdAstPath,
     ) -> Result<Option<RdConditional<'_>>, RdShapeError> {

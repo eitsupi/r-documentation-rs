@@ -1,7 +1,7 @@
 use rd_ast::{
     RawRdValue, RdAstPath, RdAstPathSegment, RdDocument, RdDynamicMarkupEvent,
     RdDynamicMarkupState, RdEffectiveSexprOptions, RdField, RdGenerationHeader, RdGenerator,
-    RdNode, RdOptionError, RdOptionList, RdOptionPairErrorKind, RdOptionValueKind, RdSectionKind,
+    RdNode, RdOptionError, RdOptionPairErrorKind, RdOptionValueKind, RdSectionKind,
     RdSexprOptionKey, RdSexprOptionOverrides, RdSexprResults, RdSexprStage, RdStripWhite, RdTag,
     producer,
 };
@@ -252,9 +252,18 @@ fn generation_header_view_is_public() {
 
 #[test]
 fn option_parser_public_api() -> Result<(), Box<dyn std::error::Error>> {
-    let path = RdAstPath::new(vec![RdAstPathSegment::TopLevel(0)]);
-    let nodes = [RdNode::Text("echo=true,results=rd".into())];
-    let parsed = RdOptionList::parse(&nodes, path.clone())?;
+    let document = RdDocument::new(vec![RdNode::tagged(
+        RdTag::Sexpr,
+        Some(vec![RdNode::Text("echo=true,results=rd".into())]),
+        vec![],
+    )]);
+    let option = document
+        .top_level()
+        .get(0)
+        .and_then(|node| node.option())
+        .expect("present option");
+    let path = option.path().clone();
+    let parsed = option.parse()?;
     assert_eq!(parsed.path(), &path);
     assert_eq!(parsed.pairs()[0].index(), 0);
     assert_eq!(parsed.pairs()[0].key(), "echo");
@@ -272,9 +281,26 @@ fn option_parser_public_api() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(RdStripWhite::Trim, RdStripWhite::Trim);
     let _ = RdOptionPairErrorKind::EmptyPair;
     let _ = RdOptionValueKind::Boolean;
-    let shape: RdOptionError =
-        RdOptionList::parse(&[RdNode::Comment("%".into())], path).unwrap_err();
-    assert!(shape.path().to_string().contains("child[0]"));
+    let malformed = RdDocument::new(vec![RdNode::tagged(
+        RdTag::Sexpr,
+        Some(vec![RdNode::Comment("%".into())]),
+        vec![],
+    )]);
+    let shape: RdOptionError = malformed
+        .top_level()
+        .get(0)
+        .and_then(|node| node.option())
+        .expect("present malformed option")
+        .parse()
+        .unwrap_err();
+    assert_eq!(
+        shape.path().segments(),
+        &[
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Option,
+            RdAstPathSegment::Child(0)
+        ]
+    );
     Ok(())
 }
 

@@ -230,15 +230,15 @@ fn malformed_curated_and_nested_paths_are_reported() {
         )],
     );
     let document = RdDocument::new(vec![parent]);
-    let description = document.nodes()[0].as_tagged().unwrap();
     let parent_path = RdAstPath::new(vec![RdAstPathSegment::TopLevel(0)]);
-    let mut strict = RdSystemMacroItemsStrict::children(description.children(), &parent_path);
+    let description = document.node_at(&parent_path).unwrap();
+    let mut strict = description.children().inspect_system_macro_items();
     let error = strict.next().unwrap().unwrap_err();
     assert_eq!(
         error.path().segments(),
         &[RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)]
     );
-    let mut nested = RdSystemMacroItems::children(description.children(), &parent_path);
+    let mut nested = description.children().system_macro_items();
     assert!(
         matches!(nested.next().unwrap(), RdSystemMacroItem::Node { path, .. }
         if path.segments() == [RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)])

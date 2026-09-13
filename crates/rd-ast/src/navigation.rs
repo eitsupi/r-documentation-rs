@@ -7,7 +7,7 @@
 
 use std::ops::Range;
 
-use crate::{RdAstPath, RdAstPathSegment, RdDocument, RdNode};
+use crate::{RdAstPath, RdAstPathSegment, RdDocument, RdNode, RdOptionError, RdOptionList};
 
 /// A borrowed AST node together with its canonical location.
 #[derive(Debug, Clone, PartialEq)]
@@ -73,6 +73,23 @@ enum ContainerKind {
 }
 
 impl<'a> RdNodesRef<'a> {
+    pub(crate) fn from_slice(nodes: &'a [RdNode], container_path: RdAstPath) -> Self {
+        Self::from_slice_at(nodes, container_path, 0)
+    }
+
+    pub(crate) fn from_slice_at(
+        nodes: &'a [RdNode],
+        container_path: RdAstPath,
+        start: usize,
+    ) -> Self {
+        Self {
+            nodes,
+            container_path,
+            kind: ContainerKind::Child,
+            start,
+        }
+    }
+
     pub(crate) fn root(nodes: &'a [RdNode]) -> Self {
         Self {
             nodes,
@@ -252,7 +269,7 @@ pub struct RdOptionRef<'a> {
 }
 
 impl<'a> RdOptionRef<'a> {
-    fn new(nodes: &'a [RdNode], path: RdAstPath) -> Self {
+    pub(crate) fn new(nodes: &'a [RdNode], path: RdAstPath) -> Self {
         Self {
             nodes: RdNodesRef::option(nodes, path.clone()),
             path,
@@ -291,6 +308,18 @@ impl<'a> RdOptionRef<'a> {
 
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
+    }
+
+    /// Parses this option's plain text children as a comma-separated scalar
+    /// option list.
+    ///
+    /// The grammar accepts `key=value` pairs separated by commas, with no
+    /// quoting, escaping, or nesting. Pair order and soft diagnostics are
+    /// preserved; malformed syntax and non-text children return an
+    /// [`RdOptionError`]. The returned errors use this option's canonical
+    /// `Option` path rather than a caller-supplied coordinate.
+    pub fn parse(&self) -> Result<RdOptionList<'a>, RdOptionError> {
+        RdOptionList::parse(self.as_slice(), self.path.clone())
     }
 
     pub fn get(&self, index: usize) -> Option<RdNodeRef<'a>> {

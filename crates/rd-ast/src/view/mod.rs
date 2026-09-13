@@ -39,13 +39,15 @@
 
 use crate::{
     RdArity, RdAstPath, RdAstPathSegment, RdConstruct, RdDocument, RdExpectedNode, RdNode,
-    RdNodeKind, RdShapeError, RdShapeErrorKind, RdTag, RdTagged, is_inter_item_trivia,
+    RdNodeKind, RdNodeRef, RdNodesRef, RdOptionRef, RdShapeError, RdShapeErrorKind, RdTag,
+    RdTagged, is_inter_item_trivia,
 };
 use crate::{
     RdEffectiveSexprOptions, RdOptionError, RdOptionList, RdSexprOptionOverrides, RdSexprStage,
 };
 
 mod conditional;
+mod cursor;
 mod document;
 mod document_types;
 mod dynamic;

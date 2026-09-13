@@ -1,8 +1,8 @@
 //! Producer-neutral views of the four documented Rd system-macro profiles.
 
 use crate::{
-    RawRdValue, RdArity, RdAstPath, RdConstruct, RdDocument, RdNode, RdNodeKind, RdShapeError,
-    RdShapeErrorKind, RdTag, classify_raw_node,
+    RawRdValue, RdArity, RdAstPath, RdConstruct, RdDocument, RdNode, RdNodeKind, RdNodesRef,
+    RdShapeError, RdShapeErrorKind, RdTag, classify_raw_node,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,70 +54,59 @@ pub enum RdSystemMacroItem<'a> {
 
 #[derive(Debug, Clone)]
 pub struct RdSystemMacroItems<'a> {
-    nodes: &'a [RdNode],
-    parent_path: Option<RdAstPath>,
+    nodes: RdNodesRef<'a>,
     index: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct RdSystemMacroItemsStrict<'a> {
-    nodes: &'a [RdNode],
-    parent_path: Option<RdAstPath>,
+    nodes: RdNodesRef<'a>,
     index: usize,
 }
 
 impl RdDocument {
     pub fn system_macro_items(&self) -> RdSystemMacroItems<'_> {
-        RdSystemMacroItems::top_level(self.nodes())
+        RdNodesRef::root(self.nodes()).system_macro_items()
     }
     pub fn inspect_system_macro_items(&self) -> RdSystemMacroItemsStrict<'_> {
-        RdSystemMacroItemsStrict::top_level(self.nodes())
+        RdNodesRef::root(self.nodes()).inspect_system_macro_items()
     }
 }
 
 impl<'a> RdSystemMacroItems<'a> {
-    pub fn top_level(nodes: &'a [RdNode]) -> Self {
-        Self {
-            nodes,
-            parent_path: None,
-            index: 0,
-        }
-    }
-    pub fn children(nodes: &'a [RdNode], parent_path: &RdAstPath) -> Self {
-        Self {
-            nodes,
-            parent_path: Some(parent_path.clone()),
-            index: 0,
-        }
+    fn from_nodes(nodes: RdNodesRef<'a>) -> Self {
+        Self { nodes, index: 0 }
     }
     fn path(&self, index: usize) -> RdAstPath {
-        self.parent_path.as_ref().map_or_else(
-            || RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(index)]),
-            |path| path.with_child(index),
-        )
+        self.nodes
+            .get(index)
+            .map(|node| node.path().clone())
+            .unwrap_or_else(|| self.nodes.container_path().clone())
     }
 }
 
 impl<'a> RdSystemMacroItemsStrict<'a> {
-    pub fn top_level(nodes: &'a [RdNode]) -> Self {
-        Self {
-            nodes,
-            parent_path: None,
-            index: 0,
-        }
-    }
-    pub fn children(nodes: &'a [RdNode], parent_path: &RdAstPath) -> Self {
-        Self {
-            nodes,
-            parent_path: Some(parent_path.clone()),
-            index: 0,
-        }
+    fn from_nodes(nodes: RdNodesRef<'a>) -> Self {
+        Self { nodes, index: 0 }
     }
     fn path(&self, index: usize) -> RdAstPath {
-        self.parent_path.as_ref().map_or_else(
-            || RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(index)]),
-            |path| path.with_child(index),
-        )
+        self.nodes
+            .get(index)
+            .map(|node| node.path().clone())
+            .unwrap_or_else(|| self.nodes.container_path().clone())
+    }
+}
+
+impl<'a> RdNodesRef<'a> {
+    /// Recognizes curated and producer-expanded system macros in this
+    /// positioned sibling sequence.
+    pub fn system_macro_items(&self) -> RdSystemMacroItems<'a> {
+        RdSystemMacroItems::from_nodes(self.clone())
+    }
+
+    /// Strictly recognizes system macros in this positioned sibling sequence.
+    pub fn inspect_system_macro_items(&self) -> RdSystemMacroItemsStrict<'a> {
+        RdSystemMacroItemsStrict::from_nodes(self.clone())
     }
 }
 
@@ -125,14 +114,20 @@ impl<'a> Iterator for RdSystemMacroItems<'a> {
     type Item = RdSystemMacroItem<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.index;
-        let node = self.nodes.get(index)?;
+        let node_ref = self.nodes.get(index)?;
+        let node = node_ref.node();
         let path = self.path(index);
         self.index += 1;
+        let following_ref = self.nodes.get(index + 1);
+        let following_path = following_ref
+            .as_ref()
+            .map(|node| node.path().clone())
+            .unwrap_or_else(|| path.clone());
         if let Some((semantic, consumed)) = recognize(
             node,
-            self.nodes.get(index + 1),
+            following_ref.as_ref().map(|node| node.node()),
             &path,
-            &self.path(index + 1),
+            &following_path,
         ) {
             self.index += consumed - 1;
             return Some(RdSystemMacroItem::Macro(RdSystemMacroMatch {
@@ -150,14 +145,20 @@ impl<'a> Iterator for RdSystemMacroItemsStrict<'a> {
     type Item = Result<RdSystemMacroItem<'a>, RdShapeError>;
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.index;
-        let node = self.nodes.get(index)?;
+        let node_ref = self.nodes.get(index)?;
+        let node = node_ref.node();
         let path = self.path(index);
         self.index += 1;
+        let following_ref = self.nodes.get(index + 1);
+        let following_path = following_ref
+            .as_ref()
+            .map(|node| node.path().clone())
+            .unwrap_or_else(|| path.clone());
         match inspect(
             node,
-            self.nodes.get(index + 1),
+            following_ref.as_ref().map(|node| node.node()),
             &path,
-            &self.path(index + 1),
+            &following_path,
         ) {
             Ok(Some((semantic, consumed, origin))) => {
                 self.index += consumed - 1;

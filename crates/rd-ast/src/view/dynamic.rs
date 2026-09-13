@@ -4,6 +4,8 @@ use super::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdSexpr<'a> {
     path: RdAstPath,
+    code_node: &'a RdNode,
+    option_nodes: Option<&'a [RdNode]>,
     code: &'a str,
     options: Option<RdOptionList<'a>>,
 }
@@ -17,9 +19,18 @@ impl<'a> RdSexpr<'a> {
     pub fn code(&self) -> &'a str {
         self.code
     }
+    /// Returns the `RCode` source node as a positioned cursor.
+    pub fn code_ref(&self) -> RdNodeRef<'a> {
+        RdNodeRef::new(self.code_node, self.path.with_child(0))
+    }
     /// Returns the parsed local option list, if present.
     pub fn options(&self) -> Option<&RdOptionList<'a>> {
         self.options.as_ref()
+    }
+    /// Returns the bracket option content as a positioned option cursor.
+    pub fn options_ref(&self) -> Option<RdOptionRef<'a>> {
+        self.option_nodes
+            .map(|nodes| RdOptionRef::new(nodes, self.path.with_option()))
     }
     /// Returns the valid typed local overrides.
     pub fn option_overrides(&self) -> RdSexprOptionOverrides {
@@ -33,6 +44,7 @@ impl<'a> RdSexpr<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdOpts<'a> {
     path: RdAstPath,
+    option_nodes: &'a [RdNode],
     options: RdOptionList<'a>,
 }
 
@@ -44,6 +56,10 @@ impl<'a> RdOpts<'a> {
     /// Returns the parsed option list.
     pub fn options(&self) -> &RdOptionList<'a> {
         &self.options
+    }
+    /// Returns the option body as a positioned sibling sequence.
+    pub fn options_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.option_nodes, self.path.clone())
     }
     /// Returns the valid typed overrides.
     pub fn option_overrides(&self) -> RdSexprOptionOverrides {
@@ -210,7 +226,7 @@ impl RdDocument {
 
 impl RdTagged {
     /// Strictly inspects a `\\Sexpr{code}` node.
-    pub fn inspect_sexpr<'a>(
+    pub(crate) fn inspect_sexpr<'a>(
         &'a self,
         base_path: &RdAstPath,
     ) -> Result<RdSexpr<'a>, RdOptionError> {
@@ -256,13 +272,15 @@ impl RdTagged {
             .transpose()?;
         Ok(RdSexpr {
             path: base_path.clone(),
+            code_node: &children[0],
+            option_nodes: self.option(),
             code,
             options,
         })
     }
 
     /// Strictly inspects a `\\RdOpts{options}` node.
-    pub fn inspect_rd_opts<'a>(
+    pub(crate) fn inspect_rd_opts<'a>(
         &'a self,
         base_path: &RdAstPath,
     ) -> Result<RdOpts<'a>, RdOptionError> {
@@ -288,6 +306,7 @@ impl RdTagged {
         let options = RdOptionList::parse(self.children(), base_path.clone())?;
         Ok(RdOpts {
             path: base_path.clone(),
+            option_nodes: self.children(),
             options,
         })
     }

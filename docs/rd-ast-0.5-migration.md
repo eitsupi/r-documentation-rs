@@ -207,13 +207,15 @@ text reconstruction is implied by the rename.
 
 ### Option parsing
 
-`RdOptionList::parse(nodes, path)` is the remaining public parser-shaped
-entry point that accepts a caller-supplied path. In 0.5.0 option parsing is
-owned by the positioned option cursor (or by a private validator used by a
-cursor-based view); consumers obtain an `RdOptionRef` from the node cursor.
-The parsed pair index, key/value text, duplicate handling, and
-`RdOptionError` details remain unchanged. Pair indices are not sibling paths,
-and this release does not promise a source span for an option-pair substring.
+`RdOptionList::parse(nodes, path)` is an implementation detail and is no longer
+public. Consumers obtain an `RdOptionRef` from a positioned node cursor and
+call `RdOptionRef::parse()`. This operation parses a comma-separated list of
+plain `key=value` pairs without quoting, escaping, or nesting. Parsed pair
+order, duplicate handling, and `RdOptionError` details remain unchanged;
+malformed syntax and non-text children are errors, while unknown keys and
+invalid typed values remain soft diagnostics. Pair indices are not sibling
+paths, and this release does not promise a source span for an option-pair
+substring.
 
 ## Source-map contract
 

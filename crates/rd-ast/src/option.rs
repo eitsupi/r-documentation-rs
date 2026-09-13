@@ -35,7 +35,7 @@ impl<'a> RdOptionList<'a> {
     /// future `\\RdOpts` view passes its own tagged-node path whose children
     /// are the option text. Pair positions are reported by `pair_index`, not
     /// by adding path segments.
-    pub fn parse(nodes: &'a [RdNode], path: RdAstPath) -> Result<Self, RdOptionError> {
+    pub(crate) fn parse(nodes: &'a [RdNode], path: RdAstPath) -> Result<Self, RdOptionError> {
         let mut text = String::new();
         for (index, node) in nodes.iter().enumerate() {
             match node {

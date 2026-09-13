@@ -17,6 +17,10 @@ impl<'a> RdList<'a> {
     pub fn children(&self) -> &'a [RdNode] {
         self.children
     }
+    /// Returns the list children as a positioned sibling sequence.
+    pub fn children_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.children, self.path.clone())
+    }
 
     pub fn items(&self) -> impl Iterator<Item = Result<RdListItem<'a>, RdShapeError>> + '_ {
         ListItems {
@@ -45,6 +49,7 @@ pub enum RdListItem<'a> {
 pub struct RdDelimitedItem<'a> {
     path: RdAstPath,
     body: &'a [RdNode],
+    body_ref: RdNodesRef<'a>,
 }
 
 impl<'a> RdDelimitedItem<'a> {
@@ -54,11 +59,17 @@ impl<'a> RdDelimitedItem<'a> {
     pub fn body(&self) -> &'a [RdNode] {
         self.body
     }
+    /// Returns the consumed body range with absolute sibling indices.
+    pub fn body_ref(&self) -> RdNodesRef<'a> {
+        self.body_ref.clone()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdDescribedItem<'a> {
     path: RdAstPath,
+    label_group: &'a RdNode,
+    body_group: &'a RdNode,
     label: &'a [RdNode],
     body: &'a [RdNode],
 }
@@ -70,14 +81,25 @@ impl<'a> RdDescribedItem<'a> {
     pub fn label(&self) -> &'a [RdNode] {
         self.label
     }
+    /// Returns the label as a positioned sibling sequence.
+    pub fn label_ref(&self) -> RdNodesRef<'a> {
+        RdNodeRef::new(self.label_group, self.path.with_child(0)).children()
+    }
     pub fn body(&self) -> &'a [RdNode] {
         self.body
+    }
+    /// Returns the description as a positioned sibling sequence.
+    pub fn body_ref(&self) -> RdNodesRef<'a> {
+        RdNodeRef::new(self.body_group, self.path.with_child(1)).children()
     }
 }
 impl RdTagged {
     /// Strictly inspects a single list container. Itemize and enumerate use
     /// zero-child item markers; describe uses two positional groups per item.
-    pub fn inspect_list<'a>(&'a self, base_path: &RdAstPath) -> Result<RdList<'a>, RdShapeError> {
+    pub(crate) fn inspect_list<'a>(
+        &'a self,
+        base_path: &RdAstPath,
+    ) -> Result<RdList<'a>, RdShapeError> {
         let kind = match self.tag() {
             RdTag::Itemize => RdListKind::Itemize,
             RdTag::Enumerate => RdListKind::Enumerate,
@@ -145,7 +167,16 @@ impl<'list, 'a> Iterator for ListItems<'list, 'a> {
                     )));
                 }
                 return Some(inspect_two_group_item(tagged, &path).map(|(label, body)| {
-                    RdListItem::Described(RdDescribedItem { path, label, body })
+                    let [label_group, body_group] = tagged.children() else {
+                        unreachable!()
+                    };
+                    RdListItem::Described(RdDescribedItem {
+                        path,
+                        label_group,
+                        body_group,
+                        label,
+                        body,
+                    })
                 }));
             }
             return None;
@@ -211,7 +242,16 @@ impl<'list, 'a> Iterator for ListItems<'list, 'a> {
                     },
                 )));
             }
-            return Some(Ok(RdListItem::Delimited(RdDelimitedItem { path, body })));
+            let body_ref = self
+                .list
+                .children_ref()
+                .slice(body_start..self.index)
+                .expect("validated delimited item body range");
+            return Some(Ok(RdListItem::Delimited(RdDelimitedItem {
+                path,
+                body,
+                body_ref,
+            })));
         }
         None
     }

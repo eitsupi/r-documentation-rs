@@ -20,6 +20,8 @@ pub enum RdColumnAlign {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdTabular<'a> {
     path: RdAstPath,
+    colspec: &'a [RdNode],
+    body: &'a [RdNode],
     columns: Vec<RdColumnAlign>,
     rows: Vec<RdTableRow<'a>>,
     diagnostics: Vec<RdShapeError>,
@@ -31,6 +33,14 @@ impl<'a> RdTabular<'a> {
     }
     pub fn columns(&self) -> &[RdColumnAlign] {
         &self.columns
+    }
+    /// Returns the column specification as a positioned sibling sequence.
+    pub fn colspec_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.colspec, self.path.with_child(0))
+    }
+    /// Returns the table body as a positioned sibling sequence.
+    pub fn body_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.body, self.path.with_child(1))
     }
     pub fn rows(&self) -> &[RdTableRow<'a>] {
         &self.rows
@@ -70,6 +80,18 @@ impl<'a> RdTableCell<'a> {
     pub fn nodes(&self) -> &'a [RdNode] {
         self.nodes
     }
+    /// Returns the cell's source nodes with their body-container indices.
+    pub fn nodes_ref(&self) -> RdNodesRef<'a> {
+        let segments = self.path.segments();
+        let Some(RdAstPathSegment::Child(start)) = segments.last() else {
+            return RdNodesRef::from_slice(self.nodes, self.path.clone());
+        };
+        RdNodesRef::from_slice_at(
+            self.nodes,
+            RdAstPath::new(segments[..segments.len() - 1].to_vec()),
+            *start,
+        )
+    }
 }
 
 impl RdTagged {
@@ -78,7 +100,7 @@ impl RdTagged {
     /// characters, and row widths are retained as diagnostics on the view.
     /// A terminal `\\tab` does not create a trailing empty cell, matching
     /// R's `Rd2HTML` rendering.
-    pub fn inspect_tabular<'a>(
+    pub(crate) fn inspect_tabular<'a>(
         &'a self,
         base_path: &RdAstPath,
     ) -> Result<RdTabular<'a>, RdShapeError> {
@@ -281,6 +303,8 @@ impl RdTagged {
 
         Ok(RdTabular {
             path: base_path.clone(),
+            colspec: colspec_group.children(),
+            body,
             columns,
             rows,
             diagnostics,

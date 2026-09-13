@@ -67,6 +67,10 @@ impl<'a> RdInlineSpan<'a> {
     pub fn body(&self) -> &'a [RdNode] {
         self.body
     }
+    /// Returns the direct body as a positioned sibling sequence.
+    pub fn body_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.body, self.path.clone())
+    }
 }
 
 fn inline_span_kind(tag: &RdTag) -> Option<RdInlineSpanKind> {
@@ -98,7 +102,7 @@ fn inline_span_kind(tag: &RdTag) -> Option<RdInlineSpanKind> {
 }
 
 impl RdNode {
-    pub fn inline_span(&self, base_path: &RdAstPath) -> Option<RdInlineSpan<'_>> {
+    pub(crate) fn inline_span(&self, base_path: &RdAstPath) -> Option<RdInlineSpan<'_>> {
         let tagged = self.as_tagged()?;
         let kind = inline_span_kind(tagged.tag())?;
         tagged.option().is_none().then(|| RdInlineSpan {
@@ -108,7 +112,7 @@ impl RdNode {
         })
     }
 
-    pub fn inspect_inline_span(
+    pub(crate) fn inspect_inline_span(
         &self,
         base_path: &RdAstPath,
     ) -> Result<Option<RdInlineSpan<'_>>, RdShapeError> {
@@ -200,7 +204,7 @@ fn text_symbol_kind(tag: &RdTag) -> Option<RdTextSymbolKind> {
 }
 
 impl RdNode {
-    pub fn text_symbol(&self, base_path: &RdAstPath) -> Option<RdTextSymbol> {
+    pub(crate) fn text_symbol(&self, base_path: &RdAstPath) -> Option<RdTextSymbol> {
         let tagged = self.as_tagged()?;
         let kind = text_symbol_kind(tagged.tag())?;
         (tagged.option().is_none() && tagged.children().is_empty()).then(|| RdTextSymbol {
@@ -209,7 +213,7 @@ impl RdNode {
         })
     }
 
-    pub fn inspect_text_symbol(
+    pub(crate) fn inspect_text_symbol(
         &self,
         base_path: &RdAstPath,
     ) -> Result<Option<RdTextSymbol>, RdShapeError> {
