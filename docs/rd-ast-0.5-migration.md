@@ -186,8 +186,8 @@ standard-section classification are unchanged.
 | --- | --- |
 | `RdTagged::{inspect_link, inspect_href}`, `RdNode::{inspect_s4_class_link}` | `RdNodeRef::{inspect_link, inspect_href, inspect_s4_class_link}`; strict results are located |
 | `RdNode::{s4_class_link, inline_span, text_symbol, conditional, example_control, figure, method, enc}` | `RdNodeRef::{s4_class_link_lossy, inline_span_lossy, text_symbol_lossy, conditional_lossy, example_control_lossy, figure_lossy, method_lossy, enc_lossy}`; existing `None` and projection behavior is preserved |
-| `RdTagged::inspect_list` | `RdNodeRef::inspect_list`; `RdList::children` gains a positioned sequence accessor and item views retain anchors/ranges |
-| `RdTagged::inspect_tabular` | `RdNodeRef::inspect_tabular`; table/row/cell views distinguish anchors from sibling ranges, including empty cells |
+| `RdTagged::inspect_list` | `RdNodeRef::inspect_list`; `RdList::children` gains a positioned sequence accessor, delimited items expose `anchor_path()`, `body_ref()`, and `source_nodes()`, and described items retain their single-node `path()` |
+| `RdTagged::inspect_tabular` | `RdNodeRef::inspect_tabular`; table/row/cell views distinguish anchors from sibling ranges, including empty cells. Rows expose `anchor_path()` and a `nodes_ref()` range that excludes terminal `Cr`; cells expose `anchor_path()` and `nodes_ref()` |
 | `RdNode::inspect_enc` | `RdNodeRef::inspect_enc`; encoded/ascii accessors gain positioned sequence forms |
 | `RdTagged::inspect_equation` | `RdNodeRef::inspect_equation`; latex/ascii projections retain positioned source nodes |
 | `RdNode::{inspect_inline_span, inspect_text_symbol}` | `RdNodeRef::{inspect_inline_span, inspect_text_symbol}` with the same strict result; body accessors gain `_ref` forms |
@@ -198,12 +198,18 @@ standard-section classification are unchanged.
 | `RdTagged::{inspect_sexpr, inspect_rd_opts}` | `RdNodeRef::{inspect_sexpr, inspect_rd_opts}` returning the existing option errors; code/options and their positioned children remain available |
 | `RdDocument::inspect_dynamic_markup` | Remains a stateful structural iterator. It carries positioned events and preserves state update and event order |
 | `RdDocument::inspect_lifecycle_badges` | Remains strict at the document level; each badge retains its underlying figure location and diagnostics |
-| `RdDocument::system_macro_items`, `RdDocument::inspect_system_macro_items` | Remain sibling-sequence views with positioned consumed nodes; strict traversal never consumes an unvalidated expansion |
-| `RdSystemMacroItems::{top_level, children}` and `RdSystemMacroItemsStrict::{top_level, children}` | Accept positioned node sequences/cursors. They do not infer paths from content or alter the stateful sequence contract |
+| `RdDocument::system_macro_items`, `RdDocument::inspect_system_macro_items` | Remain root sibling-sequence views with positioned consumed nodes; matches expose `anchor_path()`, `source_nodes()`, and `consumed()`, while strict traversal never consumes an unvalidated expansion |
+| `RdNodesRef::{system_macro_items, inspect_system_macro_items}` | Provide the same views for any positioned sibling sequence, including slices, without accepting caller-supplied paths |
 
 `text_contents` becomes `text_contents_lossy`. It continues to skip comments
 and flatten content according to its existing contract. No strict whole-tree
 text reconstruction is implied by the rename.
+
+Generation-header results remain aggregate values without a fabricated header
+path. `RdGenerationHeader::generator_path()` identifies the marker comment,
+and `source_origins()` returns each source-file value together with the
+comment path that produced it. Values, order, duplicates, and wrapping rules
+remain unchanged.
 
 ### Option parsing
 
@@ -215,7 +221,10 @@ order, duplicate handling, and `RdOptionError` details remain unchanged;
 malformed syntax and non-text children are errors, while unknown keys and
 invalid typed values remain soft diagnostics. Pair indices are not sibling
 paths, and this release does not promise a source span for an option-pair
-substring.
+substring. `RdOptionList::nodes_ref()` and `range()` return the original
+positioned option or body sequence and its absolute sibling range; `Sexpr`
+options use an `Option` container while `RdOpts` bodies use the tagged node's
+child container.
 
 ## Source-map contract
 

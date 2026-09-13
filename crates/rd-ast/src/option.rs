@@ -11,16 +11,28 @@
 
 use std::{borrow::Cow, fmt};
 
-use crate::{RdAstPath, RdNode, RdNodeKind, RdShapeError, RdShapeErrorKind};
+use crate::{
+    RdAstPath, RdNode, RdNodeKind, RdNodesRef, RdShapeError, RdShapeErrorKind, RdSiblingRange,
+};
 
 /// A parsed, borrowed Rd option list and its non-fatal diagnostics.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct RdOptionList<'a> {
     path: RdAstPath,
+    source_nodes: RdNodesRef<'a>,
     pairs: Vec<RdOptionPair<'a>>,
     diagnostics: Vec<RdOptionError>,
-    _nodes: std::marker::PhantomData<&'a [RdNode]>,
 }
+
+impl<'a> PartialEq for RdOptionList<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+            && self.pairs == other.pairs
+            && self.diagnostics == other.diagnostics
+    }
+}
+
+impl Eq for RdOptionList<'_> {}
 
 impl<'a> RdOptionList<'a> {
     /// Parses plain string leaves as a comma-separated scalar option list.
@@ -30,19 +42,28 @@ impl<'a> RdOptionList<'a> {
     /// leaves, so both kinds are concatenated in source order without
     /// normalization.
     ///
-    /// `path` is the path of the option-content container supplied by the
-    /// caller. A future `\\Sexpr` view passes `base_path.with_option()`; a
-    /// future `\\RdOpts` view passes its own tagged-node path whose children
-    /// are the option text. Pair positions are reported by `pair_index`, not
-    /// by adding path segments.
+    /// This crate-private compatibility helper wraps the positioned parser;
+    /// public consumers should call [`RdOptionRef::parse`](crate::RdOptionRef::parse)
+    /// so the option/body container and range are retained.
+    #[cfg(test)]
     pub(crate) fn parse(nodes: &'a [RdNode], path: RdAstPath) -> Result<Self, RdOptionError> {
+        Self::parse_positioned(RdNodesRef::from_slice(nodes, path))
+    }
+
+    pub(crate) fn parse_positioned(nodes: RdNodesRef<'a>) -> Result<Self, RdOptionError> {
+        let path = nodes.container_path().clone();
+        let raw_nodes = nodes.as_slice();
         let mut text = String::new();
-        for (index, node) in nodes.iter().enumerate() {
+        for (index, node) in raw_nodes.iter().enumerate() {
             match node {
                 RdNode::Text(value) | RdNode::Verb(value) => text.push_str(value),
                 other => {
+                    let node_path = nodes
+                        .get(index)
+                        .map(|node| node.path().clone())
+                        .unwrap_or_else(|| path.with_child(index));
                     return Err(RdShapeError::new(
-                        path.with_child(index),
+                        node_path,
                         None,
                         RdShapeErrorKind::UnexpectedContent {
                             actual: RdNodeKind::of(other),
@@ -58,9 +79,9 @@ impl<'a> RdOptionList<'a> {
         if text.is_empty() {
             return Ok(Self {
                 path,
+                source_nodes: nodes,
                 pairs,
                 diagnostics,
-                _nodes: std::marker::PhantomData,
             });
         }
         for (pair_index, entry) in text.split(',').enumerate() {
@@ -134,15 +155,24 @@ impl<'a> RdOptionList<'a> {
 
         Ok(Self {
             path,
+            source_nodes: nodes,
             pairs,
             diagnostics,
-            _nodes: std::marker::PhantomData,
         })
     }
 
     /// Returns the base path supplied to the parser.
     pub fn path(&self) -> &RdAstPath {
         &self.path
+    }
+    /// Returns the original positioned option or body sequence.
+    pub fn nodes_ref(&self) -> RdNodesRef<'a> {
+        self.source_nodes.clone()
+    }
+    /// Returns the absolute sibling range of the original option or body
+    /// sequence. Pair indices are intentionally unrelated to this range.
+    pub fn range(&self) -> RdSiblingRange {
+        self.source_nodes.range()
     }
     /// Returns all parsed pairs in source order.
     pub fn pairs(&self) -> &[RdOptionPair<'a>] {
@@ -616,6 +646,17 @@ mod tests {
         assert_eq!(parsed.typed().stage, Some(RdSexprStage::Build));
         assert_eq!(parsed.typed().echo, Some(true));
         assert_eq!(parsed.typed().results, Some(RdSexprResults::Rd));
+    }
+
+    #[test]
+    fn equality_ignores_text_leaf_segmentation() {
+        let one_leaf = [text("stage=build")];
+        let two_leaves = [text("stage="), text("build")];
+        let first = RdOptionList::parse(&one_leaf, path()).unwrap();
+        let second = RdOptionList::parse(&two_leaves, path()).unwrap();
+
+        assert_eq!(first, second);
+        assert_ne!(first.nodes_ref().range(), second.nodes_ref().range());
     }
 
     #[test]

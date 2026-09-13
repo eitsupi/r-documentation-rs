@@ -23,15 +23,21 @@ pub enum RdSystemMacro<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdSystemMacroMatch<'a> {
-    path: RdAstPath,
+    anchor_path: RdAstPath,
+    source_nodes: RdNodesRef<'a>,
     semantic: RdSystemMacro<'a>,
     origin: RdSystemMacroOrigin,
     consumed: usize,
 }
 
 impl<'a> RdSystemMacroMatch<'a> {
-    pub fn path(&self) -> &RdAstPath {
-        &self.path
+    /// Returns the first node's path, which anchors this consumed sequence.
+    pub fn anchor_path(&self) -> &RdAstPath {
+        &self.anchor_path
+    }
+    /// Returns all sibling nodes consumed by the recognized macro.
+    pub fn source_nodes(&self) -> RdNodesRef<'a> {
+        self.source_nodes.clone()
     }
     /// Returns the producer-neutral meaning of the matched sibling sequence.
     pub fn semantic(&self) -> RdSystemMacro<'a> {
@@ -131,7 +137,11 @@ impl<'a> Iterator for RdSystemMacroItems<'a> {
         ) {
             self.index += consumed - 1;
             return Some(RdSystemMacroItem::Macro(RdSystemMacroMatch {
-                path,
+                anchor_path: path,
+                source_nodes: self
+                    .nodes
+                    .slice(index..index + consumed)
+                    .expect("recognized macro source range"),
                 semantic,
                 origin: origin(node, consumed),
                 consumed,
@@ -163,7 +173,11 @@ impl<'a> Iterator for RdSystemMacroItemsStrict<'a> {
             Ok(Some((semantic, consumed, origin))) => {
                 self.index += consumed - 1;
                 Some(Ok(RdSystemMacroItem::Macro(RdSystemMacroMatch {
-                    path,
+                    anchor_path: path,
+                    source_nodes: self
+                        .nodes
+                        .slice(index..index + consumed)
+                        .expect("recognized macro source range"),
                     semantic,
                     origin,
                     consumed,

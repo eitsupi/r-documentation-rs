@@ -52,7 +52,7 @@ fn tabular_view_splits_rows_cells_and_preserves_nested_markup() {
     );
     assert!(view.diagnostics().is_empty());
     assert_eq!(
-        view.rows()[0].cells()[0].path(),
+        view.rows()[0].cells()[0].anchor_path(),
         &base.with_child(1).with_child(0)
     );
 }
@@ -89,7 +89,7 @@ fn tabular_view_anchors_leading_empty_cell_at_separator() {
     let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(view.rows().len(), 1);
     assert_eq!(
-        view.rows()[0].path(),
+        view.rows()[0].anchor_path(),
         &RdAstPath::new(vec![RdAstPathSegment::Child(1), RdAstPathSegment::Child(0)])
     );
     assert_eq!(view.rows()[0].cells().len(), 2);
@@ -139,6 +139,59 @@ fn table_cells_keep_body_ranges_for_empty_and_nonempty_content() {
     let sliced = view.rows()[1].cells()[0].nodes_ref().slice(0..1).unwrap();
     assert_eq!(sliced.range().range(), 4..5);
     assert_eq!(sliced.get(0).unwrap().path(), &body_path.with_child(4));
+}
+
+#[test]
+fn table_rows_keep_absolute_ranges_and_real_empty_anchors() {
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(9)]);
+    let table = tabular(
+        "lll",
+        vec![
+            RdNode::Text("a".into()),
+            separator(RdTag::Tab),
+            RdNode::Text("b".into()),
+            separator(RdTag::Tab),
+            RdNode::Text("c".into()),
+            separator(RdTag::Cr),
+            separator(RdTag::Cr),
+            RdNode::Text("d".into()),
+            separator(RdTag::Tab),
+        ],
+    );
+    let view = table.inspect_tabular(&base).unwrap();
+    let body_path = base.with_child(1);
+
+    assert_eq!(view.rows().len(), 3);
+    let first = &view.rows()[0];
+    assert_eq!(first.nodes_ref().container_path(), &body_path);
+    assert_eq!(first.nodes_ref().range().range(), 0..5);
+    assert_eq!(first.nodes_ref().len(), 5);
+    assert_eq!(
+        first.nodes_ref().get(1).unwrap().path(),
+        &body_path.with_child(1)
+    );
+    assert_eq!(
+        first.nodes_ref().get(3).unwrap().path(),
+        &body_path.with_child(3)
+    );
+    assert_eq!(first.cells().len(), 3);
+
+    let empty = &view.rows()[1];
+    assert_eq!(empty.nodes_ref().container_path(), &body_path);
+    assert_eq!(empty.nodes_ref().range().range(), 6..6);
+    assert_eq!(empty.anchor_path(), &body_path.with_child(6));
+    assert_eq!(empty.cells().len(), 1);
+    assert!(empty.nodes_ref().is_empty());
+
+    let terminal_tab = &view.rows()[2];
+    assert_eq!(terminal_tab.nodes_ref().range().range(), 7..9);
+    assert_eq!(
+        terminal_tab.nodes_ref().get(1).unwrap().path(),
+        &body_path.with_child(8)
+    );
+    assert_eq!(terminal_tab.cells().len(), 1);
+    assert_eq!(terminal_tab.anchor_path(), &body_path.with_child(7));
+    assert_eq!(view.diagnostics().len(), 2);
 }
 
 #[test]

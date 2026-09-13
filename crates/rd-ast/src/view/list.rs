@@ -47,14 +47,16 @@ pub enum RdListItem<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdDelimitedItem<'a> {
-    path: RdAstPath,
+    anchor_path: RdAstPath,
     body: &'a [RdNode],
     body_ref: RdNodesRef<'a>,
+    source_nodes: RdNodesRef<'a>,
 }
 
 impl<'a> RdDelimitedItem<'a> {
-    pub fn path(&self) -> &RdAstPath {
-        &self.path
+    /// Returns the marker node's path, which anchors this multi-node item.
+    pub fn anchor_path(&self) -> &RdAstPath {
+        &self.anchor_path
     }
     pub fn body(&self) -> &'a [RdNode] {
         self.body
@@ -62,6 +64,11 @@ impl<'a> RdDelimitedItem<'a> {
     /// Returns the consumed body range with absolute sibling indices.
     pub fn body_ref(&self) -> RdNodesRef<'a> {
         self.body_ref.clone()
+    }
+    /// Returns the marker and all following body siblings consumed by this
+    /// item, preserving their absolute positions in the list container.
+    pub fn source_nodes(&self) -> RdNodesRef<'a> {
+        self.source_nodes.clone()
     }
 }
 
@@ -248,9 +255,14 @@ impl<'list, 'a> Iterator for ListItems<'list, 'a> {
                 .slice(body_start..self.index)
                 .expect("validated delimited item body range");
             return Some(Ok(RdListItem::Delimited(RdDelimitedItem {
-                path,
+                anchor_path: path,
                 body,
                 body_ref,
+                source_nodes: self
+                    .list
+                    .children_ref()
+                    .slice((body_start - 1)..self.index)
+                    .expect("validated delimited item source range"),
             })));
         }
         None

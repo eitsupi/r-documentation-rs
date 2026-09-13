@@ -156,6 +156,13 @@ fn curated_profiles_are_recognized() {
     let items: Vec<_> = document.system_macro_items().collect();
     assert!(matches!(&items[0], RdSystemMacroItem::Macro(m)
         if m.semantic() == RdSystemMacro::Doi { id: "10.1/x" } && m.consumed() == 1));
+    if let RdSystemMacroItem::Macro(item) = &items[0] {
+        assert_eq!(
+            item.anchor_path().segments(),
+            &[RdAstPathSegment::TopLevel(0)]
+        );
+        assert_eq!(item.source_nodes().range().range(), 0..1);
+    }
     assert!(matches!(&items[1], RdSystemMacroItem::Macro(m)
         if m.semantic() == RdSystemMacro::CranPkg { package: "stats" }));
     assert!(matches!(&items[2], RdSystemMacroItem::Macro(m)
@@ -195,6 +202,101 @@ fn raw_profiles_collapse_and_keep_expansion_hidden() {
             .all(|item| matches!(item, RdSystemMacroItem::Macro(m)
         if m.origin() == RdSystemMacroOrigin::UserMacroExpansion && m.consumed() == 2))
     );
+    if let RdSystemMacroItem::Macro(item) = &items[0] {
+        assert_eq!(item.source_nodes().range().range(), 0..2);
+    }
+}
+
+#[test]
+fn system_macro_views_keep_absolute_positions_after_slicing() {
+    let document = RdDocument::new(vec![
+        RdNode::Text("prefix".into()),
+        curated(RdTag::Sspace, vec![]),
+    ]);
+    let items: Vec<_> = document
+        .top_level()
+        .slice(1..2)
+        .unwrap()
+        .system_macro_items()
+        .collect();
+    let RdSystemMacroItem::Macro(item) = &items[0] else {
+        unreachable!()
+    };
+    assert_eq!(
+        item.anchor_path().segments(),
+        &[RdAstPathSegment::TopLevel(1)]
+    );
+    assert_eq!(item.source_nodes().range().range(), 1..2);
+}
+
+#[test]
+fn sliced_system_macro_views_keep_absolute_two_node_ranges() {
+    let document = RdDocument::new(vec![
+        RdNode::Text("prefix".into()),
+        raw_macro(r"\doi", "10.1/x", vec![]),
+        expansion_doi("10.1/x"),
+        RdNode::Text("suffix".into()),
+    ]);
+    let items: Vec<_> = document
+        .top_level()
+        .slice(1..3)
+        .unwrap()
+        .system_macro_items()
+        .collect();
+    let RdSystemMacroItem::Macro(item) = &items[0] else {
+        unreachable!()
+    };
+    assert_eq!(
+        item.anchor_path().segments(),
+        &[RdAstPathSegment::TopLevel(1)]
+    );
+    assert_eq!(item.source_nodes().range().range(), 1..3);
+    assert_eq!(
+        item.source_nodes().get(0).unwrap().path().segments(),
+        &[RdAstPathSegment::TopLevel(1)]
+    );
+    assert_eq!(
+        item.source_nodes().get(1).unwrap().path().segments(),
+        &[RdAstPathSegment::TopLevel(2)]
+    );
+}
+
+#[test]
+fn invalid_expansion_reports_expansion_path_without_consuming_it() {
+    let document = RdDocument::new(vec![
+        raw_macro(r"\doi", "10.1/x", vec![]),
+        expansion_doi("different"),
+    ]);
+    let mut strict = document.top_level().inspect_system_macro_items();
+    let error = strict.next().unwrap().unwrap_err();
+    assert_eq!(error.path().segments(), &[RdAstPathSegment::TopLevel(1)]);
+    assert!(matches!(
+        strict.next().unwrap(),
+        Ok(RdSystemMacroItem::Node { path, .. })
+            if path.segments() == [RdAstPathSegment::TopLevel(1)]
+    ));
+}
+
+#[test]
+fn sliced_invalid_expansion_reports_absolute_path_without_consuming_it() {
+    let document = RdDocument::new(vec![
+        RdNode::Text("prefix".into()),
+        raw_macro(r"\doi", "10.1/x", vec![]),
+        expansion_doi("different"),
+        RdNode::Text("suffix".into()),
+    ]);
+    let mut strict = document
+        .top_level()
+        .slice(1..3)
+        .unwrap()
+        .inspect_system_macro_items();
+    let error = strict.next().unwrap().unwrap_err();
+    assert_eq!(error.path().segments(), &[RdAstPathSegment::TopLevel(2)]);
+    assert!(matches!(
+        strict.next().unwrap(),
+        Ok(RdSystemMacroItem::Node { path, .. })
+            if path.segments() == [RdAstPathSegment::TopLevel(2)]
+    ));
 }
 
 #[test]

@@ -24,6 +24,47 @@ fn recognizes_marker_and_sources() {
     assert!(view.is_generated());
     assert_eq!(view.generator(), Some(&crate::RdGenerator::Roxygen2));
     assert_eq!(view.source_files(), &["R/foo.R"]);
+    assert_eq!(
+        view.generator_path().unwrap().segments(),
+        &[crate::RdAstPathSegment::TopLevel(0)]
+    );
+    assert_eq!(view.source_origins()[0].value(), "R/foo.R");
+    assert_eq!(
+        view.source_origins()[0].path().segments(),
+        &[crate::RdAstPathSegment::TopLevel(1)]
+    );
+}
+
+#[test]
+fn source_origins_preserve_each_comment_and_duplicate_order() {
+    let doc = document(vec![
+        text("\n"),
+        comment(GENERATED),
+        comment("% Please edit documentation in R/a.R, R/a.R"),
+        comment("%   R/b.R"),
+    ]);
+    let view = doc.generation_header().unwrap();
+    assert_eq!(
+        view.generator_path().unwrap().segments(),
+        &[crate::RdAstPathSegment::TopLevel(1)]
+    );
+    let origins = view.source_origins();
+    assert_eq!(
+        origins
+            .iter()
+            .map(|source| source.value())
+            .collect::<Vec<_>>(),
+        ["R/a.R", "R/a.R", "R/b.R"]
+    );
+    assert!(
+        origins[..2]
+            .iter()
+            .all(|source| { source.path().segments() == [crate::RdAstPathSegment::TopLevel(2)] })
+    );
+    assert_eq!(
+        origins[2].path().segments(),
+        &[crate::RdAstPathSegment::TopLevel(3)]
+    );
 }
 
 #[test]

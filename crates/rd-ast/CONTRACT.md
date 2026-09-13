@@ -121,6 +121,12 @@ empty; producers MUST preserve that distinction.
 **[AST contract]** `RdOptionList` and typed option views are consumer views and
 MUST NOT replace or mutate syntax-layer storage.
 
+**[AST contract]** A parsed `RdOptionList` retains access to its original
+positioned option or body sequence through `nodes_ref()` and `range()`. Pair
+indices are parser-local metadata, not `Child` path segments or substring
+source spans. `Sexpr` options use an `Option` container; `RdOpts` bodies use
+the tagged node's child container.
+
 **[Consumer guidance]** Consumers SHOULD retain syntax nodes for round-trips
 and diagnostics, and use typed views for parsed pairs and typed overrides.
 
@@ -226,9 +232,11 @@ verbatim as `Unknown`, and unknown generators still count as generated. The
 first recognized marker determines the generator. Source-file lines and `%   `
 continuations remain the exact roxygen convention understood by this view.
 Source paths are borrowed, retain source order and spelling, and are not
-normalized. Non-leading, nested, and near-matching header text are not
-interpreted. Roxygen fenced-code-block recognition remains converter policy
-outside this view.
+normalized. The aggregate header has no fabricated path: `generator_path()`
+identifies the marker comment and `source_origins()` associates every source
+file value with the comment that produced it. Non-leading, nested, and
+near-matching header text are not interpreted. Roxygen fenced-code-block
+recognition remains converter policy outside this view.
 
 **[Consumer guidance]** Lifecycle-badge views scan every canonical top-level
 `\description` (an explicit exception to the singleton first-wins rule) and
@@ -318,6 +326,13 @@ nodes or range. Table rows/cells, delimited items, and system-macro matches
 MUST NOT claim that one path represents their whole multi-node value. Empty
 cells MUST use an empty range and an existing anchor where available; they
 MUST NOT invent a child node. A general `RdLocated` trait is not required.
+
+**[AST contract]** `RdTableRow::nodes_ref()` covers the row body and internal
+`Tab` separators but excludes its terminal `Cr`; `RdTableCell::nodes_ref()`
+covers the cell body in the table body container. `RdDelimitedItem` exposes
+the marker anchor, body sequence, and marker-plus-body `source_nodes()`.
+`RdSystemMacroMatch` exposes the first-node anchor and all consumed siblings
+through `source_nodes()`.
 
 **[AST contract]** `leaf_byte_range()` is a byte range within a canonical
 UTF-8 leaf, not an original source byte range. A multibyte character occupies

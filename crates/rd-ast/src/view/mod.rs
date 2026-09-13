@@ -77,7 +77,7 @@ pub use encoding::RdEnc;
 pub use equation::{RdEquation, RdEquationDisplay};
 pub use example::{RdExampleControl, RdExampleControlKind};
 pub use figure::{RdFigure, RdFigureSecondArgument};
-pub use generation::{RdGenerationHeader, RdGenerator};
+pub use generation::{RdGenerationHeader, RdGenerationSource, RdGenerator};
 pub use inline::{RdInlineSpan, RdInlineSpanKind, RdTextSymbol, RdTextSymbolKind};
 pub use lifecycle::{RdLifecycleBadge, RdLifecycleBadgeShape, RdLifecycleBadges, RdLifecycleStage};
 pub use link::{RdHref, RdLink, RdLinkDestination, RdLinkTopic, RdS4ClassLink};

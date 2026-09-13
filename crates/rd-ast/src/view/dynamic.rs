@@ -268,7 +268,9 @@ impl RdTagged {
         };
         let options = self
             .option()
-            .map(|nodes| RdOptionList::parse(nodes, base_path.with_option()))
+            .map(|nodes| {
+                RdOptionList::parse_positioned(RdNodesRef::option(nodes, base_path.with_option()))
+            })
             .transpose()?;
         Ok(RdSexpr {
             path: base_path.clone(),
@@ -303,7 +305,10 @@ impl RdTagged {
             )
             .into());
         }
-        let options = RdOptionList::parse(self.children(), base_path.clone())?;
+        let options = RdOptionList::parse_positioned(RdNodesRef::from_slice(
+            self.children(),
+            base_path.clone(),
+        ))?;
         Ok(RdOpts {
             path: base_path.clone(),
             option_nodes: self.children(),

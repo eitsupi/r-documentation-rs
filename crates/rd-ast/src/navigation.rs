@@ -114,7 +114,7 @@ impl<'a> RdNodesRef<'a> {
         }
     }
 
-    fn option(nodes: &'a [RdNode], path: RdAstPath) -> Self {
+    pub(crate) fn option(nodes: &'a [RdNode], path: RdAstPath) -> Self {
         Self {
             nodes,
             container_path: path,
@@ -319,7 +319,7 @@ impl<'a> RdOptionRef<'a> {
     /// [`RdOptionError`]. The returned errors use this option's canonical
     /// `Option` path rather than a caller-supplied coordinate.
     pub fn parse(&self) -> Result<RdOptionList<'a>, RdOptionError> {
-        RdOptionList::parse(self.as_slice(), self.path.clone())
+        RdOptionList::parse_positioned(self.nodes.clone())
     }
 
     pub fn get(&self, index: usize) -> Option<RdNodeRef<'a>> {
