@@ -70,7 +70,7 @@ impl<'a> RdTableRow<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdTableCell<'a> {
     path: RdAstPath,
-    nodes: &'a [RdNode],
+    nodes: RdNodesRef<'a>,
 }
 
 impl<'a> RdTableCell<'a> {
@@ -78,19 +78,11 @@ impl<'a> RdTableCell<'a> {
         &self.path
     }
     pub fn nodes(&self) -> &'a [RdNode] {
-        self.nodes
+        self.nodes.as_slice()
     }
     /// Returns the cell's source nodes with their body-container indices.
     pub fn nodes_ref(&self) -> RdNodesRef<'a> {
-        let segments = self.path.segments();
-        let Some(RdAstPathSegment::Child(start)) = segments.last() else {
-            return RdNodesRef::from_slice(self.nodes, self.path.clone());
-        };
-        RdNodesRef::from_slice_at(
-            self.nodes,
-            RdAstPath::new(segments[..segments.len() - 1].to_vec()),
-            *start,
-        )
+        self.nodes.clone()
     }
 }
 
@@ -258,7 +250,11 @@ impl RdTagged {
             };
             current_cells.push(RdTableCell {
                 path: cell_path,
-                nodes: &body[cell_start..index],
+                nodes: RdNodesRef::from_slice_at(
+                    &body[cell_start..index],
+                    body_path.clone(),
+                    cell_start,
+                ),
             });
             if separator == RdTag::Cr {
                 finish_table_row(
@@ -279,7 +275,11 @@ impl RdTagged {
             let cell_path = body_path.with_child(cell_start);
             current_cells.push(RdTableCell {
                 path: cell_path.clone(),
-                nodes: &body[cell_start..],
+                nodes: RdNodesRef::from_slice_at(
+                    &body[cell_start..],
+                    body_path.clone(),
+                    cell_start,
+                ),
             });
             if !row_has_content {
                 row_anchor = cell_path.clone();

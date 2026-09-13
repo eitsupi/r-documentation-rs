@@ -45,7 +45,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as an S4 class link, using this cursor's path.
-    pub fn s4_class_link(&self) -> Option<crate::RdS4ClassLink<'a>> {
+    pub fn s4_class_link_lossy(&self) -> Option<crate::RdS4ClassLink<'a>> {
         self.node().s4_class_link(self.path())
     }
 
@@ -110,7 +110,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as inline markup, using this cursor's path.
-    pub fn inline_span(&self) -> Option<crate::RdInlineSpan<'a>> {
+    pub fn inline_span_lossy(&self) -> Option<crate::RdInlineSpan<'a>> {
         self.node().inline_span(self.path())
     }
 
@@ -120,7 +120,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as a zero-argument text symbol.
-    pub fn text_symbol(&self) -> Option<crate::RdTextSymbol> {
+    pub fn text_symbol_lossy(&self) -> Option<crate::RdTextSymbol> {
         self.node().text_symbol(self.path())
     }
 
@@ -130,7 +130,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as a conditional, using this cursor's path.
-    pub fn conditional(&self) -> Option<crate::RdConditional<'a>> {
+    pub fn conditional_lossy(&self) -> Option<crate::RdConditional<'a>> {
         self.node().conditional(self.path())
     }
 
@@ -140,7 +140,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as an encoding wrapper, using this cursor's path.
-    pub fn enc(&self) -> Option<crate::RdEnc<'a>> {
+    pub fn enc_lossy(&self) -> Option<crate::RdEnc<'a>> {
         self.node().enc(self.path())
     }
 
@@ -150,7 +150,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as a method, using this cursor's path.
-    pub fn method(&self) -> Option<crate::RdMethod<'a>> {
+    pub fn method_lossy(&self) -> Option<crate::RdMethod<'a>> {
         self.node().method(self.path())
     }
 
@@ -160,7 +160,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as a figure, using this cursor's path.
-    pub fn figure(&self) -> Option<crate::RdFigure<'a>> {
+    pub fn figure_lossy(&self) -> Option<crate::RdFigure<'a>> {
         self.node().figure(self.path())
     }
 
@@ -172,7 +172,7 @@ impl<'a> RdNodeRef<'a> {
     }
 
     /// Lossily views this node as an example-control wrapper.
-    pub fn example_control(&self) -> Option<crate::RdExampleControl<'a>> {
+    pub fn example_control_lossy(&self) -> Option<crate::RdExampleControl<'a>> {
         self.node().example_control(self.path())
     }
 

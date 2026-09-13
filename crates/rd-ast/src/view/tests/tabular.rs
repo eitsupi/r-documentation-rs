@@ -101,6 +101,47 @@ fn tabular_view_anchors_leading_empty_cell_at_separator() {
 }
 
 #[test]
+fn table_cells_keep_body_ranges_for_empty_and_nonempty_content() {
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(4)]);
+    let table = tabular(
+        "ll",
+        vec![
+            separator(RdTag::Tab),
+            RdNode::Text("x".into()),
+            separator(RdTag::Tab),
+            separator(RdTag::Cr),
+            RdNode::Text("y".into()),
+            separator(RdTag::Tab),
+            separator(RdTag::Cr),
+        ],
+    );
+    let view = table.inspect_tabular(&base).unwrap();
+    let body_path = base.with_child(1);
+
+    let leading_empty = view.rows()[0].cells()[0].nodes_ref();
+    assert_eq!(leading_empty.container_path(), &body_path);
+    assert_eq!(leading_empty.range().range(), 0..0);
+    assert!(leading_empty.is_empty());
+
+    let first_content = view.rows()[0].cells()[1].nodes_ref();
+    assert_eq!(first_content.container_path(), &body_path);
+    assert_eq!(first_content.range().range(), 1..2);
+    assert_eq!(
+        first_content.get(0).unwrap().path(),
+        &body_path.with_child(1)
+    );
+
+    let trailing_empty = view.rows()[1].cells()[1].nodes_ref();
+    assert_eq!(trailing_empty.container_path(), &body_path);
+    assert_eq!(trailing_empty.range().range(), 6..6);
+    assert!(trailing_empty.is_empty());
+
+    let sliced = view.rows()[1].cells()[0].nodes_ref().slice(0..1).unwrap();
+    assert_eq!(sliced.range().range(), 4..5);
+    assert_eq!(sliced.get(0).unwrap().path(), &body_path.with_child(4));
+}
+
+#[test]
 fn tabular_view_does_not_create_terminal_empty_cell() {
     let table = tabular("ll", vec![RdNode::Text("a".into()), separator(RdTag::Tab)]);
     let view = table.inspect_tabular(&RdAstPath::new(vec![])).unwrap();

@@ -127,7 +127,7 @@ fn producer_zero_argument_symbols_keep_empty_brace_sibling() {
     let document = parse(r"\description{\R{} code \dots{} \ldots{}}");
     let symbols: Vec<_> = nodes(&document)
         .into_iter()
-        .filter_map(|node| node.text_symbol())
+        .filter_map(|node| node.text_symbol_lossy())
         .collect();
     assert_eq!(symbols.len(), 3);
     let description = document
