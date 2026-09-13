@@ -29,7 +29,7 @@ databases while omitting the optional standalone codecs can therefore use:
 
 ```toml
 [dependencies]
-rd-helpdb = { version = "0.4.0", default-features = false }
+rd-helpdb = { version = "0.5.0-alpha.1", default-features = false }
 ```
 
 The internal `rd-rds/lazyload` feature is always enabled because compiled help

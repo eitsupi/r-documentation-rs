@@ -2,31 +2,42 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdEnc<'a> {
-    path: RdPath,
+    path: RdAstPath,
     encoded: &'a [RdNode],
     ascii: &'a [RdNode],
 }
 
 impl<'a> RdEnc<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     /// Encoding-dependent Latex-mode markup; encoding-side selection is consumer policy.
     pub fn encoded(&self) -> &'a [RdNode] {
         self.encoded
     }
+    /// Returns the encoded argument as a positioned sibling sequence.
+    pub fn encoded_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.encoded, self.path.with_child(0))
+    }
     /// Encoding-dependent Latex-mode markup; encoding-side selection is consumer policy.
     pub fn ascii(&self) -> &'a [RdNode] {
         self.ascii
     }
+    /// Returns the ASCII argument as a positioned sibling sequence.
+    pub fn ascii_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.ascii, self.path.with_child(1))
+    }
 }
 
 impl RdNode {
-    pub fn enc(&self, base_path: &RdPath) -> Option<RdEnc<'_>> {
+    pub(crate) fn enc(&self, base_path: &RdAstPath) -> Option<RdEnc<'_>> {
         self.inspect_enc(base_path).ok().flatten()
     }
 
-    pub fn inspect_enc(&self, base_path: &RdPath) -> Result<Option<RdEnc<'_>>, RdShapeError> {
+    pub(crate) fn inspect_enc(
+        &self,
+        base_path: &RdAstPath,
+    ) -> Result<Option<RdEnc<'_>>, RdShapeError> {
         let tagged = match self {
             RdNode::Tagged(tagged) => tagged,
             RdNode::Raw(raw) => {

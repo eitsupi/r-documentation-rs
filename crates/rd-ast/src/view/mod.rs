@@ -38,15 +38,18 @@
 //! recognizes only fully validated corpus-pinned `USERMACRO` sequences.
 
 use crate::{
-    RdArity, RdConstruct, RdDocument, RdExpectedNode, RdNode, RdNodeKind, RdPath, RdPathSegment,
-    RdShapeError, RdShapeErrorKind, RdTag, RdTagged, is_inter_item_trivia,
+    RdArity, RdAstPath, RdAstPathSegment, RdConstruct, RdDocument, RdExpectedNode, RdNode,
+    RdNodeKind, RdNodeRef, RdNodesRef, RdOptionRef, RdShapeError, RdShapeErrorKind, RdTag,
+    RdTagged, is_inter_item_trivia,
 };
 use crate::{
     RdEffectiveSexprOptions, RdOptionError, RdOptionList, RdSexprOptionOverrides, RdSexprStage,
 };
 
 mod conditional;
+mod cursor;
 mod document;
+mod document_types;
 mod dynamic;
 mod encoding;
 mod equation;
@@ -63,8 +66,8 @@ mod tabular;
 mod text;
 
 pub use conditional::{RdConditional, RdConditionalKind};
-pub use document::{
-    RdAlias, RdArgument, RdConcept, RdKeyword, RdSection, RdSectionKind, RdSectionVisit,
+pub use document_types::{
+    RdAlias, RdArgument, RdConcept, RdField, RdKeyword, RdSection, RdSectionKind, RdSectionVisit,
 };
 pub use dynamic::{
     RdDynamicMarkupEvent, RdDynamicMarkupIter, RdDynamicMarkupState, RdOpts, RdResolvedSexpr,
@@ -74,7 +77,7 @@ pub use encoding::RdEnc;
 pub use equation::{RdEquation, RdEquationDisplay};
 pub use example::{RdExampleControl, RdExampleControlKind};
 pub use figure::{RdFigure, RdFigureSecondArgument};
-pub use generation::{RdGenerationHeader, RdGenerator};
+pub use generation::{RdGenerationHeader, RdGenerationSource, RdGenerator};
 pub use inline::{RdInlineSpan, RdInlineSpanKind, RdTextSymbol, RdTextSymbolKind};
 pub use lifecycle::{RdLifecycleBadge, RdLifecycleBadgeShape, RdLifecycleBadges, RdLifecycleStage};
 pub use link::{RdHref, RdLink, RdLinkDestination, RdLinkTopic, RdS4ClassLink};
@@ -87,14 +90,14 @@ pub use system_macro::{
 pub use tabular::{RdColumnAlign, RdTableCell, RdTableRow, RdTabular};
 pub use text::text_contents;
 
-pub(super) fn top_path(index: usize) -> RdPath {
-    RdPath::new(vec![RdPathSegment::TopLevel(index)])
+pub(super) fn top_path(index: usize) -> RdAstPath {
+    RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])
 }
 
-pub(super) fn child_path(parent: usize, index: usize) -> RdPath {
-    RdPath::new(vec![
-        RdPathSegment::TopLevel(parent),
-        RdPathSegment::Child(index),
+pub(super) fn child_path(parent: usize, index: usize) -> RdAstPath {
+    RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(parent),
+        RdAstPathSegment::Child(index),
     ])
 }
 
@@ -104,14 +107,14 @@ pub(super) fn node_tag(node: &RdNode) -> Option<RdTag> {
         .or_else(|| node.as_raw().and_then(|n| n.tag().map(RdTag::from_rd_tag)))
 }
 
-pub(super) fn shape(path: RdPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> RdShapeError {
+pub(super) fn shape(path: RdAstPath, tag: Option<RdTag>, kind: RdShapeErrorKind) -> RdShapeError {
     RdShapeError::new(path, tag, kind)
 }
 
 pub(super) fn concat_exact(
     nodes: &[RdNode],
     required: RdNodeKind,
-    group_path: &RdPath,
+    group_path: &RdAstPath,
     tag: &RdTag,
 ) -> Result<String, RdShapeError> {
     let mut value = String::new();

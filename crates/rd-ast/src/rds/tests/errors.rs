@@ -29,8 +29,8 @@ fn invalid_string_in_text_leaf_reports_node_character_location() {
     assert_eq!(
         error.location().path().segments(),
         &[
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::CharacterElement(1),
+            LowerPathSegment::TopLevel(0),
+            LowerPathSegment::CharacterElement(1),
         ]
     );
     assert_eq!(error.location().tag(), Some("TEXT"));
@@ -60,9 +60,9 @@ fn invalid_string_in_option_reports_option_context() {
     assert_eq!(
         error.location().path().segments(),
         &[
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Option,
-            RdPathSegment::CharacterElement(0),
+            LowerPathSegment::TopLevel(0),
+            LowerPathSegment::Option,
+            LowerPathSegment::CharacterElement(0),
         ]
     );
     assert_eq!(error.location().tag(), Some(r"\arguments"));
@@ -87,10 +87,10 @@ fn invalid_string_in_raw_attribute_reports_attribute_context() {
     assert_eq!(
         error.location().path().segments(),
         &[
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Attribute("rootextra".to_string()),
-            RdPathSegment::AttributeValue,
-            RdPathSegment::CharacterElement(0),
+            LowerPathSegment::TopLevel(0),
+            LowerPathSegment::Attribute("rootextra".to_string()),
+            LowerPathSegment::AttributeValue,
+            LowerPathSegment::CharacterElement(0),
         ]
     );
     assert_eq!(error.location().tag(), Some("TEXT"));
@@ -108,8 +108,8 @@ fn invalid_string_in_rd_tag_reports_tag_attribute_context() {
     assert_eq!(
         error.location().path().segments(),
         &[
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::CharacterElement(0),
+            LowerPathSegment::TopLevel(0),
+            LowerPathSegment::CharacterElement(0),
         ]
     );
     assert_eq!(error.location().tag(), None);

@@ -1,4 +1,4 @@
-use rd_ast::{RdNode, RdPath, RdTag};
+use rd_ast::{RdDocument, RdNode, RdNodeRef, RdTag};
 
 fn parse(input: &str) -> rd_ast::RdDocument {
     let parsed = rd_source::parse(input.as_bytes()).unwrap();
@@ -10,22 +10,8 @@ fn parse(input: &str) -> rd_ast::RdDocument {
     parsed.document().clone()
 }
 
-fn walk<'a>(nodes: &'a [RdNode], path: RdPath, out: &mut Vec<(&'a RdNode, RdPath)>) {
-    for (index, node) in nodes.iter().enumerate() {
-        let child_path = path.with_child(index);
-        out.push((node, child_path.clone()));
-        match node {
-            RdNode::Tagged(tagged) => walk(tagged.children(), child_path, out),
-            RdNode::Group(group) => walk(group.children(), child_path, out),
-            _ => {}
-        }
-    }
-}
-
-fn nodes(document: &rd_ast::RdDocument) -> Vec<(&RdNode, RdPath)> {
-    let mut out = Vec::new();
-    walk(document.nodes(), RdPath::new(vec![]), &mut out);
-    out
+fn nodes(document: &RdDocument) -> Vec<RdNodeRef<'_>> {
+    document.walk().collect()
 }
 
 #[test]
@@ -35,8 +21,8 @@ fn producer_inline_mode_matrix() {
     );
     let spans: Vec<_> = nodes(&document)
         .into_iter()
-        .filter_map(|(node, path)| {
-            node.inspect_inline_span(&path)
+        .filter_map(|node| {
+            node.inspect_inline_span()
                 .unwrap()
                 .map(|view| (view.kind(), view.body().first().map(rd_ast::RdNodeKind::of)))
         })
@@ -59,17 +45,17 @@ fn producer_structural_views_round_trip() {
     let mut enc = Vec::new();
     let mut figures = Vec::new();
     let mut links = Vec::new();
-    for (node, path) in nodes(&document) {
-        if let Some(view) = node.inspect_conditional(&path).unwrap() {
+    for node in nodes(&document) {
+        if let Some(view) = node.inspect_conditional().unwrap() {
             conditionals.push(view);
         }
-        if let Some(view) = node.inspect_enc(&path).unwrap() {
+        if let Some(view) = node.inspect_enc().unwrap() {
             enc.push(view);
         }
-        if let Some(view) = node.inspect_figure(&path).unwrap() {
+        if let Some(view) = node.inspect_figure().unwrap() {
             figures.push(view);
         }
-        if let Some(view) = node.inspect_s4_class_link(&path).unwrap() {
+        if let Some(view) = node.inspect_s4_class_link().unwrap() {
             links.push(view);
         }
     }
@@ -94,8 +80,8 @@ fn producer_structural_views_round_trip() {
 fn producer_method_keeps_call_as_parent_sibling() {
     let document = parse(r"\usage{\method{print}{data.frame}(x, ...)}");
     let mut methods = Vec::new();
-    for (node, path) in nodes(&document) {
-        if let Some(view) = node.inspect_method(&path).unwrap() {
+    for node in nodes(&document) {
+        if let Some(view) = node.inspect_method().unwrap() {
             methods.push(view);
         }
     }
@@ -120,7 +106,7 @@ fn producer_rlike_figure_does_not_absorb_sibling_brace() {
     let document = parse(r"\usage{\figure{f}{o}}");
     let figures: Vec<_> = nodes(&document)
         .into_iter()
-        .filter_map(|(node, path)| node.inspect_figure(&path).unwrap())
+        .filter_map(|node| node.inspect_figure().unwrap())
         .collect();
     assert_eq!(figures.len(), 1);
     assert_eq!(figures[0].file(), "f");
@@ -141,7 +127,7 @@ fn producer_zero_argument_symbols_keep_empty_brace_sibling() {
     let document = parse(r"\description{\R{} code \dots{} \ldots{}}");
     let symbols: Vec<_> = nodes(&document)
         .into_iter()
-        .filter_map(|(node, path)| node.text_symbol(&path))
+        .filter_map(|node| node.text_symbol_lossy())
         .collect();
     assert_eq!(symbols.len(), 3);
     let description = document
@@ -243,20 +229,15 @@ fn lifecycle_badge_view_reads_real_rd() {
 fn producer_system_macro_view_uses_curated_tags() {
     let document = parse(r"\description{\doi{10.1/x} \CRANpkg{stats} \sspace \I{abc}}");
     let description = document
-        .nodes()
+        .top_level()
         .iter()
-        .find_map(|node| match node {
-            RdNode::Tagged(tagged) if tagged.tag() == &RdTag::Description => {
-                Some(tagged.children())
-            }
-            _ => None,
+        .find(|node| {
+            node.node()
+                .as_tagged()
+                .is_some_and(|tagged| tagged.tag() == &RdTag::Description)
         })
-        .unwrap();
-    let items: Vec<_> = rd_ast::RdSystemMacroItems::children(
-        description,
-        &RdPath::new(vec![rd_ast::RdPathSegment::TopLevel(0)]),
-    )
-    .collect();
+        .expect("description node");
+    let items: Vec<_> = description.children().system_macro_items().collect();
     let macros: Vec<_> = items
         .iter()
         .filter_map(|item| match item {

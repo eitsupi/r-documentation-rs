@@ -12,19 +12,36 @@ use super::*;
 #[non_exhaustive]
 pub enum RdFigureSecondArgument<'a> {
     AltText {
+        path: RdAstPath,
         nodes: &'a [RdNode],
         text: String,
     },
     Options {
+        path: RdAstPath,
         nodes: &'a [RdNode],
         attributes: String,
     },
 }
 
 impl<'a> RdFigureSecondArgument<'a> {
+    /// Returns the path of the second argument's single `Group` node.
+    pub fn path(&self) -> &RdAstPath {
+        match self {
+            Self::AltText { path, .. } | Self::Options { path, .. } => path,
+        }
+    }
+
     pub fn nodes(&self) -> &'a [RdNode] {
         match self {
             Self::AltText { nodes, .. } | Self::Options { nodes, .. } => nodes,
+        }
+    }
+    /// Returns this argument's source nodes as a positioned sequence.
+    pub fn nodes_ref(&self) -> RdNodesRef<'a> {
+        match self {
+            Self::AltText { path, nodes, .. } | Self::Options { path, nodes, .. } => {
+                RdNodesRef::from_slice(nodes, path.clone())
+            }
         }
     }
     pub fn alt_text(&self) -> Option<&str> {
@@ -43,18 +60,22 @@ impl<'a> RdFigureSecondArgument<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RdFigure<'a> {
-    path: RdPath,
+    path: RdAstPath,
     file_nodes: &'a [RdNode],
     file: String,
     second: Option<RdFigureSecondArgument<'a>>,
 }
 
 impl<'a> RdFigure<'a> {
-    pub fn path(&self) -> &RdPath {
+    pub fn path(&self) -> &RdAstPath {
         &self.path
     }
     pub fn file_nodes(&self) -> &'a [RdNode] {
         self.file_nodes
+    }
+    /// Returns the filename argument as a positioned sibling sequence.
+    pub fn file_ref(&self) -> RdNodesRef<'a> {
+        RdNodesRef::from_slice(self.file_nodes, self.path.with_child(0))
     }
     pub fn file(&self) -> &str {
         &self.file
@@ -65,10 +86,13 @@ impl<'a> RdFigure<'a> {
 }
 
 impl RdNode {
-    pub fn figure(&self, base_path: &RdPath) -> Option<RdFigure<'_>> {
+    pub(crate) fn figure(&self, base_path: &RdAstPath) -> Option<RdFigure<'_>> {
         self.inspect_figure(base_path).ok().flatten()
     }
-    pub fn inspect_figure(&self, base_path: &RdPath) -> Result<Option<RdFigure<'_>>, RdShapeError> {
+    pub(crate) fn inspect_figure(
+        &self,
+        base_path: &RdAstPath,
+    ) -> Result<Option<RdFigure<'_>>, RdShapeError> {
         let tagged = match self {
             RdNode::Tagged(tagged) => tagged,
             RdNode::Raw(raw) => {
@@ -146,11 +170,16 @@ impl RdNode {
                         .filter(|rest| rest.chars().next().is_some_and(char::is_whitespace))
                     {
                         RdFigureSecondArgument::Options {
+                            path: base_path.with_child(1),
                             nodes,
                             attributes: attributes.trim_start().to_owned(),
                         }
                     } else {
-                        RdFigureSecondArgument::AltText { nodes, text }
+                        RdFigureSecondArgument::AltText {
+                            path: base_path.with_child(1),
+                            nodes,
+                            text,
+                        }
                     },
                 )
             })

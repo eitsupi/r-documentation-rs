@@ -146,7 +146,7 @@ fn bare_badge_has_path_and_no_shape() {
     assert_eq!(badge.figure().file(), "lifecycle-stable.svg");
     assert_eq!(
         badge.path().segments(),
-        &[RdPathSegment::TopLevel(0), RdPathSegment::Child(0),]
+        &[RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0),]
     );
     assert!(badge.canonical_shape().is_none());
 }

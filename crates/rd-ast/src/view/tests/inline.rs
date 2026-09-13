@@ -1,7 +1,10 @@
 use super::*;
 
-fn path() -> RdPath {
-    RdPath::new(vec![RdPathSegment::TopLevel(2), RdPathSegment::Child(1)])
+fn path() -> RdAstPath {
+    RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(2),
+        RdAstPathSegment::Child(1),
+    ])
 }
 
 #[test]

@@ -7,7 +7,7 @@ pub(super) struct NodeContext<'a> {
 }
 
 pub(super) struct LowerContext {
-    path: Vec<RdPathSegment>,
+    path: Vec<LowerPathSegment>,
 }
 
 impl LowerContext {
@@ -17,7 +17,7 @@ impl LowerContext {
 
     pub(super) fn scoped<T>(
         &mut self,
-        segment: RdPathSegment,
+        segment: LowerPathSegment,
         f: impl FnOnce(&mut Self) -> T,
     ) -> T {
         self.path.push(segment);
@@ -28,7 +28,7 @@ impl LowerContext {
 
     pub(super) fn location(&self, tag: Option<&str>, attribute: Option<&str>) -> LowerLocation {
         LowerLocation {
-            path: RdPath::new(self.path.clone()),
+            path: LowerPath::new(self.path.clone()),
             tag: tag.map(str::to_owned),
             attribute: attribute.map(str::to_owned),
         }

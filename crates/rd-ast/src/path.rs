@@ -1,49 +1,44 @@
 use std::fmt;
 
-/// A human-oriented structural path through a producer's Rd object tree.
+/// A canonical, producer-independent structural path through an
+/// [`crate::RdDocument`].
 ///
-/// The [`fmt::Display`] representation is intended for diagnostics, not as a
-/// machine-readable protocol.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RdPath {
-    segments: Vec<RdPathSegment>,
+/// The empty path denotes the document root. The display representation is
+/// intended for diagnostics, not as a machine-readable protocol.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct RdAstPath {
+    segments: Vec<RdAstPathSegment>,
 }
 
-impl RdPath {
-    pub fn new(segments: Vec<RdPathSegment>) -> Self {
+impl RdAstPath {
+    pub fn new(segments: Vec<RdAstPathSegment>) -> Self {
         Self { segments }
     }
 
-    pub fn segments(&self) -> &[RdPathSegment] {
+    pub fn segments(&self) -> &[RdAstPathSegment] {
         &self.segments
     }
 
-    pub fn with_child(&self, index: usize) -> RdPath {
+    pub fn with_child(&self, index: usize) -> RdAstPath {
         let mut path = self.clone();
-        path.segments.push(RdPathSegment::Child(index));
+        path.segments.push(RdAstPathSegment::Child(index));
         path
     }
 
-    pub fn with_option(&self) -> RdPath {
+    pub fn with_option(&self) -> RdAstPath {
         let mut path = self.clone();
-        path.segments.push(RdPathSegment::Option);
-        path
-    }
-
-    pub(crate) fn with_character(&self, index: usize) -> RdPath {
-        let mut path = self.clone();
-        path.segments.push(RdPathSegment::CharacterElement(index));
+        path.segments.push(RdAstPathSegment::Option);
         path
     }
 }
 
-impl From<Vec<RdPathSegment>> for RdPath {
-    fn from(segments: Vec<RdPathSegment>) -> Self {
+impl From<Vec<RdAstPathSegment>> for RdAstPath {
+    fn from(segments: Vec<RdAstPathSegment>) -> Self {
         Self::new(segments)
     }
 }
 
-impl fmt::Display for RdPath {
+impl fmt::Display for RdAstPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (index, segment) in self.segments.iter().enumerate() {
             if index != 0 {
@@ -55,9 +50,33 @@ impl fmt::Display for RdPath {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
-pub enum RdPathSegment {
+pub enum RdAstPathSegment {
+    TopLevel(usize),
+    Child(usize),
+    Option,
+}
+
+impl fmt::Display for RdAstPathSegment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TopLevel(index) => write!(f, "top-level[{index}]"),
+            Self::Child(index) => write!(f, "child[{index}]"),
+            Self::Option => f.write_str("@option"),
+        }
+    }
+}
+
+/// The detailed structural path used while lowering an RDS value.
+///
+/// This producer-specific path is available only with the `rds` feature. It
+/// deliberately has no conversion to [`RdAstPath`], because its segments
+/// describe producer storage rather than canonical AST locations.
+#[cfg(feature = "rds")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum LowerPathSegment {
     TopLevel(usize),
     Child(usize),
     Option,
@@ -67,7 +86,38 @@ pub enum RdPathSegment {
     CharacterElement(usize),
 }
 
-impl fmt::Display for RdPathSegment {
+#[cfg(feature = "rds")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct LowerPath {
+    segments: Vec<LowerPathSegment>,
+}
+
+#[cfg(feature = "rds")]
+impl LowerPath {
+    pub fn new(segments: Vec<LowerPathSegment>) -> Self {
+        Self { segments }
+    }
+
+    pub fn segments(&self) -> &[LowerPathSegment] {
+        &self.segments
+    }
+}
+
+#[cfg(feature = "rds")]
+impl fmt::Display for LowerPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (index, segment) in self.segments.iter().enumerate() {
+            if index != 0 {
+                f.write_str(" / ")?;
+            }
+            segment.fmt(f)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "rds")]
+impl fmt::Display for LowerPathSegment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::TopLevel(index) => write!(f, "top-level[{index}]"),
@@ -87,18 +137,24 @@ mod tests {
 
     #[test]
     fn displays_structural_paths() {
-        let path = RdPath::new(vec![
-            RdPathSegment::TopLevel(8),
-            RdPathSegment::Child(3),
-            RdPathSegment::Option,
-            RdPathSegment::Attribute("srcref".to_string()),
-            RdPathSegment::AttributeValue,
-            RdPathSegment::ListElement(2),
-            RdPathSegment::CharacterElement(0),
+        let path = RdAstPath::new(vec![
+            RdAstPathSegment::TopLevel(8),
+            RdAstPathSegment::Child(3),
+            RdAstPathSegment::Option,
         ]);
-        assert_eq!(
-            path.to_string(),
-            "top-level[8] / child[3] / @option / @attr(srcref) / value / list[2] / character[0]"
-        );
+        assert_eq!(path.to_string(), "top-level[8] / child[3] / @option");
+    }
+
+    #[test]
+    fn ast_paths_are_orderable_and_hashable() {
+        use std::collections::{BTreeSet, HashSet};
+
+        let path = RdAstPath::new(vec![RdAstPathSegment::TopLevel(0)]);
+        let mut ordered = BTreeSet::new();
+        ordered.insert(path.clone());
+        let mut hashed = HashSet::new();
+        hashed.insert(path.clone());
+        assert!(ordered.contains(&path));
+        assert!(hashed.contains(&path));
     }
 }

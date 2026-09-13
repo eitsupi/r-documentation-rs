@@ -1,4 +1,4 @@
-use rd_ast::{RdDocument, RdNode, RdPath, RdPathSegment};
+use rd_ast::{RdAstPath, RdAstPathSegment, RdDocument, RdNode};
 
 use crate::{
     error::{UnserializableKind, WriteError},
@@ -23,7 +23,7 @@ impl Writer {
             document.nodes(),
             Mode::Latex,
             &mut output,
-            RdPath::new(Vec::new()),
+            RdAstPath::new(Vec::new()),
             true,
             None,
             ParserContext::Document,
@@ -68,7 +68,7 @@ impl Context {
         Self { options }
     }
 
-    fn fail<T>(&self, path: RdPath, kind: UnserializableKind) -> Result<T, WriteError> {
+    fn fail<T>(&self, path: RdAstPath, kind: UnserializableKind) -> Result<T, WriteError> {
         Err(WriteError::Unserializable { path, kind })
     }
 
@@ -78,7 +78,7 @@ impl Context {
         nodes: &[RdNode],
         mode: Mode,
         out: &mut String,
-        path: RdPath,
+        path: RdAstPath,
         document: bool,
         item_context: Option<&str>,
         parser_context: ParserContext,
@@ -87,7 +87,7 @@ impl Context {
         let mut previous_leaf: Option<(&'static str, bool)> = None;
         for (index, node) in nodes.iter().enumerate() {
             let node_path = if document {
-                RdPath::new(vec![RdPathSegment::TopLevel(index)])
+                RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])
             } else {
                 path.with_child(index)
             };
@@ -142,7 +142,7 @@ impl Context {
         node: &RdNode,
         mode: Mode,
         out: &mut String,
-        path: RdPath,
+        path: RdAstPath,
         rlike: &mut escape::RLikeState,
     ) -> Result<bool, WriteError> {
         let (value, actual) = match node {
@@ -177,7 +177,7 @@ impl Context {
         parent_mode: Mode,
         parser_context: ParserContext,
         out: &mut String,
-        path: RdPath,
+        path: RdAstPath,
         item_context: Option<&str>,
         parent_rlike: &mut escape::RLikeState,
     ) -> Result<(), WriteError> {
@@ -544,7 +544,7 @@ impl Context {
         tagged: &rd_ast::RdTagged,
         context: Option<&str>,
         out: &mut String,
-        path: RdPath,
+        path: RdAstPath,
     ) -> Result<(), WriteError> {
         if tagged.option().is_some() {
             return self.fail(
@@ -668,7 +668,7 @@ fn balanced_equation(s: &str) -> bool {
     }
     depth == 0 && !escaped
 }
-fn invalid_option_path(nodes: &[RdNode], path: &RdPath) -> Option<RdPath> {
+fn invalid_option_path(nodes: &[RdNode], path: &RdAstPath) -> Option<RdAstPath> {
     for (index, node) in nodes.iter().enumerate() {
         match node {
             RdNode::Text(s) | RdNode::RCode(s) | RdNode::Verb(s) | RdNode::Comment(s) => {

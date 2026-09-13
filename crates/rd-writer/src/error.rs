@@ -1,6 +1,6 @@
 //! Serialization errors.
 
-use rd_ast::RdPath;
+use rd_ast::RdAstPath;
 
 /// An error returned when a document cannot be written faithfully.
 #[derive(Debug, thiserror::Error)]
@@ -10,7 +10,7 @@ pub enum WriteError {
     #[error("{path}: document is not serializable: {kind}")]
     Unserializable {
         /// Canonical location of the serialization error in the input AST.
-        path: RdPath,
+        path: RdAstPath,
         /// Reason serialization is impossible.
         kind: UnserializableKind,
     },
@@ -30,12 +30,12 @@ impl WriteError {
     ///
     /// Returns `Some` for [`WriteError::Unserializable`] and `None` for
     /// [`WriteError::Io`] and [`WriteError::Verification`]. Top-level nodes use
-    /// [`rd_ast::RdPathSegment::TopLevel`]; tagged and group children use
-    /// [`rd_ast::RdPathSegment::Child`], and option contents use
-    /// [`rd_ast::RdPathSegment::Option`] followed by `Child`. A path may instead
+    /// [`rd_ast::RdAstPathSegment::TopLevel`]; tagged and group children use
+    /// [`rd_ast::RdAstPathSegment::Child`], and option contents use
+    /// [`rd_ast::RdAstPathSegment::Option`] followed by `Child`. A path may instead
     /// end in `Option`; such a path identifies the option itself and does not
     /// denote an [`rd_ast::RdNode`].
-    pub fn ast_path(&self) -> Option<&rd_ast::RdPath> {
+    pub fn ast_path(&self) -> Option<&rd_ast::RdAstPath> {
         match self {
             Self::Unserializable { path, .. } => Some(path),
             Self::Io { .. } | Self::Verification { .. } => None,

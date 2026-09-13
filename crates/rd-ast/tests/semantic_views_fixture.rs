@@ -4,9 +4,9 @@ use std::{fs, io::Read, path::PathBuf};
 
 use flate2::read::GzDecoder;
 use rd_ast::{
-    RdColumnAlign, RdDocument, RdDynamicMarkupEvent, RdDynamicMarkupState, RdEquationDisplay,
-    RdLifecycleStage, RdLinkDestination, RdLinkTopic, RdListItem, RdNode, RdPath, RdPathSegment,
-    RdSexprResults, RdSexprStage, RdTag, lower_r_object, text_contents,
+    RdAstPath, RdAstPathSegment, RdColumnAlign, RdDocument, RdDynamicMarkupEvent,
+    RdDynamicMarkupState, RdEquationDisplay, RdLifecycleStage, RdLinkDestination, RdLinkTopic,
+    RdListItem, RdNode, RdSexprResults, RdSexprStage, RdTag, lower_r_object, text_contents,
 };
 use rd_rds::parse;
 
@@ -25,12 +25,12 @@ fn fixture(version: u8) -> rd_rds::RObject {
 fn tagged<'a>(
     nodes: &'a [RdNode],
     wanted: &RdTag,
-    path: &RdPath,
-) -> Vec<(&'a rd_ast::RdTagged, RdPath)> {
+    path: &RdAstPath,
+) -> Vec<(&'a rd_ast::RdTagged, RdAstPath)> {
     let mut found = Vec::new();
     for (index, node) in nodes.iter().enumerate() {
         let child_path = if path.segments().is_empty() {
-            RdPath::new(vec![RdPathSegment::TopLevel(index)])
+            RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])
         } else {
             path.with_child(index)
         };
@@ -46,6 +46,13 @@ fn tagged<'a>(
     found
 }
 
+fn cursor<'a>(
+    document: &'a RdDocument,
+    entry: &(&'a rd_ast::RdTagged, RdAstPath),
+) -> rd_ast::RdNodeRef<'a> {
+    document.node_at(&entry.1).expect("fixture path resolves")
+}
+
 fn normalize(nodes: &[RdNode]) -> String {
     text_contents(nodes)
         .split_whitespace()
@@ -57,36 +64,49 @@ fn normalize(nodes: &[RdNode]) -> String {
 fn real_r_semantics_fixture_conforms_for_rds_versions() {
     for version in [2, 3] {
         let document: RdDocument = lower_r_object(&fixture(version)).unwrap();
-        let root = RdPath::new(vec![]);
+        let root = RdAstPath::new(vec![]);
 
         let links = tagged(document.nodes(), &RdTag::Link, &root);
         assert_eq!(links.len(), 4, "version {version}");
         assert!(matches!(
-            links[0].0.inspect_link(&links[0].1).unwrap().destination(),
+            cursor(&document, &links[0])
+                .inspect_link()
+                .unwrap()
+                .unwrap()
+                .destination(),
             RdLinkDestination::DisplayText { .. }
         ));
         assert!(matches!(
-            links[1].0.inspect_link(&links[1].1).unwrap().destination(),
+            cursor(&document, &links[1]).inspect_link().unwrap().unwrap().destination(),
             RdLinkDestination::Package { package, topic: RdLinkTopic::DisplayText(_)
             } if *package == "pkg"
         ));
         assert!(matches!(
-            links[2].0.inspect_link(&links[2].1).unwrap().destination(),
+            cursor(&document, &links[2]).inspect_link().unwrap().unwrap().destination(),
             RdLinkDestination::Package { package, topic: RdLinkTopic::Explicit(topic) }
             if *package == "pkg" && *topic == "topic"
         ));
         assert!(matches!(
-            links[3].0.inspect_link(&links[3].1).unwrap().destination(),
+            cursor(&document, &links[3]).inspect_link().unwrap().unwrap().destination(),
             RdLinkDestination::Explicit { topic } if *topic == "dest"
         ));
         assert_eq!(
-            normalize(links[2].0.inspect_link(&links[2].1).unwrap().display()),
+            normalize(
+                cursor(&document, &links[2])
+                    .inspect_link()
+                    .unwrap()
+                    .unwrap()
+                    .display()
+            ),
             "display with markup"
         );
 
         let hrefs = tagged(document.nodes(), &RdTag::Href, &root);
         assert_eq!(hrefs.len(), 2);
-        let href = hrefs[0].0.inspect_href(&hrefs[0].1).unwrap();
+        let href = cursor(&document, &hrefs[0])
+            .inspect_href()
+            .unwrap()
+            .unwrap();
         assert_eq!(normalize(href.url()), "https://example.org");
         assert_eq!(normalize(href.display()), "the site");
 
@@ -101,9 +121,9 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
         assert!(document.inspect_lifecycle_badges().diagnostics().is_empty());
 
         let itemize = tagged(document.nodes(), &RdTag::Itemize, &root);
-        let items = itemize[0]
-            .0
-            .inspect_list(&itemize[0].1)
+        let items = cursor(&document, &itemize[0])
+            .inspect_list()
+            .unwrap()
             .unwrap()
             .items()
             .collect::<Result<Vec<_>, _>>()
@@ -114,18 +134,18 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
         );
         let enumerate = tagged(document.nodes(), &RdTag::Enumerate, &root);
         assert_eq!(
-            enumerate[0]
-                .0
-                .inspect_list(&enumerate[0].1)
+            cursor(&document, &enumerate[0])
+                .inspect_list()
+                .unwrap()
                 .unwrap()
                 .items()
                 .count(),
             2
         );
         let describe = tagged(document.nodes(), &RdTag::Describe, &root);
-        let described = describe[0]
-            .0
-            .inspect_list(&describe[0].1)
+        let described = cursor(&document, &describe[0])
+            .inspect_list()
+            .unwrap()
             .unwrap()
             .items()
             .collect::<Result<Vec<_>, _>>()
@@ -137,7 +157,10 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
 
         let tables = tagged(document.nodes(), &RdTag::Tabular, &root);
         assert_eq!(tables.len(), 1);
-        let table = tables[0].0.inspect_tabular(&tables[0].1).unwrap();
+        let table = cursor(&document, &tables[0])
+            .inspect_tabular()
+            .unwrap()
+            .unwrap();
         assert_eq!(
             table.columns(),
             &[
@@ -165,27 +188,33 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
         assert_eq!(equations.len(), 2);
         assert_eq!(
             normalize(
-                equations[0]
-                    .0
-                    .inspect_equation(&equations[0].1)
+                cursor(&document, &equations[0])
+                    .inspect_equation()
+                    .unwrap()
                     .unwrap()
                     .latex()
             ),
             "x^2"
         );
         assert_eq!(
-            equations[0]
-                .0
-                .inspect_equation(&equations[0].1)
+            cursor(&document, &equations[0])
+                .inspect_equation()
+                .unwrap()
                 .unwrap()
                 .ascii(),
             None
         );
-        let equation = equations[1].0.inspect_equation(&equations[1].1).unwrap();
+        let equation = cursor(&document, &equations[1])
+            .inspect_equation()
+            .unwrap()
+            .unwrap();
         assert_eq!(normalize(equation.latex()), "x^2");
         assert_eq!(normalize(equation.ascii().unwrap()), "x squared");
         let deqn = tagged(document.nodes(), &RdTag::Deqn, &root);
-        let equation = deqn[0].0.inspect_equation(&deqn[0].1).unwrap();
+        let equation = cursor(&document, &deqn[0])
+            .inspect_equation()
+            .unwrap()
+            .unwrap();
         assert_eq!(equation.display(), RdEquationDisplay::Block);
         assert_eq!(normalize(equation.latex()), r"\sum_i x_i");
         assert_eq!(normalize(equation.ascii().unwrap()), "sum x");
@@ -194,7 +223,10 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
         assert_eq!(opts.len(), 1, "version {version}");
         assert_eq!(opts[0].0.children().len(), 1);
         assert!(matches!(opts[0].0.children()[0], RdNode::Verb(_)));
-        let opts_view = opts[0].0.inspect_rd_opts(&opts[0].1).unwrap();
+        let opts_view = cursor(&document, &opts[0])
+            .inspect_rd_opts()
+            .unwrap()
+            .unwrap();
         assert_eq!(
             opts_view.option_overrides().stage,
             Some(RdSexprStage::Build)
@@ -233,10 +265,14 @@ fn real_r_semantics_fixture_conforms_for_rds_versions() {
                 && resolved.state() == RdDynamicMarkupState::Unresolved { stage: RdSexprStage::Render }));
         assert_eq!(
             sexprs[0].1.segments(),
-            &[RdPathSegment::TopLevel(4), RdPathSegment::Child(1)]
+            &[RdAstPathSegment::TopLevel(4), RdAstPathSegment::Child(1)]
         );
         assert_eq!(
-            sexprs[1].0.inspect_sexpr(&sexprs[1].1).unwrap().code(),
+            cursor(&document, &sexprs[1])
+                .inspect_sexpr()
+                .unwrap()
+                .unwrap()
+                .code(),
             "2 + 2"
         );
     }

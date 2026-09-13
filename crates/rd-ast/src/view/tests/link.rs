@@ -3,7 +3,10 @@ use crate::producer;
 
 #[test]
 fn link_views_follow_r_destination_rules() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(2), RdPathSegment::Child(5)]);
+    let base = RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(2),
+        RdAstPathSegment::Child(5),
+    ]);
     let inspect = |option: Option<&str>, children: Vec<RdNode>| -> String {
         let option = option.map(|value| vec![RdNode::Text(value.into())]);
         let node = RdTagged::new(RdTag::Link, option, children);
@@ -87,7 +90,10 @@ fn link_views_follow_r_destination_rules() {
 
 #[test]
 fn href_view_validates_groups_and_paths() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(2), RdPathSegment::Child(5)]);
+    let base = RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(2),
+        RdAstPathSegment::Child(5),
+    ]);
     let node = RdTagged::new(
         RdTag::Href,
         None,
@@ -150,7 +156,7 @@ fn href_view_validates_groups_and_paths() {
 
 #[test]
 fn s4_class_links_preserve_class_and_package_contents() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(1)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(1)]);
     let node = RdNode::tagged(
         RdTag::LinkS4Class,
         None,
@@ -194,7 +200,7 @@ fn s4_class_links_preserve_class_and_package_contents() {
 
 #[test]
 fn s4_class_links_only_reject_matching_raw() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(1)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(1)]);
     let raw = RdNode::Raw(producer::raw_node(
         Some(r"\linkS4class".into()),
         None,

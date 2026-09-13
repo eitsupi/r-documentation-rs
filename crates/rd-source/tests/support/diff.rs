@@ -1,4 +1,4 @@
-use rd_ast::{RdDocument, RdNode, RdNodeKind, RdPath, RdPathSegment};
+use rd_ast::{RdAstPath, RdAstPathSegment, RdDocument, RdNode, RdNodeKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionPresence {
@@ -37,7 +37,7 @@ pub enum DiffKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Difference {
-    pub path: RdPath,
+    pub path: RdAstPath,
     pub kind: DiffKind,
 }
 
@@ -66,7 +66,7 @@ pub fn compare(expected: &RdDocument, actual: &RdDocument) -> Vec<Difference> {
     let mut out = Vec::new();
     if expected.nodes().len() != actual.nodes().len() {
         out.push(Difference {
-            path: RdPath::new(Vec::new()),
+            path: RdAstPath::new(Vec::new()),
             kind: DiffKind::ChildCountMismatch {
                 expected: expected.nodes().len(),
                 actual: actual.nodes().len(),
@@ -78,26 +78,26 @@ pub fn compare(expected: &RdDocument, actual: &RdDocument) -> Vec<Difference> {
         compare_node(
             &expected.nodes()[i],
             &actual.nodes()[i],
-            RdPath::new(vec![RdPathSegment::TopLevel(i)]),
+            RdAstPath::new(vec![RdAstPathSegment::TopLevel(i)]),
             &mut out,
         );
     }
     for i in common..expected.nodes().len() {
         out.push(Difference {
-            path: RdPath::new(vec![RdPathSegment::TopLevel(i)]),
+            path: RdAstPath::new(vec![RdAstPathSegment::TopLevel(i)]),
             kind: DiffKind::MissingNode,
         });
     }
     for i in common..actual.nodes().len() {
         out.push(Difference {
-            path: RdPath::new(vec![RdPathSegment::TopLevel(i)]),
+            path: RdAstPath::new(vec![RdAstPathSegment::TopLevel(i)]),
             kind: DiffKind::UnexpectedNode,
         });
     }
     out
 }
 
-fn compare_node(expected: &RdNode, actual: &RdNode, path: RdPath, out: &mut Vec<Difference>) {
+fn compare_node(expected: &RdNode, actual: &RdNode, path: RdAstPath, out: &mut Vec<Difference>) {
     if kind(expected) != kind(actual) {
         out.push(Difference {
             path,
@@ -175,7 +175,7 @@ fn compare_node(expected: &RdNode, actual: &RdNode, path: RdPath, out: &mut Vec<
 fn compare_children(
     expected: &[RdNode],
     actual: &[RdNode],
-    path: RdPath,
+    path: RdAstPath,
     out: &mut Vec<Difference>,
 ) {
     if expected.len() != actual.len() {

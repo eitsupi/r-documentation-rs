@@ -6,7 +6,10 @@ fn delimiter_item() -> RdNode {
 
 #[test]
 fn lists_split_delimited_items_without_synthesizing_labels() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(4), RdPathSegment::Child(2)]);
+    let base = RdAstPath::new(vec![
+        RdAstPathSegment::TopLevel(4),
+        RdAstPathSegment::Child(2),
+    ]);
     let list = RdTagged::new(
         RdTag::Itemize,
         None,
@@ -31,9 +34,22 @@ fn lists_split_delimited_items_without_synthesizing_labels() {
     assert!(
         matches!(first.body(), [RdNode::Text(label), RdNode::Tagged(_),] if label == "[label] body")
     );
-    assert!(
-        matches!(items.next().unwrap(), Ok(RdListItem::Delimited(item)) if item.body().is_empty())
+    assert_eq!(first.anchor_path(), &base.with_child(2));
+    assert_eq!(first.body_ref().sibling_range().range(), 3..5);
+    assert_eq!(first.source_nodes().sibling_range().range(), 2..5);
+    assert_eq!(
+        first.source_nodes().get(0).unwrap().path(),
+        &base.with_child(2)
     );
+    assert_eq!(first.body_ref().get(0).unwrap().path(), &base.with_child(3));
+    let empty = match items.next().unwrap().unwrap() {
+        RdListItem::Delimited(item) => item,
+        _ => unreachable!(),
+    };
+    assert_eq!(empty.anchor_path(), &base.with_child(5));
+    assert!(empty.body_ref().is_empty());
+    assert_eq!(empty.body_ref().sibling_range().range(), 6..6);
+    assert_eq!(empty.source_nodes().sibling_range().range(), 5..6);
     assert!(
         matches!(items.next().unwrap(), Ok(RdListItem::Delimited(item)) if matches!(item.body(), [RdNode::Text(text)] if text == "last"))
     );
@@ -47,7 +63,7 @@ fn enumerate_has_the_same_delimiter_semantics() {
         None,
         vec![delimiter_item(), RdNode::Text("one".into())],
     );
-    let view = list.inspect_list(&RdPath::new(vec![])).unwrap();
+    let view = list.inspect_list(&RdAstPath::new(vec![])).unwrap();
     assert_eq!(view.kind(), RdListKind::Enumerate);
     assert!(
         matches!(view.items().next().unwrap(), Ok(RdListItem::Delimited(item)) if item.body().len() == 1)
@@ -56,7 +72,7 @@ fn enumerate_has_the_same_delimiter_semantics() {
 
 #[test]
 fn describe_items_validate_two_groups_and_keep_scanning() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(3)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(3)]);
     let item = |children| RdNode::tagged(RdTag::Item, None, children);
     let list = RdTagged::new(
         RdTag::Describe,
@@ -84,7 +100,7 @@ fn describe_items_validate_two_groups_and_keep_scanning() {
 
 #[test]
 fn inspect_list_reports_wrong_tag_and_container_option() {
-    let base = RdPath::new(vec![RdPathSegment::TopLevel(1)]);
+    let base = RdAstPath::new(vec![RdAstPathSegment::TopLevel(1)]);
     let wrong = RdTagged::new(RdTag::Title, None, vec![])
         .inspect_list(&base)
         .unwrap_err();

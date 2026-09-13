@@ -1,4 +1,4 @@
-use crate::{RdDocument, RdNode};
+use crate::{RdAstPath, RdDocument, RdNode};
 
 const SOURCE_FILES_PREFIX: &str = "% Please edit documentation in ";
 const SOURCE_FILES_CONTINUATION_PREFIX: &str = "%   ";
@@ -17,10 +17,39 @@ const GENERATED_SUFFIX: &str = ": do not edit by hand";
 ///
 /// Near-miss header text is simply not recognized. There is deliberately no
 /// `inspect_*` counterpart because no structural error exists for this view.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct RdGenerationHeader<'a> {
     generator: Option<RdGenerator>,
+    generator_path: Option<RdAstPath>,
     source_files: Vec<&'a str>,
+    source_origins: Vec<RdGenerationSource<'a>>,
+}
+
+impl<'a> PartialEq for RdGenerationHeader<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.generator == other.generator && self.source_files == other.source_files
+    }
+}
+
+impl Eq for RdGenerationHeader<'_> {}
+
+/// A source-file value together with the comment node that produced it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RdGenerationSource<'a> {
+    value: &'a str,
+    path: RdAstPath,
+}
+
+impl<'a> RdGenerationSource<'a> {
+    /// Returns the source-file spelling from the header comment.
+    pub fn value(&self) -> &'a str {
+        self.value
+    }
+
+    /// Returns the top-level comment path that produced this value.
+    pub fn path(&self) -> &RdAstPath {
+        &self.path
+    }
 }
 
 /// The generator that produced a documentation header.
@@ -44,6 +73,17 @@ impl<'a> RdGenerationHeader<'a> {
         &self.source_files
     }
 
+    /// Returns the comment path that produced the first recognized generator
+    /// marker, if one was found.
+    pub fn generator_path(&self) -> Option<&RdAstPath> {
+        self.generator_path.as_ref()
+    }
+
+    /// Returns each source-file value with the comment path that produced it.
+    pub fn source_origins(&self) -> &[RdGenerationSource<'a>] {
+        &self.source_origins
+    }
+
     pub fn has_sources(&self) -> bool {
         !self.source_files.is_empty()
     }
@@ -57,11 +97,14 @@ impl RdDocument {
     /// no inspection variant because this view has no structural error state.
     pub fn generation_header(&self) -> Option<RdGenerationHeader<'_>> {
         let mut generator = None;
+        let mut generator_path = None;
         let mut source_files = Vec::new();
+        let mut source_origins = Vec::new();
         let mut source_block_active = false;
         let mut recognized = false;
 
-        for node in self.nodes() {
+        for (index, node) in self.nodes().iter().enumerate() {
+            let comment_path = RdAstPath::new(vec![crate::RdAstPathSegment::TopLevel(index)]);
             let comment = match node {
                 RdNode::Comment(comment) => comment.as_str(),
                 RdNode::Text(text) if text.chars().all(char::is_whitespace) => continue,
@@ -73,17 +116,28 @@ impl RdDocument {
             } else if let Some(found_generator) = parse_generated_marker(comment) {
                 if generator.is_none() {
                     generator = Some(found_generator);
+                    generator_path = Some(comment_path);
                 }
                 recognized = true;
                 source_block_active = false;
             } else if let Some(payload) = comment.strip_prefix(SOURCE_FILES_PREFIX) {
                 recognized = true;
                 source_block_active = true;
-                append_sources(payload, &mut source_files);
+                append_sources(
+                    payload,
+                    &mut source_files,
+                    &mut source_origins,
+                    &comment_path,
+                );
             } else if source_block_active {
                 if let Some(payload) = comment.strip_prefix(SOURCE_FILES_CONTINUATION_PREFIX) {
                     recognized = true;
-                    append_sources(payload, &mut source_files);
+                    append_sources(
+                        payload,
+                        &mut source_files,
+                        &mut source_origins,
+                        &comment_path,
+                    );
                 } else {
                     source_block_active = false;
                 }
@@ -92,7 +146,9 @@ impl RdDocument {
 
         recognized.then_some(RdGenerationHeader {
             generator,
+            generator_path,
             source_files,
+            source_origins,
         })
     }
 }
@@ -111,11 +167,21 @@ fn parse_generated_marker(comment: &str) -> Option<RdGenerator> {
     })
 }
 
-fn append_sources<'a>(payload: &'a str, source_files: &mut Vec<&'a str>) {
-    source_files.extend(
-        payload
-            .split(',')
-            .map(str::trim)
-            .filter(|path| !path.is_empty()),
-    );
+fn append_sources<'a>(
+    payload: &'a str,
+    source_files: &mut Vec<&'a str>,
+    source_origins: &mut Vec<RdGenerationSource<'a>>,
+    comment_path: &RdAstPath,
+) {
+    for value in payload
+        .split(',')
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+    {
+        source_files.push(value);
+        source_origins.push(RdGenerationSource {
+            value,
+            path: comment_path.clone(),
+        });
+    }
 }

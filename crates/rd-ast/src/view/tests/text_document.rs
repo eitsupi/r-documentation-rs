@@ -21,7 +21,10 @@ fn strict_views_agree_on_well_formed_shapes_and_ignore_trivia() {
             ],
         ),
     ]);
-    assert_eq!(doc.inspect_title().unwrap(), doc.title());
+    assert_eq!(
+        doc.inspect_title().unwrap().unwrap().body(),
+        doc.title().unwrap()
+    );
     assert_eq!(
         doc.inspect_aliases()
             .collect::<Result<Vec<_>, _>>()
@@ -60,7 +63,7 @@ fn strict_views_report_shape_errors_with_paths() {
     let error = RdDocument::new(vec![RdNode::tagged(RdTag::Title, None, vec![]), raw()])
         .inspect_title()
         .unwrap_err();
-    assert_eq!(error.path().segments(), &[RdPathSegment::TopLevel(1)]);
+    assert_eq!(error.path().segments(), &[RdAstPathSegment::TopLevel(1)]);
     assert_eq!(error.tag(), Some(&RdTag::Title));
     assert!(matches!(
         error.kind(),
@@ -77,7 +80,7 @@ fn strict_views_report_shape_errors_with_paths() {
     .inspect_title()
     .unwrap_err();
     assert!(
-        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdPathSegment::TopLevel(0)])
+        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdAstPathSegment::TopLevel(0)])
     );
 
     let error = RdDocument::new(vec![RdNode::tagged(
@@ -89,7 +92,7 @@ fn strict_views_report_shape_errors_with_paths() {
     .next()
     .unwrap()
     .unwrap_err();
-    assert_eq!(error.path().segments(), &[RdPathSegment::TopLevel(0)]);
+    assert_eq!(error.path().segments(), &[RdAstPathSegment::TopLevel(0)]);
     assert!(matches!(
         error.kind(),
         RdShapeErrorKind::WrongArity {
@@ -110,7 +113,7 @@ fn strict_views_report_shape_errors_with_paths() {
     .unwrap_err();
     assert_eq!(
         error.path().segments(),
-        &[RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]
+        &[RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)]
     );
     assert!(matches!(
         error.kind(),
@@ -155,9 +158,9 @@ fn strict_arguments_report_item_option_and_non_group_child() {
     assert_eq!(
         error.path().segments(),
         &[
-            RdPathSegment::TopLevel(0),
-            RdPathSegment::Child(1),
-            RdPathSegment::Child(0)
+            RdAstPathSegment::TopLevel(0),
+            RdAstPathSegment::Child(1),
+            RdAstPathSegment::Child(0)
         ]
     );
     assert!(matches!(
@@ -195,7 +198,7 @@ fn strict_aliases_sections_and_argument_containers_report_errors() {
     let error = section.inspect_sections().next().unwrap().unwrap_err();
     assert_eq!(
         error.path().segments(),
-        &[RdPathSegment::TopLevel(0), RdPathSegment::Child(0)]
+        &[RdAstPathSegment::TopLevel(0), RdAstPathSegment::Child(0)]
     );
     assert!(matches!(
         error.kind(),
@@ -211,7 +214,7 @@ fn strict_aliases_sections_and_argument_containers_report_errors() {
     ]);
     let error = duplicate.inspect_arguments().err().unwrap();
     assert!(
-        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdPathSegment::TopLevel(0)])
+        matches!(error.kind(), RdShapeErrorKind::Duplicate { first_path, .. } if first_path.segments() == [RdAstPathSegment::TopLevel(0)])
     );
     let raw = RdDocument::new(vec![RdNode::Raw(crate::producer::raw_node(
         Some(r"\arguments".into()),
@@ -402,8 +405,102 @@ fn sections_recognizes_custom_section_shape() {
 
     let sections: Vec<RdSection<'_>> = doc.sections().collect();
     assert_eq!(sections.len(), 1);
-    assert_eq!(text_contents(sections[0].title), "Custom Title".to_string());
-    assert_eq!(text_contents(sections[0].body), "Custom body.".to_string());
+    assert_eq!(
+        text_contents(sections[0].title()),
+        "Custom Title".to_string()
+    );
+    assert_eq!(
+        text_contents(sections[0].body()),
+        "Custom body.".to_string()
+    );
+}
+
+#[test]
+fn successful_document_views_retain_node_and_child_locations() {
+    let doc = RdDocument::new(vec![
+        RdNode::Comment("% leading".into()),
+        RdNode::tagged(RdTag::Title, None, vec![RdNode::Text("Title".into())]),
+        RdNode::tagged(RdTag::Alias, None, vec![RdNode::Text("alias".into())]),
+        RdNode::tagged(
+            RdTag::Section,
+            None,
+            vec![
+                raw_group(vec![RdNode::Text("Section title".into())]),
+                raw_group(vec![RdNode::Text("Section body".into())]),
+            ],
+        ),
+        RdNode::tagged(
+            RdTag::Arguments,
+            None,
+            vec![item(
+                vec![RdNode::Text("argument".into())],
+                vec![RdNode::Text("description".into())],
+            )],
+        ),
+    ]);
+
+    let field = doc.inspect_title().unwrap().unwrap();
+    assert_eq!(field.path().segments(), &[RdAstPathSegment::TopLevel(1)]);
+    assert_eq!(field.tag(), &RdTag::Title);
+    assert_eq!(field.body(), &[RdNode::Text("Title".into())]);
+    assert_eq!(
+        field.body_ref().get(0).unwrap().path().segments(),
+        &[RdAstPathSegment::TopLevel(1), RdAstPathSegment::Child(0)]
+    );
+    assert!(std::ptr::eq(
+        field.node(),
+        doc.node_at(field.path()).unwrap().node()
+    ));
+
+    let alias = doc.inspect_aliases().next().unwrap().unwrap();
+    assert_eq!(alias.path().segments(), &[RdAstPathSegment::TopLevel(2)]);
+    assert_eq!(
+        alias.nodes_ref().get(0).unwrap().path().segments(),
+        &[RdAstPathSegment::TopLevel(2), RdAstPathSegment::Child(0),]
+    );
+
+    let section = doc.sections().next().unwrap();
+    assert_eq!(section.path().segments(), &[RdAstPathSegment::TopLevel(3)]);
+    assert_eq!(
+        section.title_ref().get(0).unwrap().path().segments(),
+        &[
+            RdAstPathSegment::TopLevel(3),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(0),
+        ]
+    );
+    assert_eq!(
+        section.body_ref().get(0).unwrap().path().segments(),
+        &[
+            RdAstPathSegment::TopLevel(3),
+            RdAstPathSegment::Child(1),
+            RdAstPathSegment::Child(0),
+        ]
+    );
+
+    let argument = doc.arguments().next().unwrap();
+    assert_eq!(
+        argument.path().segments(),
+        &[RdAstPathSegment::TopLevel(4), RdAstPathSegment::Child(0),]
+    );
+    assert_eq!(
+        argument.name_ref().get(0).unwrap().path().segments(),
+        &[
+            RdAstPathSegment::TopLevel(4),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(0),
+        ]
+    );
+    assert_eq!(
+        argument.description_ref().get(0).unwrap().path().segments(),
+        &[
+            RdAstPathSegment::TopLevel(4),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(1),
+            RdAstPathSegment::Child(0),
+        ]
+    );
 }
 
 #[test]
@@ -442,7 +539,7 @@ fn arguments_pairs_items_and_skips_whitespace_and_malformed_entries() {
 
     let arguments: Vec<(String, String)> = doc
         .arguments()
-        .map(|arg| (text_contents(arg.name), text_contents(arg.description)))
+        .map(|arg| (text_contents(arg.name()), text_contents(arg.description())))
         .collect();
     assert_eq!(
         arguments,
@@ -488,7 +585,10 @@ fn fixed_section_accessors_cover_the_remaining_vocabulary() {
     let doc = RdDocument::new(nodes);
     macro_rules! assert_fixed_accessor {
         ($accessor:ident, $inspect:ident) => {
-            assert_eq!(doc.$accessor(), doc.$inspect().unwrap());
+            assert_eq!(
+                doc.$accessor(),
+                doc.$inspect().unwrap().map(|field| field.body())
+            );
             assert!(RdDocument::new(vec![]).$accessor().is_none());
         };
     }
@@ -505,7 +605,10 @@ fn fixed_section_accessors_cover_the_remaining_vocabulary() {
     assert_fixed_accessor!(doc_type, inspect_doc_type);
     assert_fixed_accessor!(rd_version, inspect_rd_version);
     assert_fixed_accessor!(synopsis, inspect_synopsis);
-    assert_eq!(doc.name(), doc.inspect_name().unwrap());
+    assert_eq!(
+        doc.name(),
+        doc.inspect_name().unwrap().map(|field| field.body())
+    );
     assert_eq!(doc.name().map(text_contents), Some("name".into()));
     assert!(RdDocument::new(vec![]).inspect_name().unwrap().is_none());
 
@@ -517,7 +620,7 @@ fn fixed_section_accessors_cover_the_remaining_vocabulary() {
     assert!(matches!(
         duplicate.inspect_name().unwrap_err().kind(),
         RdShapeErrorKind::Duplicate { first_path, .. }
-            if first_path.segments() == [RdPathSegment::TopLevel(0)]
+            if first_path.segments() == [RdAstPathSegment::TopLevel(0)]
     ));
     let option = RdDocument::new(vec![RdNode::tagged(RdTag::Name, Some(vec![]), vec![])]);
     assert!(matches!(
@@ -525,7 +628,7 @@ fn fixed_section_accessors_cover_the_remaining_vocabulary() {
         RdShapeErrorKind::UnexpectedOption
     ));
     let raw = RdDocument::new(vec![RdNode::Raw(crate::producer::raw_node(
-        Some("\\name".into()),
+        Some(r"\name".into()),
         None,
         vec![],
         None,
@@ -549,14 +652,43 @@ fn keywords_and_concepts_are_repeatable_strict_views() {
         RdNode::tagged(RdTag::Concept, None, vec![RdNode::Text("second".into())]),
     ]);
     assert_eq!(doc.keywords().collect::<Vec<_>>(), ["one", "two"]);
+    let keywords = doc
+        .inspect_keywords()
+        .map(|entry| entry.unwrap())
+        .collect::<Vec<_>>();
     assert_eq!(
-        doc.inspect_keywords()
-            .map(|entry| entry.unwrap().text_contents())
+        keywords
+            .iter()
+            .map(|entry| entry.text_contents())
             .collect::<Vec<_>>(),
         ["one", "two"]
     );
+    assert_eq!(
+        keywords
+            .iter()
+            .map(|entry| entry.path().segments())
+            .collect::<Vec<_>>(),
+        [
+            &[RdAstPathSegment::TopLevel(0)][..],
+            &[RdAstPathSegment::TopLevel(2)][..],
+        ]
+    );
     assert_eq!(doc.concepts().collect::<Vec<_>>(), ["first", "second"]);
-    assert_eq!(doc.inspect_concepts().count(), 2);
+    let concepts = doc
+        .inspect_concepts()
+        .map(|entry| entry.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(concepts.len(), 2);
+    assert_eq!(
+        concepts
+            .iter()
+            .map(|entry| entry.path().segments())
+            .collect::<Vec<_>>(),
+        [
+            &[RdAstPathSegment::TopLevel(1)][..],
+            &[RdAstPathSegment::TopLevel(3)][..],
+        ]
+    );
     let option = RdDocument::new(vec![RdNode::tagged(RdTag::Keyword, Some(vec![]), vec![])]);
     assert!(matches!(
         option
@@ -568,7 +700,7 @@ fn keywords_and_concepts_are_repeatable_strict_views() {
         RdShapeErrorKind::UnexpectedOption
     ));
     let raw = RdDocument::new(vec![RdNode::Raw(crate::producer::raw_node(
-        Some("\\concept".into()),
+        Some(r"\concept".into()),
         None,
         vec![],
         None,
@@ -634,6 +766,26 @@ fn section_tree_is_preorder_path_aware_and_ignores_orphans() {
             (RdSectionKind::Section, 0, "two".into()),
         ]
     );
+    assert_eq!(
+        visits[1].title_ref().get(0).unwrap().path().segments(),
+        &[
+            RdAstPathSegment::TopLevel(1),
+            RdAstPathSegment::Child(1),
+            RdAstPathSegment::Child(2),
+            RdAstPathSegment::Child(0),
+            RdAstPathSegment::Child(0),
+        ]
+    );
+    assert_eq!(
+        visits[1].body_ref().get(0).unwrap().path().segments(),
+        &[
+            RdAstPathSegment::TopLevel(1),
+            RdAstPathSegment::Child(1),
+            RdAstPathSegment::Child(2),
+            RdAstPathSegment::Child(1),
+            RdAstPathSegment::Child(0),
+        ]
+    );
     assert_eq!(text_contents(visits[0].body()), "bodyone-aone-a-ideep");
     assert_eq!(text_contents(visits[2].body()), "deep");
     assert_eq!(
@@ -642,20 +794,20 @@ fn section_tree_is_preorder_path_aware_and_ignores_orphans() {
             .map(|visit| visit.path().segments())
             .collect::<Vec<_>>(),
         vec![
-            &[RdPathSegment::TopLevel(1)][..],
+            &[RdAstPathSegment::TopLevel(1)][..],
             &[
-                RdPathSegment::TopLevel(1),
-                RdPathSegment::Child(1),
-                RdPathSegment::Child(2)
+                RdAstPathSegment::TopLevel(1),
+                RdAstPathSegment::Child(1),
+                RdAstPathSegment::Child(2)
             ][..],
             &[
-                RdPathSegment::TopLevel(1),
-                RdPathSegment::Child(1),
-                RdPathSegment::Child(2),
-                RdPathSegment::Child(1),
-                RdPathSegment::Child(0),
+                RdAstPathSegment::TopLevel(1),
+                RdAstPathSegment::Child(1),
+                RdAstPathSegment::Child(2),
+                RdAstPathSegment::Child(1),
+                RdAstPathSegment::Child(0),
             ][..],
-            &[RdPathSegment::TopLevel(3)][..],
+            &[RdAstPathSegment::TopLevel(3)][..],
         ]
     );
     assert_eq!(doc.sections().count(), 2);

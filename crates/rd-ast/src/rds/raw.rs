@@ -43,7 +43,7 @@ pub(super) fn lower_raw_object(
         .iter()
         .map(|nested| {
             context.scoped(
-                RdPathSegment::Attribute(nested.name().as_str().to_string()),
+                LowerPathSegment::Attribute(nested.name().as_str().to_string()),
                 |context| lower_attribute(context, tag, nested),
             )
         })
@@ -76,7 +76,7 @@ pub(super) fn lower_raw_value(
                 .iter()
                 .enumerate()
                 .map(|(index, object)| {
-                    context.scoped(RdPathSegment::ListElement(index), |context| {
+                    context.scoped(LowerPathSegment::ListElement(index), |context| {
                         lower_raw_object(context, tag, attribute, object)
                     })
                 })
@@ -129,7 +129,7 @@ pub(super) fn lower_raw_strings(
         decoded.push(Some(
             value
                 .map_err(|_| {
-                    context.scoped(RdPathSegment::CharacterElement(index), |context| {
+                    context.scoped(LowerPathSegment::CharacterElement(index), |context| {
                         context.invalid_string(tag, attribute, raw_value)
                     })
                 })?

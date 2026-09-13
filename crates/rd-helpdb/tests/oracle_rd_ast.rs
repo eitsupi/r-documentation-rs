@@ -397,8 +397,8 @@ fn oracle_matches_rd_ast_view() {
             .arguments()
             .map(|argument| {
                 (
-                    normalize_whitespace(&text_contents(argument.name)),
-                    normalize_whitespace(&text_contents(argument.description)),
+                    normalize_whitespace(&text_contents(argument.name())),
+                    normalize_whitespace(&text_contents(argument.description())),
                 )
             })
             .collect();

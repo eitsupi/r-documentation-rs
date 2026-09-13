@@ -6,6 +6,7 @@
 #![doc = include_str!("../CONTRACT.md")]
 
 mod document;
+mod navigation;
 mod option;
 mod path;
 mod raw;
@@ -15,12 +16,15 @@ mod tag;
 mod view;
 
 pub use document::{RdDocument, RdGroup, RdNode, RdTagged};
+pub use navigation::{RdNodeRef, RdNodesIter, RdNodesRef, RdOptionRef, RdSiblingRange, RdWalk};
 pub use option::{
     RdEffectiveSexprOptions, RdOptionError, RdOptionList, RdOptionPair, RdOptionPairErrorKind,
     RdOptionValueKind, RdSexprOptionKey, RdSexprOptionOverrides, RdSexprResults, RdSexprStage,
     RdStripWhite,
 };
-pub use path::{RdPath, RdPathSegment};
+#[cfg(feature = "rds")]
+pub use path::{LowerPath, LowerPathSegment};
+pub use path::{RdAstPath, RdAstPathSegment};
 pub use raw::{
     RawRdEnvironment, RawRdNode, RawRdObject, RawRdReal, RawRdValue, RdAttribute, producer,
 };
@@ -36,13 +40,14 @@ pub use view::{
     RdAlias, RdArgument, RdColumnAlign, RdConcept, RdConditional, RdConditionalKind,
     RdDelimitedItem, RdDescribedItem, RdDynamicMarkupEvent, RdDynamicMarkupIter,
     RdDynamicMarkupState, RdEnc, RdEquation, RdEquationDisplay, RdExampleControl,
-    RdExampleControlKind, RdFigure, RdFigureSecondArgument, RdGenerationHeader, RdGenerator,
-    RdHref, RdInlineSpan, RdInlineSpanKind, RdKeyword, RdLifecycleBadge, RdLifecycleBadgeShape,
-    RdLifecycleBadges, RdLifecycleStage, RdLink, RdLinkDestination, RdLinkTopic, RdList,
-    RdListItem, RdListKind, RdMethod, RdMethodKind, RdOpts, RdResolvedSexpr, RdS4ClassLink,
-    RdSection, RdSectionKind, RdSectionVisit, RdSexpr, RdSystemMacro, RdSystemMacroItem,
-    RdSystemMacroItems, RdSystemMacroItemsStrict, RdSystemMacroMatch, RdSystemMacroOrigin,
-    RdTableCell, RdTableRow, RdTabular, RdTextSymbol, RdTextSymbolKind, text_contents,
+    RdExampleControlKind, RdField, RdFigure, RdFigureSecondArgument, RdGenerationHeader,
+    RdGenerationSource, RdGenerator, RdHref, RdInlineSpan, RdInlineSpanKind, RdKeyword,
+    RdLifecycleBadge, RdLifecycleBadgeShape, RdLifecycleBadges, RdLifecycleStage, RdLink,
+    RdLinkDestination, RdLinkTopic, RdList, RdListItem, RdListKind, RdMethod, RdMethodKind, RdOpts,
+    RdResolvedSexpr, RdS4ClassLink, RdSection, RdSectionKind, RdSectionVisit, RdSexpr,
+    RdSystemMacro, RdSystemMacroItem, RdSystemMacroItems, RdSystemMacroItemsStrict,
+    RdSystemMacroMatch, RdSystemMacroOrigin, RdTableCell, RdTableRow, RdTabular, RdTextSymbol,
+    RdTextSymbolKind, text_contents,
 };
 
 #[cfg(feature = "rds")]

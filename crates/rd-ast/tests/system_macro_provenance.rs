@@ -4,8 +4,7 @@ use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use flate2::read::GzDecoder;
 use rd_ast::{
-    RdDocument, RdNode, RdPath, RdPathSegment, RdSystemMacroItem, RdSystemMacroItems,
-    RdSystemMacroItemsStrict, RdTag, lower_r_object,
+    RdAstPath, RdAstPathSegment, RdDocument, RdNode, RdSystemMacroItem, RdTag, lower_r_object,
 };
 use rd_rds::{RObject, RValue, parse};
 
@@ -68,11 +67,15 @@ fn usermacro_srcfile_provenance(object: &RObject) -> Vec<&'static str> {
     found
 }
 
-fn tagged<'a>(nodes: &'a [RdNode], wanted: &RdTag, path: &RdPath) -> Vec<(&'a RdNode, RdPath)> {
+fn tagged<'a>(
+    nodes: &'a [RdNode],
+    wanted: &RdTag,
+    path: &RdAstPath,
+) -> Vec<(&'a RdNode, RdAstPath)> {
     let mut found = Vec::new();
     for (index, node) in nodes.iter().enumerate() {
         let child_path = if path.segments().is_empty() {
-            RdPath::new(vec![RdPathSegment::TopLevel(index)])
+            RdAstPath::new(vec![RdAstPathSegment::TopLevel(index)])
         } else {
             path.with_child(index)
         };
@@ -89,24 +92,24 @@ fn tagged<'a>(nodes: &'a [RdNode], wanted: &RdTag, path: &RdPath) -> Vec<(&'a Rd
 }
 
 fn macro_summary(document: &RdDocument) -> (usize, BTreeMap<String, usize>) {
-    let root = RdPath::new(vec![]);
-    let (description, path) = tagged(document.nodes(), &RdTag::Description, &root)
+    let root = RdAstPath::new(vec![]);
+    let (_, path) = tagged(document.nodes(), &RdTag::Description, &root)
         .into_iter()
         .next()
         .expect("description section");
-    let items = RdSystemMacroItems::children(
-        description
-            .as_tagged()
-            .expect("tagged description")
-            .children(),
-        &path,
-    )
-    .filter_map(|item| match item {
-        RdSystemMacroItem::Macro(item) => Some((item.semantic(), item.origin(), item.consumed())),
-        RdSystemMacroItem::Node { .. } => None,
-        _ => None,
-    })
-    .collect::<Vec<_>>();
+    let items = document
+        .node_at(&path)
+        .expect("description path")
+        .children()
+        .system_macro_items()
+        .filter_map(|item| match item {
+            RdSystemMacroItem::Macro(item) => {
+                Some((item.semantic(), item.origin(), item.consumed()))
+            }
+            RdSystemMacroItem::Node { .. } => None,
+            _ => None,
+        })
+        .collect::<Vec<_>>();
     fn visit(node: &RdNode, names: &mut BTreeMap<String, usize>) {
         if let RdNode::Raw(raw) = node
             && raw.tag() == Some("USERMACRO")
@@ -146,7 +149,7 @@ fn assert_fixture(name: &str, compressed: bool) -> RObject {
     assert_eq!(names.get("\\fixtureWrap"), Some(&2));
     assert_eq!(names.get("\\fixtureInsert"), Some(&1));
 
-    let root = RdPath::new(vec![]);
+    let root = RdAstPath::new(vec![]);
     let (description, path) = tagged(document.nodes(), &RdTag::Description, &root)
         .into_iter()
         .next()
@@ -174,18 +177,17 @@ fn assert_fixture(name: &str, compressed: bool) -> RObject {
         };
         assert!(matches!(&pair[1], RdNode::Tagged(tagged) if tagged.tag() == &expected));
     }
+    let description_ref = document.node_at(&path).expect("description path");
     assert!(
-        RdSystemMacroItems::children(children, &path)
+        description_ref
+            .children()
+            .system_macro_items()
             .all(|item| matches!(item, RdSystemMacroItem::Node { .. }))
     );
-    let strict = RdSystemMacroItemsStrict::children(
-        description
-            .as_tagged()
-            .expect("tagged description")
-            .children(),
-        &path,
-    )
-    .collect::<Result<Vec<_>, _>>();
+    let strict = description_ref
+        .children()
+        .inspect_system_macro_items()
+        .collect::<Result<Vec<_>, _>>();
     assert!(
         strict.is_ok(),
         "strict traversal failed for {name}: {strict:?}"

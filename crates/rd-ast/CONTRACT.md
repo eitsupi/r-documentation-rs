@@ -100,7 +100,8 @@ include its leading `%`; the `Comment(String)` constructor cannot enforce it.
 `parse_Rd()` must retain comments (for example via `keep.source`) for lowering
 to receive them. Lowering does not invent absent comments.
 
-**[Consumer guidance]** `text_contents` skips comments and is lossy. Exact
+**[Consumer guidance]** The 0.4.x `text_contents` projection skips comments
+and is lossy. It is named `text_contents_lossy` in 0.5.0. Exact
 whitespace/comment rendering SHOULD walk the tree.
 
 ## 6. Positional groups
@@ -119,6 +120,12 @@ empty; producers MUST preserve that distinction.
 
 **[AST contract]** `RdOptionList` and typed option views are consumer views and
 MUST NOT replace or mutate syntax-layer storage.
+
+**[AST contract]** A parsed `RdOptionList` retains access to its original
+positioned option or body sequence through `nodes_ref()` and `sibling_range()`.
+Pair indices are parser-local metadata, not `Child` path segments or substring
+source spans. `Sexpr` options use an `Option` container; `RdOpts` bodies use
+the tagged node's child container.
 
 **[Consumer guidance]** Consumers SHOULD retain syntax nodes for round-trips
 and diagnostics, and use typed views for parsed pairs and typed overrides.
@@ -225,9 +232,11 @@ verbatim as `Unknown`, and unknown generators still count as generated. The
 first recognized marker determines the generator. Source-file lines and `%   `
 continuations remain the exact roxygen convention understood by this view.
 Source paths are borrowed, retain source order and spelling, and are not
-normalized. Non-leading, nested, and near-matching header text are not
-interpreted. Roxygen fenced-code-block recognition remains converter policy
-outside this view.
+normalized. The aggregate header has no fabricated path: `generator_path()`
+identifies the marker comment and `source_origins()` associates every source
+file value with the comment that produced it. Non-leading, nested, and
+near-matching header text are not interpreted. Roxygen fenced-code-block
+recognition remains converter policy outside this view.
 
 **[Consumer guidance]** Lifecycle-badge views scan every canonical top-level
 `\description` (an explicit exception to the singleton first-wins rule) and
@@ -240,16 +249,116 @@ canonical `Tagged` and `Group` children but not options or `Raw` content;
 matching `Raw` nodes and malformed lifecycle figure candidates are diagnostics
 in strict inspection and are never interpreted.
 
-## 10. Source spans
+## 10. Structural locations and inspection API
+
+The following rules define the 0.5.0 location and inspection boundary. They
+are intentionally separate from the 0.4.x implementation names; the complete
+source-level migration inventory is in
+[`docs/rd-ast-0.5-migration.md`](../../docs/rd-ast-0.5-migration.md).
+
+**[AST contract]** `RdAstPath` is the canonical, producer-independent path
+through an `RdDocument`. Its segment vocabulary is `TopLevel(usize)`,
+`Child(usize)`, and `Option`; the empty path is the document root. Valid
+structural forms are the empty root or one `TopLevel` followed by zero or more
+node steps. A node step is `Child`, or `Option` optionally followed by
+`Child` steps. `TopLevel` is valid only at the document boundary, `Child` is
+valid only in the current node or option container, and an option cannot be
+followed directly by another `Option`. The referenced container and index
+MUST also exist in the document snapshot. A path ending in `Option` identifies
+a present option container and does not identify a node; an option child is
+reached with `Option` followed by `Child(usize)`.
+
+**[AST contract]** `RdAstPath` is snapshot-local. A path is meaningful only
+for the document snapshot from which it was obtained. The type does not and
+need not prevent applying a path to another document or to a later edited
+snapshot. It is suitable as a `Hash`/`Eq`/`Ord` key, while its display form is
+diagnostic text rather than a serialized protocol.
+
+**[RDS producer profile]** RDS lowering positions such as attributes,
+attribute values, list elements, and character-vector elements belong to a
+separate `LowerPath` used by `LowerLocation`. They MUST retain their detail in
+lowering errors and MUST NOT be silently converted into `RdAstPath` segments.
+
+**[AST contract]** `RdNodeRef`, `RdNodesRef`, and `RdOptionRef` carry borrowed
+nodes or node sequences together with their canonical location. Slicing a
+`RdNodesRef` MUST preserve absolute sibling indices: a slice of `3..5` has a
+first item at `Child(3)`, including after further slicing. `RdSiblingRange` is
+an absolute half-open sibling range within one container, may be empty, and is
+also snapshot-local. It is not a source range and cannot span containers.
+
+**[AST contract]** The structural `RdDocument::walk` traversal visits every
+stored `RdNode` exactly once in preorder. For each node, descendants in a
+present option are visited before descendants in the node's children, and
+each subtree is traversed before the next sibling. This applies to `Raw` as
+well as `Tagged`, `Group`, and `Unknown` nodes. Raw payloads and attributes
+are not `RdNode` values and are not traversed. The walk is not a semantic Raw
+pruner: a consumer that treats Raw as opaque MUST recurse explicitly and stop
+at the Raw node. A flat loop with `continue` does not prune later descendants.
+
+**[AST contract]** Semantic inspection is cursor-based in 0.5.0. Public
+node-level inspection MUST obtain its location from `RdNodeRef`; the API MUST
+NOT invite callers to attach an arbitrary canonical path to a detached node.
+An isolated test fixture MAY use a one-node document. Detached inspection with
+a canonical path is not part of this contract.
+
+**[AST contract]** Strict methods retain the `inspect_*` naming. Every
+node-level cursor inspector has the result family
+`Result<Option<View>, RdShapeError>` or
+`Result<Option<View>, RdOptionError>`, with lifetime parameters as required
+by the borrowed view. A nonmatching node MUST return `Ok(None)`. A matching
+malformed or `Raw` node MUST return the applicable shape or option error,
+including for former `RdTagged` methods whose wrong-tag result was an error.
+Document-level inspection and stateful sequence iterators retain their
+separately documented result families.
+
+Best-effort accessors that skip, flatten, or select first values gain a
+`*_lossy` name. Their existing first-wins, source-order, skip, and flatten
+behavior remains unchanged. `text_contents_lossy` explicitly remains a
+comment-skipping and markup-flattening projection. `as_*` variant tests and
+deliberately scalar-only projections are not renamed solely because they
+return `Option`.
+
+**[AST contract]** A view representing one node exposes `path()`. A view
+representing a sequence exposes its positioned node sequence and a
+`RdSiblingRange`. A view representing multiple consumed nodes exposes an
+`anchor_path()` only as a diagnostic anchor and separately exposes the source
+nodes or range. Table rows/cells, delimited items, and system-macro matches
+MUST NOT claim that one path represents their whole multi-node value. Empty
+cells MUST use an empty range and an existing anchor where available; they
+MUST NOT invent a child node. A general `RdLocated` trait is not required.
+
+**[AST contract]** `RdTableRow::nodes_ref()` covers the row body and internal
+`Tab` separators but excludes its terminal `Cr`; `RdTableCell::nodes_ref()`
+covers the cell body in the table body container. `RdDelimitedItem` exposes
+the marker anchor, body sequence, and marker-plus-body `source_nodes()`.
+`RdSystemMacroMatch` exposes the first-node anchor and all consumed siblings
+through `source_nodes()`.
+
+**[AST contract]** `leaf_byte_range()` is a byte range within a canonical
+UTF-8 leaf, not an original source byte range. A multibyte character occupies
+its full canonical byte interval; for example, in `léc`, the interval for
+`é` is `1..3`. Producer character-vector indices and source-map byte ranges
+are separate coordinates.
+
+**[Consumer guidance]** Successful inspection validates only the requested
+view shape. It does not validate the complete document, consume every markup
+node, or replace parser diagnostics. Consumers MUST keep Raw opaque unless a
+documented view explicitly permits a validated Raw sequence.
+
+## 11. Source spans
 
 **[AST contract]** The v1 AST has no source-span or `srcref` API. Consumers
 MUST NOT rely on spans in `RdDocument` or `RdNode`.
+
+**[AST contract]** A source parser MAY provide a separate public opaque source
+map beside its `Parsed` result. Such a map is not part of `RdDocument` or
+`RdNode` and does not change this no-spans rule.
 
 **[RDS producer profile]** Raw-embedded `srcref` is producer provenance for
 Raw losslessness, not a source-span API. Recognized `srcref` is discarded on
 successful structured lowering.
 
-## 11. Stability
+## 12. Stability
 
 **[AST contract]** Rust consumers MUST account for `#[non_exhaustive]` enums
 and SHOULD use public accessors rather than private layout. Additive variants
@@ -266,7 +375,7 @@ is independent of the R-level tag spellings returned by `RdTag::as_rd_tag`.
 **[Non-contract note]** `RawRdReal::Finite` is not type-enforced; its
 finite-value invariant is producer behavior only.
 
-## 12. Producer-profile equivalence checklist
+## 13. Producer-profile equivalence checklist
 
 **[AST contract]** Help-DB lowering and the `rd-source` parser are equivalent
 for canonical semantics when they agree on leaf kinds and canonical leaf

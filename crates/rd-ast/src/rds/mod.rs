@@ -65,11 +65,11 @@ use std::fmt;
 
 use rd_rds::{Attribute, Attributes, EnvHandle, RObject, RStr, RValue};
 
+use crate::{LowerPath, LowerPathSegment};
 use crate::{
     RawRdEnvironment, RawRdObject, RawRdReal, RawRdValue, RdAttribute, RdDocument, RdNode, RdTag,
     producer,
 };
-use crate::{RdPath, RdPathSegment};
 
 /// Lowers a decoded help-database Rd object into the canonical AST.
 ///
@@ -90,9 +90,11 @@ pub fn lower_r_object(root: &RObject) -> Result<RdDocument, LowerError> {
 
     let mut nodes = Vec::with_capacity(items.len());
     for (index, item) in items.iter().enumerate() {
-        nodes.push(context.scoped(RdPathSegment::TopLevel(index), |context| {
-            lower_node(context, item, None)
-        })?);
+        nodes.push(
+            context.scoped(LowerPathSegment::TopLevel(index), |context| {
+                lower_node(context, item, None)
+            })?,
+        );
     }
 
     Ok(RdDocument::new(nodes))
@@ -175,7 +177,7 @@ fn lower_children(
 ) -> Result<Vec<RdNode>, LowerError> {
     let mut lowered = Vec::with_capacity(children.len());
     for (index, child) in children.iter().enumerate() {
-        lowered.push(context.scoped(RdPathSegment::Child(index), |context| {
+        lowered.push(context.scoped(LowerPathSegment::Child(index), |context| {
             lower_node(context, child, inherited_attribute)
         })?);
     }
@@ -191,37 +193,40 @@ fn lower_option(
         return Ok(None);
     };
 
-    Ok(Some(context.scoped(RdPathSegment::Option, |context| {
-        match option.value() {
-            RValue::List(children) => {
-                let option_tag = rd_tag_string(context, option)?;
-                let option_context = NodeContext {
-                    tag: option_tag.as_deref(),
-                    value: option.value(),
-                    attributes: option.attributes(),
-                };
-                let has_rejected_attributes = option.attributes().iter().any(|attribute| {
-                    matches!(
-                        classify_attribute(&option_context, attribute),
-                        AttributeDisposition::Reject
-                    )
-                });
-                if option_tag.is_some()
-                    || option.attributes().get("Rd_option").is_some()
-                    || has_rejected_attributes
-                {
-                    lower_node(context, option, Some("Rd_option")).map(|node| vec![node])
-                } else {
-                    lower_children(context, Some("Rd_option"), children)
+    Ok(Some(context.scoped(
+        LowerPathSegment::Option,
+        |context| {
+            match option.value() {
+                RValue::List(children) => {
+                    let option_tag = rd_tag_string(context, option)?;
+                    let option_context = NodeContext {
+                        tag: option_tag.as_deref(),
+                        value: option.value(),
+                        attributes: option.attributes(),
+                    };
+                    let has_rejected_attributes = option.attributes().iter().any(|attribute| {
+                        matches!(
+                            classify_attribute(&option_context, attribute),
+                            AttributeDisposition::Reject
+                        )
+                    });
+                    if option_tag.is_some()
+                        || option.attributes().get("Rd_option").is_some()
+                        || has_rejected_attributes
+                    {
+                        lower_node(context, option, Some("Rd_option")).map(|node| vec![node])
+                    } else {
+                        lower_children(context, Some("Rd_option"), children)
+                    }
                 }
+                RValue::Character(_) => {
+                    lower_raw_children(context, tag, Some("Rd_option"), option.value())
+                        .map(|(children, _)| children)
+                }
+                _ => lower_node(context, option, Some("Rd_option")).map(|node| vec![node]),
             }
-            RValue::Character(_) => {
-                lower_raw_children(context, tag, Some("Rd_option"), option.value())
-                    .map(|(children, _)| children)
-            }
-            _ => lower_node(context, option, Some("Rd_option")).map(|node| vec![node]),
-        }
-    })?))
+        },
+    )?))
 }
 
 mod attributes;
