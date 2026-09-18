@@ -9,7 +9,7 @@ mod tag;
 use crate::{
     diagnostic::{Diagnostic, DiagnosticCode, ParseError, Parsed, Severity},
     lexer::{self, Token, TokenKind},
-    source_map::{SourceExtents, SourceMap},
+    source_map::{RdSourceMap, SourceExtents, SourceMap},
 };
 use frame::{Frame, FrameRequest, FrameState, Mode};
 use rd_ast::{RdDocument, RdNode};
@@ -28,7 +28,7 @@ pub(crate) struct Parser<'a> {
     relex_work: usize,
 }
 /// v1 implementation limit chosen to keep recursive parsing safe on ordinary
-/// thread stacks. Customization is deferred beyond v1 (CONTRACT §14).
+/// thread stacks. Customization is deferred beyond v1 (CONTRACT §15).
 pub(crate) const MAX_FRAME_DEPTH: usize = 128;
 impl<'a> Parser<'a> {
     pub(crate) fn new(input: &'a [u8], source: &'a str) -> Self {
@@ -56,7 +56,7 @@ impl<'a> Parser<'a> {
 
     fn parse_internal(
         mut self,
-        track_extents: bool,
+        retain_extents: bool,
     ) -> Result<(Parsed, Option<SourceExtents>), ParseError> {
         let nodes = self
             .parse_frame(FrameRequest {
@@ -66,7 +66,6 @@ impl<'a> Parser<'a> {
                 context: Context::Document,
                 stop_at_endif: false,
                 initial_rlike_state: None,
-                track_extents,
             })
             .nodes;
         if let Some(error) = self.fatal_error {
@@ -74,18 +73,27 @@ impl<'a> Parser<'a> {
         }
         let top_level = nodes.extents;
         let nodes = nodes.nodes;
+        let extents = SourceExtents {
+            root: 0..self.input.len(),
+            top_level,
+        };
+        let (source_map, retained_extents) = if retain_extents {
+            (
+                RdSourceMap::from_extents(&self.map, extents.clone()),
+                Some(extents),
+            )
+        } else {
+            (RdSourceMap::from_extents(&self.map, extents), None)
+        };
         Ok((
-            Parsed::new(RdDocument::new(nodes), self.diagnostics),
-            top_level.map(|top_level| SourceExtents {
-                root: 0..self.input.len(),
-                top_level,
-            }),
+            Parsed::new(RdDocument::new(nodes), self.diagnostics, source_map),
+            retained_extents,
         ))
     }
     fn parse_frame(&mut self, request: FrameRequest) -> frame::FrameResult {
         if self.fatal_error.is_some() {
             return frame::FrameResult {
-                nodes: frame::NodeBatch::new(request.track_extents),
+                nodes: frame::NodeBatch::new(),
                 closed: false,
                 terminated_by_endif: false,
                 content_end: self.index_start(),
@@ -102,7 +110,7 @@ impl<'a> Parser<'a> {
                 .unwrap_or_else(|| self.map.span(0..0));
             self.fatal_error = Some(ParseError::NestingLimitExceeded { span });
             return frame::FrameResult {
-                nodes: frame::NodeBatch::new(request.track_extents),
+                nodes: frame::NodeBatch::new(),
                 closed: false,
                 terminated_by_endif: false,
                 content_end: self.index_start(),
@@ -187,7 +195,7 @@ impl<'a> Parser<'a> {
                 frame::Leaf::RCode => RdNode::RCode(value),
                 frame::Leaf::Verb => RdNode::Verb(value),
             };
-            out.push(frame::LocatedNode::leaf(node, range, out.extents.is_some()));
+            out.push(frame::LocatedNode::leaf(node, range));
         } else {
             *buf_range = None;
         }

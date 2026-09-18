@@ -42,7 +42,6 @@ impl<'a> Parser<'a> {
                         request.context,
                         &mut state.rlike_state,
                         &mut state.brace_depth,
-                        request.track_extents,
                     );
                     state.out.push(conditional);
                 }
@@ -366,11 +365,9 @@ impl<'a> Parser<'a> {
                                 self.map.span(token.range.clone()),
                             ));
                             self.index += 1;
-                            state.out.push(LocatedNode::leaf(
-                                RdNode::Text(name),
-                                token.range.clone(),
-                                state.track_extents,
-                            ));
+                            state
+                                .out
+                                .push(LocatedNode::leaf(RdNode::Text(name), token.range.clone()));
                         } else {
                             state.out.push(self.parse_tag(
                                 name,
@@ -378,7 +375,6 @@ impl<'a> Parser<'a> {
                                 request.context,
                                 quoted,
                                 request.frame.item_policy,
-                                request.track_extents,
                             ));
                         }
                         state.surplus_group_at = Some(self.index);
@@ -403,7 +399,6 @@ impl<'a> Parser<'a> {
                             request.context,
                             false,
                             request.frame.item_policy,
-                            request.track_extents,
                         ));
                         state.surplus_group_at = Some(self.index);
                     }
@@ -448,7 +443,6 @@ impl<'a> Parser<'a> {
                     state.out.push(LocatedNode::leaf(
                         RdNode::Comment(self.text(token).to_string()),
                         token.range.clone(),
-                        state.track_extents,
                     ));
                     self.index += 1;
                 }
@@ -509,7 +503,6 @@ impl<'a> Parser<'a> {
                         context: Context::Latex,
                         stop_at_endif: false,
                         initial_rlike_state: None,
-                        track_extents: request.track_extents,
                     });
                     self.flush(
                         &mut state.out,
@@ -522,7 +515,6 @@ impl<'a> Parser<'a> {
                         None,
                         result.nodes,
                         opener.start..result.consumed_end,
-                        state.track_extents,
                     ));
                 }
                 TokenKind::LBrace if matches!(request.frame.mode, Mode::Latex) => {
@@ -540,7 +532,6 @@ impl<'a> Parser<'a> {
                             context: Context::Latex,
                             stop_at_endif: false,
                             initial_rlike_state: None,
-                            track_extents: request.track_extents,
                         });
                         self.flush(
                             &mut state.out,
@@ -553,7 +544,6 @@ impl<'a> Parser<'a> {
                             None,
                             result.nodes,
                             opener.start..result.consumed_end,
-                            state.track_extents,
                         ));
                         state.surplus_group_at = Some(self.index);
                         continue;
@@ -567,7 +557,6 @@ impl<'a> Parser<'a> {
                         context: request.context,
                         stop_at_endif: false,
                         initial_rlike_state: None,
-                        track_extents: request.track_extents,
                     });
                     self.flush(
                         &mut state.out,

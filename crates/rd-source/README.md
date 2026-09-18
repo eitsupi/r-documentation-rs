@@ -4,7 +4,7 @@
 
 ## Parsing and recovery
 
-The parser accepts UTF-8 Rd source, including R-like and verbatim contexts, comments, groups, options, and recognized Rd tags. A successful parse returns `Parsed`, containing the document and any diagnostics. Recoverable syntax problems are reported as diagnostics with `Severity::Warning` or `Severity::Error` while preserving a recovered document. Fatal input or resource failures return `ParseError` and no partial `Parsed` value; these include invalid UTF-8, embedded NUL bytes, an input larger than 64 MiB, unsupported encoding declarations, and excessive parser nesting.
+The parser accepts UTF-8 Rd source, including R-like and verbatim contexts, comments, groups, options, and recognized Rd tags. A successful parse returns `Parsed`, containing the document, diagnostics, and an exact source map for that parser snapshot. Recoverable syntax problems are reported as diagnostics with `Severity::Warning` or `Severity::Error` while preserving a recovered document. Fatal input or resource failures return `ParseError` and no partial `Parsed` value; these include invalid UTF-8, embedded NUL bytes, an input larger than 64 MiB, unsupported encoding declarations, and excessive parser nesting. The map is queried with canonical `RdAstPath` values and has no ancestor fallback; its spans cover original syntactic extents rather than decoded substrings.
 
 ## Resource limits
 

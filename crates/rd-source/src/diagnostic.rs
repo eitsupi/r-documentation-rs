@@ -2,6 +2,8 @@ use std::{fmt, ops::Range};
 
 use rd_ast::RdDocument;
 
+use crate::source_map::RdSourceMap;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourcePosition {
     line: u32,
@@ -44,16 +46,26 @@ impl SourceSpan {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+/// A parsed Rd document, its diagnostics, and the source map for that exact
+/// parser snapshot. Equality intentionally compares only the document and
+/// diagnostics; use the explicit source-map projection when provenance is
+/// significant.
+#[derive(Debug, Clone)]
 pub struct Parsed {
     document: RdDocument,
     diagnostics: Vec<Diagnostic>,
+    source_map: RdSourceMap,
 }
 impl Parsed {
-    pub(crate) fn new(document: RdDocument, diagnostics: Vec<Diagnostic>) -> Self {
+    pub(crate) fn new(
+        document: RdDocument,
+        diagnostics: Vec<Diagnostic>,
+        source_map: RdSourceMap,
+    ) -> Self {
         Self {
             document,
             diagnostics,
+            source_map,
         }
     }
     pub fn document(&self) -> &RdDocument {
@@ -62,8 +74,28 @@ impl Parsed {
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }
+    /// Returns the exact source map for this parsed document snapshot.
+    ///
+    /// The map is tied to this parse result's original input and uses exact
+    /// canonical-path lookup. It is not a map for independently constructed
+    /// or RDS-lowered ASTs.
+    pub fn source_map(&self) -> &RdSourceMap {
+        &self.source_map
+    }
+    /// Decomposes this parse result, intentionally discarding source-map
+    /// provenance.
     pub fn into_parts(self) -> (RdDocument, Vec<Diagnostic>) {
         (self.document, self.diagnostics)
+    }
+    /// Decomposes this parse result while retaining its source-map provenance.
+    pub fn into_parts_with_source_map(self) -> (RdDocument, Vec<Diagnostic>, RdSourceMap) {
+        (self.document, self.diagnostics, self.source_map)
+    }
+}
+
+impl PartialEq for Parsed {
+    fn eq(&self, other: &Self) -> bool {
+        self.document == other.document && self.diagnostics == other.diagnostics
     }
 }
 

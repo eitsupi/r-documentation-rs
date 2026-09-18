@@ -2,6 +2,107 @@ use crate::{SourcePosition, SourceSpan};
 use rd_ast::{RdAstPath, RdAstPathSegment};
 use std::ops::Range;
 
+/// Exact source spans for one parsed Rd document snapshot.
+///
+/// A map is valid only with the `RdDocument` snapshot returned by the same
+/// parse call. Lookups use canonical paths exactly: there is no ancestor
+/// fallback. Spans are minimal covering syntactic extents in the original
+/// source, not decoded-leaf substring maps. Maps are producer-specific and
+/// are not available for RDS-lowered or manually constructed ASTs. A map does
+/// not provide ancestor fallback, multiple origins, or transformation
+/// inheritance; delimiters discarded while canonicalizing the AST are not
+/// represented as separate entries.
+#[derive(Debug, Clone)]
+pub struct RdSourceMap {
+    root: SourceSpan,
+    top_level: Vec<RdSourceSpanNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RdSourceSpanNode {
+    span: SourceSpan,
+    option: Option<RdSourceSpanSequence>,
+    children: Vec<RdSourceSpanNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RdSourceSpanSequence {
+    span: SourceSpan,
+    nodes: Vec<RdSourceSpanNode>,
+}
+
+impl RdSourceMap {
+    pub(crate) fn from_extents(source: &SourceMap, extents: SourceExtents) -> Self {
+        Self {
+            root: source.span(extents.root),
+            top_level: extents
+                .top_level
+                .into_iter()
+                .map(|node| RdSourceSpanNode::from_extent(source, node))
+                .collect(),
+        }
+    }
+
+    /// Returns the exact span for a node or present option at `path`.
+    pub fn span(&self, path: &RdAstPath) -> Option<&SourceSpan> {
+        if path.segments().is_empty() {
+            return Some(&self.root);
+        }
+        let [RdAstPathSegment::TopLevel(index), rest @ ..] = path.segments() else {
+            return None;
+        };
+        let mut node = self.top_level.get(*index)?;
+        let mut option_nodes: Option<&[RdSourceSpanNode]> = None;
+        for (position, segment) in rest.iter().enumerate() {
+            match segment {
+                RdAstPathSegment::Child(index) => {
+                    node = match option_nodes.take() {
+                        Some(nodes) => nodes.get(*index),
+                        None => node.children.get(*index),
+                    }?;
+                }
+                RdAstPathSegment::Option => {
+                    if option_nodes.is_some() {
+                        return None;
+                    }
+                    let option = node.option.as_ref()?;
+                    if position + 1 == rest.len() {
+                        return Some(&option.span);
+                    }
+                    option_nodes = Some(&option.nodes);
+                }
+                RdAstPathSegment::TopLevel(_) => return None,
+                _ => return None,
+            }
+        }
+        if option_nodes.is_some() {
+            return None;
+        }
+        Some(&node.span)
+    }
+}
+
+impl RdSourceSpanNode {
+    fn from_extent(source: &SourceMap, extent: SourceExtentNode) -> Self {
+        Self {
+            span: source.span(extent.bytes),
+            option: extent.option.map(|option| RdSourceSpanSequence {
+                span: source.span(option.bytes),
+                nodes: option
+                    .nodes
+                    .into_iter()
+                    .map(|node| Self::from_extent(source, node))
+                    .collect(),
+            }),
+            children: extent
+                .children
+                .into_iter()
+                .map(|node| Self::from_extent(source, node))
+                .collect(),
+        }
+    }
+}
+
 /// Parser-local source coverage for one canonical AST node.
 ///
 /// This deliberately mirrors the canonical tree rather than storing paths at
@@ -32,12 +133,12 @@ impl SourceExtentNode {
     pub(crate) fn with_children(
         bytes: Range<usize>,
         option: Option<SourceExtentSequence>,
-        children: Option<Vec<SourceExtentNode>>,
+        children: Vec<SourceExtentNode>,
     ) -> Self {
         Self {
             bytes,
             option,
-            children: children.unwrap_or_default(),
+            children,
         }
     }
 }

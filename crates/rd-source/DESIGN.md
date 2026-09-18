@@ -112,7 +112,7 @@ Context-sensitive tags such as `\method` and `\item` use a dedicated parser only
 | `\url` | — | `Verbatim` | Emits `VERB` (oracle-pinned by composite-markup). |
 | `\href` | — | arg1=`Verbatim`, arg2=`Latex` | Each positional argument is an untagged group; arg1 is one `VERB` leaf and arg2 is recursively parsed markup (pinned by `href-argument-modes`). |
 | `\R`, `\dots`, `\ldots` | — | none | Zero-child tags. A following bare `{}` is a sibling empty `LIST` in `Latex`, but remains `RCODE` content in an R-like frame. |
-| Unknown or user macro | pinned | one-argument `Latex` fallback | Fallback is pinned by CONTRACT §13: no expansion in v1; unknown invocations keep the one-argument fallback and the diagnostic. |
+| Unknown or user macro | pinned | one-argument `Latex` fallback | Fallback is pinned by CONTRACT §14: no expansion in v1; unknown invocations keep the one-argument fallback and the diagnostic. |
 
 The invalid-context `\item` recovery shape and missing-arity recovery remain provisional
 recovery-corpus material; the canonical warning-free contract is limited to the
@@ -361,7 +361,7 @@ The option-spacing fixture confirms the tight `\link[x]` form. A space before `[
 Diagnostics and error recovery are a separate pending design task. This document fixes only the points where recovery interacts with lowering:
 
 - malformed or empty options such as `\link[]` and `\Sexpr[]`;
-- macro-environment injection for otherwise unrecognized invocations; the unknown-tag fallback shape itself is pinned by CONTRACT Section 13;
+- macro-environment injection for otherwise unrecognized invocations; the unknown-tag fallback shape itself is pinned by CONTRACT Section 14;
 - partial-tree recovery differences across R versions;
 - keeping recovery fixtures separate from the canonical corpus;
 - timeouts while generating oracle output.
@@ -380,7 +380,7 @@ The normative regeneration and mass-corpus triage policy is in [tests/fixtures/R
 
 The following behavior remains deferred:
 
-- general user-macro expansion and macro-environment injection (curated system-macro aliases are pinned by CONTRACT Section 13);
+- general user-macro expansion and macro-environment injection (curated system-macro aliases are pinned by CONTRACT Section 14);
 - the partial-AST shape for malformed options;
 - whether `\link[]` and `\Sexpr[]` are valid syntax in each supported R version;
 - whitespace before an option opener;

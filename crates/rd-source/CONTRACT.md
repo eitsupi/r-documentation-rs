@@ -1,7 +1,7 @@
 # `rd-source` parser contract
 
-This document is the normative diagnostics and error-recovery contract for
-the future public `rd-source` parser. It complements
+This document is the normative diagnostics, source-map, and error-recovery
+contract for the public `rd-source` parser. It complements
 [`rd-ast`'s contract](../rd-ast/CONTRACT.md), which defines producer-agnostic
 AST invariants, and `rd-source/DESIGN.md`, which is a non-normative lowering
 and implementation design. This document defines input policy, outcomes,
@@ -32,7 +32,7 @@ version is a contract change.
 
 This is a v1 contract for a public source parser. Syntax recovery MUST be
 deterministic, and a parser implementation MUST satisfy the acceptance
-criteria in section 12.
+criteria in section 13.
 
 ## 2. Input model
 
@@ -50,10 +50,12 @@ entry point would move that required decision outside this crate.
 
 ## 3. Outcome model
 
-Successful parsing returns `Ok(Parsed { document, diagnostics })`. A document
-with `Error`-severity diagnostics still returns `Ok`. Hard input failures
-return `Err(ParseError)` and no partial document. There is no `Fatal`
-diagnostic severity; fatal conditions belong in `ParseError`.
+Successful parsing returns `Ok(Parsed { document, diagnostics, source_map })`.
+The source map is an opaque, producer-specific map for that exact parser
+snapshot. A document with `Error`-severity diagnostics still returns `Ok`.
+Hard input failures return `Err(ParseError)` and no partial document or map.
+There is no `Fatal` diagnostic severity; fatal conditions belong in
+`ParseError`.
 
 ## 4. Hard errors
 
@@ -207,6 +209,7 @@ pub fn parse(input: &[u8]) -> Result<Parsed, ParseError>;
 pub struct Parsed {
     document: RdDocument,
     diagnostics: Vec<Diagnostic>,
+    source_map: RdSourceMap,
 }
 
 pub struct Diagnostic {
@@ -251,7 +254,36 @@ accepted constructs; v1 recovery diagnostics are usually `Error`. R warning
 text MUST NOT be the primary API. Future fields such as related spans or
 notes MUST be additive.
 
-## 11. Differential-testing contract
+## 11. Source-map contract
+
+Successful parser results own a public, opaque `rd_source::RdSourceMap`,
+available through `Parsed::source_map()`. `Parsed::into_parts()` returns the
+two-value `(RdDocument, Vec<Diagnostic>)` projection and intentionally
+discards provenance; `into_parts_with_source_map()` returns the triple
+`(RdDocument, Vec<Diagnostic>, RdSourceMap)`. `RdSourceMap::span` takes
+only a canonical `RdAstPath` and performs exact lookup: it never falls back to
+an ancestor. The empty path identifies the document root. The map is valid
+only with the document snapshot returned by that parse call; independently
+constructed ASTs and RDS-lowered ASTs do not have maps.
+
+The map covers the root, every node emitted into the final canonical AST
+(including unknown, recovered, and synthetic conditional target/body `Group`
+nodes), and every present option sequence, including an empty option. Missing
+arguments do not create nodes or extents. Every span is the minimal covering
+syntactic extent in original input bytes, with existing one-based line and
+Unicode-scalar column rules. It is not a decoded-leaf substring map. Actual
+source delimiters are included; virtual delimiters are not invented, and
+flattened/discarded delimiters are not separate entries. Recovery ends at its
+actual synchronization point or EOF. CRLF and escape spelling remain in the
+covered range.
+
+The map intentionally does not provide multiple origins, ancestor fallback,
+sibling ranges, substring maps, or provenance inheritance across AST
+transformations. `Parsed` equality excludes the source map, so equal
+documents and diagnostics from LF and CRLF input can compare equal even when
+their spans differ.
+
+## 12. Differential-testing contract
 
 Fixtures have three categories:
 
@@ -269,7 +301,7 @@ Intentional-divergence cases keep source_status = "valid" semantics on
 the source side (zero diagnostics) but assert the oracle tree and the
 divergent source expectation separately, through oracle_obligations and
 source_obligations, and record a divergence_reason. Curated system-macro
-aliases (section 13) use this category.
+aliases (section 14) use this category.
 
 Planned `cases.toml` metadata includes:
 
@@ -290,7 +322,7 @@ The valid category keeps the any-warning-aborts rule; recoverable cases do
 not. Each case MUST have a timeout. Parity with R warning text is explicitly
 not a goal.
 
-## 12. Parser acceptance criteria
+## 13. Parser acceptance criteria
 
 1. `parse(&[u8]) -> Result<Parsed, ParseError>` is public and documented.
 2. Valid fixtures return `Ok`, zero diagnostics, and the expected canonical AST.
@@ -308,7 +340,7 @@ not a goal.
 14. Oracle message text is not asserted.
 15. Known deviations from R recovery are fixture-pinned and documented.
 
-## 13. Macro handling
+## 14. Macro handling
 
 Rd macros fall into three normative classes in v1:
 
@@ -324,7 +356,7 @@ divergence: the parser MUST NOT replicate the expansion, whose \Sexpr
 calls, stage=build options, and srcref provenance are R-evaluation
 artifacts rather than source semantics. Each alias MUST be pinned by an
 intentional-divergence fixture that records the oracle tree and the
-divergent source expectation separately (section 11). The v1 curated alias
+divergent source expectation separately (section 12). The v1 curated alias
 set is \doi -> Doi, \CRANpkg -> CranPkg, \sspace -> Sspace, and \I -> I.
 The \I argument mode follows the surrounding Latex or R-like mode;
 \sspace is zero-argument and does not consume following braces.
@@ -350,11 +382,11 @@ Raw USERMACRO shape (the rd-ast raw-classification guard); consumers
 needing producer-independent semantics get them from semantic views, not
 from this parser imitating R's expansion.
 
-## 14. Deferred beyond v1
+## 15. Deferred beyond v1
 
 The following are deferred: general user-macro expansion,
 macro-environment injection, and `\newcommand` definition semantics (curated
-system-macro aliases are in scope per section 13);
+system-macro aliases are in scope per section 14);
 non-UTF-8 transcoding; encoding auto-detection; R warning-wording
 parity; related spans and fix-its; spans inside `RdDocument`; permissive and
 strict modes; semantic checker rules; a stable diagnostic wire format;
