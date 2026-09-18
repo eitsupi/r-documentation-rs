@@ -22,6 +22,15 @@
 //! [`NamespaceMetadata`] provides a separate owned view of static declarations
 //! from `Meta/nsInfo.rds`. It does not represent runtime namespace state or
 //! stored lazy-load bindings.
+//!
+//! [`PackageMeta::read_installed`] and [`NamespaceMetadata::read_installed`]
+//! are thin convenience readers for the canonical `Meta/package.rds` and
+//! `Meta/nsInfo.rds` paths below a caller-supplied installed package
+//! directory. They do not discover packages or apply runtime policy. Their
+//! `_with_options` variants expose the bounded [`crate::file::ReadOptions`]
+//! used by the standalone file layer.
+
+use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
@@ -44,6 +53,43 @@ pub use namespace::{
     ImportedName, MetadataField, NamespaceExport, NamespaceImport, NamespaceMetadata, S3MethodName,
     S3Registration,
 };
+
+/// Errors reading a typed view from an installed-package metadata artifact.
+///
+/// The file layer and typed view layer remain separate: callers can inspect
+/// whether a failure came from bounded file reading or from validating the
+/// decoded metadata object. The artifact path is retained for both variants,
+/// including read failures that do not carry a path themselves (for example,
+/// a decompression or size-limit error).
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum InstalledMetadataError {
+    /// Reading the canonical installed metadata artifact failed.
+    #[error("failed to read installed metadata at {path}: {source}")]
+    Read {
+        path: PathBuf,
+        #[source]
+        source: crate::file::ReadError,
+    },
+    /// The artifact was read, but its decoded object did not match the typed
+    /// metadata view's supported schema.
+    #[error("invalid installed metadata at {path}: {source}")]
+    View {
+        path: PathBuf,
+        #[source]
+        source: ViewError,
+    },
+}
+
+impl InstalledMetadataError {
+    /// Returns the canonical artifact path selected for the read.
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        match self {
+            Self::Read { path, .. } | Self::View { path, .. } => path,
+        }
+    }
+}
 
 /// A construction error from the typed installed-package metadata view.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -137,6 +183,21 @@ mod packages;
 
 pub use meta::{Built, PackageMeta, PackageVersion};
 pub use packages::{PackagesColumn, PackagesMatrix, PackagesRow};
+
+fn read_installed_object(
+    package_dir: impl AsRef<Path>,
+    artifact: &str,
+    options: &crate::file::ReadOptions,
+) -> Result<(PathBuf, RObject), InstalledMetadataError> {
+    let path = package_dir.as_ref().join("Meta").join(artifact);
+    let object = crate::file::read_with_options(&path, options).map_err(|source| {
+        InstalledMetadataError::Read {
+            path: path.clone(),
+            source,
+        }
+    })?;
+    Ok((path, object))
+}
 
 fn expect_list<'a>(
     object: &'a RObject,

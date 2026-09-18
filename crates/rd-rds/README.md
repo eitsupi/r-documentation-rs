@@ -109,6 +109,25 @@ fn generic_evidence(object: &rd_rds::RObject) -> BTreeSet<String> {
 The caller still decides how missing metadata, invalid schemas, base-generic
 catalogs, shadowing, and library precedence should affect its provider.
 
+### Installed metadata paths
+
+Consumers that already have an installed package directory can use
+[`package::NamespaceMetadata::read_installed`] and
+[`package::PackageMeta::read_installed`] to read the canonical
+`Meta/nsInfo.rds` and `Meta/package.rds` artifacts. These helpers only join the
+canonical path, perform the bounded file read, and construct the typed view;
+they do not discover packages, resolve exports, or model runtime state.
+`read_installed_with_options` is available on both views when a consumer needs
+explicit [`file::ReadOptions`] bounds. [`package::InstalledMetadataError`]
+keeps file-layer failures distinct from typed-view validation failures and
+retains the selected artifact path in either case.
+
+`PackageMeta::built().r_version()` and
+`PackageMeta::description_field("Priority")` expose the validated `Built.R`
+and `DESCRIPTION` metadata used by consumers such as base-package catalogs.
+An absent DESCRIPTION field is not the same as a present `NA` field, while an
+absent `Built` element is represented by `PackageMeta::built() == None`.
+
 ## Closure prefix inspection
 
 The decoder also contains a crate-private bounded inspector for consumers that
@@ -153,6 +172,12 @@ no variables is a valid empty database. An unknown binding is reported as
 `UnknownStoredBinding`, and a duplicate name as `AmbiguousStoredBinding`;
 consumers should keep these database states distinct rather than treating them
 as an empty or last-wins lookup.
+The stored-code view is not a runtime namespace: a stored binding is evidence
+about the installed code database only. `DefaultPresence::Absent` means that
+the serialized closure has no default expression; it does not by itself prove
+that the argument is required (an R function may use `missing()`). Available
+formals likewise do not imply that the closure body was validated;
+`BodyValidation::NotValidated` remains explicit.
 
 ## Repository-index interoperability
 

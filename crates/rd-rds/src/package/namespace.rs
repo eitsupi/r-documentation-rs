@@ -9,8 +9,8 @@
 use std::fmt;
 
 use super::{
-    ValueKindName, ViewError, decode_optional, decode_required, expect_list, invalid_dimensions,
-    named_values, unexpected_length, unexpected_type,
+    InstalledMetadataError, ValueKindName, ViewError, decode_optional, decode_required,
+    expect_list, invalid_dimensions, named_values, unexpected_length, unexpected_type,
 };
 use crate::{RObject, RStr, RValue};
 
@@ -190,6 +190,24 @@ pub struct NamespaceMetadata {
 }
 
 impl NamespaceMetadata {
+    /// Reads and validates `Meta/nsInfo.rds` below an installed package
+    /// directory.
+    pub fn read_installed(
+        package_dir: impl AsRef<std::path::Path>,
+    ) -> Result<Self, InstalledMetadataError> {
+        Self::read_installed_with_options(package_dir, &crate::file::ReadOptions::default())
+    }
+
+    /// Reads and validates `Meta/nsInfo.rds` with explicit file and decode
+    /// bounds.
+    pub fn read_installed_with_options(
+        package_dir: impl AsRef<std::path::Path>,
+        options: &crate::file::ReadOptions,
+    ) -> Result<Self, InstalledMetadataError> {
+        let (path, object) = super::read_installed_object(package_dir, "nsInfo.rds", options)?;
+        Self::from_object(&object).map_err(|source| InstalledMetadataError::View { path, source })
+    }
+
     /// Parses an owned view of a named `Meta/nsInfo.rds` list.
     ///
     /// The root must be a named list. Unknown fields are ignored. Duplicate
