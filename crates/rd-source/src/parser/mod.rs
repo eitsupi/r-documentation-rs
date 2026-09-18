@@ -9,12 +9,13 @@ mod tag;
 use crate::{
     diagnostic::{Diagnostic, DiagnosticCode, ParseError, Parsed, Severity},
     lexer::{self, Token, TokenKind},
-    source_map::SourceMap,
+    source_map::{SourceExtents, SourceMap},
 };
 use frame::{Frame, FrameRequest, FrameState, Mode};
 use rd_ast::{RdDocument, RdNode};
 use rlike::RLikeState;
 use spec::Context;
+use std::ops::Range;
 
 pub(crate) struct Parser<'a> {
     input: &'a [u8],
@@ -42,7 +43,21 @@ impl<'a> Parser<'a> {
             relex_work: 0,
         }
     }
-    pub(crate) fn parse(mut self) -> Result<Parsed, ParseError> {
+    pub(crate) fn parse(self) -> Result<Parsed, ParseError> {
+        self.parse_internal(false).map(|(parsed, _)| parsed)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn parse_with_extents(self) -> Result<(Parsed, SourceExtents), ParseError> {
+        let (parsed, extents) = self.parse_internal(true)?;
+        let extents = extents.expect("extent tracking enabled");
+        Ok((parsed, extents))
+    }
+
+    fn parse_internal(
+        mut self,
+        track_extents: bool,
+    ) -> Result<(Parsed, Option<SourceExtents>), ParseError> {
         let nodes = self
             .parse_frame(FrameRequest {
                 frame: Frame::new(Mode::Latex, false),
@@ -51,19 +66,30 @@ impl<'a> Parser<'a> {
                 context: Context::Document,
                 stop_at_endif: false,
                 initial_rlike_state: None,
+                track_extents,
             })
             .nodes;
         if let Some(error) = self.fatal_error {
             return Err(error);
         }
-        Ok(Parsed::new(RdDocument::new(nodes), self.diagnostics))
+        let top_level = nodes.extents;
+        let nodes = nodes.nodes;
+        Ok((
+            Parsed::new(RdDocument::new(nodes), self.diagnostics),
+            top_level.map(|top_level| SourceExtents {
+                root: 0..self.input.len(),
+                top_level,
+            }),
+        ))
     }
     fn parse_frame(&mut self, request: FrameRequest) -> frame::FrameResult {
         if self.fatal_error.is_some() {
             return frame::FrameResult {
-                nodes: Vec::new(),
+                nodes: frame::NodeBatch::new(request.track_extents),
                 closed: false,
                 terminated_by_endif: false,
+                content_end: self.index_start(),
+                consumed_end: self.index_start(),
                 rlike_state: None,
                 rlike_brace_depth: None,
             };
@@ -76,9 +102,11 @@ impl<'a> Parser<'a> {
                 .unwrap_or_else(|| self.map.span(0..0));
             self.fatal_error = Some(ParseError::NestingLimitExceeded { span });
             return frame::FrameResult {
-                nodes: Vec::new(),
+                nodes: frame::NodeBatch::new(request.track_extents),
                 closed: false,
                 terminated_by_endif: false,
+                content_end: self.index_start(),
+                consumed_end: self.index_start(),
                 rlike_state: None,
                 rlike_brace_depth: None,
             };
@@ -89,7 +117,12 @@ impl<'a> Parser<'a> {
         let frame = request.frame;
         let argument = request.argument;
         let bracket = request.bracket;
-        self.flush(&mut state.out, &mut state.buf, frame.leaf);
+        self.flush(
+            &mut state.out,
+            &mut state.buf,
+            &mut state.buf_range,
+            frame.leaf,
+        );
         self.depth -= 1;
         if argument
             && !bracket
@@ -107,6 +140,8 @@ impl<'a> Parser<'a> {
             nodes: state.out,
             closed: state.closed,
             terminated_by_endif: state.terminated_by_endif,
+            content_end: state.content_end.unwrap_or_else(|| self.index_start()),
+            consumed_end: state.consumed_end.unwrap_or_else(|| self.index_start()),
             rlike_state: (frame.mode == Mode::RLike).then_some(state.rlike_state),
             rlike_brace_depth: (frame.mode == Mode::RLike).then_some(state.brace_depth),
         }
@@ -120,17 +155,41 @@ impl<'a> Parser<'a> {
             self.map.span(range),
         ));
     }
-    fn append_content(&self, buf: &mut String, value: &str, mode: Mode, state: &mut RLikeState) {
+    fn append_content(
+        &self,
+        buf: &mut String,
+        buf_range: &mut Option<Range<usize>>,
+        value: &str,
+        range: Range<usize>,
+        mode: Mode,
+        state: &mut RLikeState,
+    ) {
         state.append_to(buf, value, mode);
+        if !value.is_empty() {
+            *buf_range = Some(match buf_range.take() {
+                Some(current) => current.start.min(range.start)..current.end.max(range.end),
+                None => range,
+            });
+        }
     }
-    fn flush(&self, out: &mut Vec<RdNode>, buf: &mut String, leaf: frame::Leaf) {
+    fn flush(
+        &self,
+        out: &mut frame::NodeBatch,
+        buf: &mut String,
+        buf_range: &mut Option<Range<usize>>,
+        leaf: frame::Leaf,
+    ) {
         if !buf.is_empty() {
             let value = std::mem::take(buf);
-            out.push(match leaf {
+            let range = buf_range.take().unwrap_or(0..0);
+            let node = match leaf {
                 frame::Leaf::Text => RdNode::Text(value),
                 frame::Leaf::RCode => RdNode::RCode(value),
                 frame::Leaf::Verb => RdNode::Verb(value),
-            });
+            };
+            out.push(frame::LocatedNode::leaf(node, range, out.extents.is_some()));
+        } else {
+            *buf_range = None;
         }
     }
     fn text(&self, token: &Token) -> &str {
@@ -142,6 +201,12 @@ impl<'a> Parser<'a> {
         } else {
             self.text(token)
         }
+    }
+
+    pub(super) fn index_start(&self) -> usize {
+        self.tokens
+            .get(self.index)
+            .map_or(self.input.len(), |token| token.range.start)
     }
 }
 

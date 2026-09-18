@@ -1,4 +1,117 @@
 use crate::{SourcePosition, SourceSpan};
+use rd_ast::{RdAstPath, RdAstPathSegment};
+use std::ops::Range;
+
+/// Parser-local source coverage for one canonical AST node.
+///
+/// This deliberately mirrors the canonical tree rather than storing paths at
+/// construction time.  Parser recovery and argument flattening can therefore
+/// move a node without leaving stale producer-local entries behind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SourceExtentNode {
+    pub(crate) bytes: Range<usize>,
+    pub(crate) option: Option<SourceExtentSequence>,
+    pub(crate) children: Vec<SourceExtentNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SourceExtentSequence {
+    pub(crate) bytes: Range<usize>,
+    pub(crate) nodes: Vec<SourceExtentNode>,
+}
+
+impl SourceExtentNode {
+    pub(crate) fn leaf(bytes: Range<usize>) -> Self {
+        Self {
+            bytes,
+            option: None,
+            children: Vec::new(),
+        }
+    }
+
+    pub(crate) fn with_children(
+        bytes: Range<usize>,
+        option: Option<SourceExtentSequence>,
+        children: Option<Vec<SourceExtentNode>>,
+    ) -> Self {
+        Self {
+            bytes,
+            option,
+            children: children.unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SourceExtents {
+    pub(crate) root: Range<usize>,
+    pub(crate) top_level: Vec<SourceExtentNode>,
+}
+
+impl SourceExtents {
+    #[allow(dead_code)]
+    pub(crate) fn entry_count(&self) -> usize {
+        1 + self
+            .top_level
+            .iter()
+            .map(SourceExtentNode::entry_count)
+            .sum::<usize>()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn at(&self, path: &RdAstPath) -> Option<&Range<usize>> {
+        if path.segments().is_empty() {
+            return Some(&self.root);
+        }
+        let [RdAstPathSegment::TopLevel(index), rest @ ..] = path.segments() else {
+            return None;
+        };
+        let mut node = self.top_level.get(*index)?;
+        let mut option_nodes: Option<&[SourceExtentNode]> = None;
+        for (position, segment) in rest.iter().enumerate() {
+            match segment {
+                RdAstPathSegment::Child(index) => {
+                    node = match option_nodes.take() {
+                        Some(nodes) => nodes.get(*index),
+                        None => node.children.get(*index),
+                    }?;
+                }
+                RdAstPathSegment::Option => {
+                    if option_nodes.is_some() {
+                        return None;
+                    }
+                    let option = node.option.as_ref()?;
+                    if position + 1 == rest.len() {
+                        return Some(&option.bytes);
+                    }
+                    option_nodes = Some(&option.nodes);
+                }
+                RdAstPathSegment::TopLevel(_) => return None,
+                _ => return None,
+            }
+        }
+        if option_nodes.is_some() {
+            return None;
+        }
+        Some(&node.bytes)
+    }
+}
+
+impl SourceExtentNode {
+    fn entry_count(&self) -> usize {
+        1 + self.option.as_ref().map_or(0, |option| {
+            1 + option
+                .nodes
+                .iter()
+                .map(SourceExtentNode::entry_count)
+                .sum::<usize>()
+        }) + self
+            .children
+            .iter()
+            .map(SourceExtentNode::entry_count)
+            .sum::<usize>()
+    }
+}
 
 pub(crate) struct SourceMap {
     newlines: Vec<usize>,

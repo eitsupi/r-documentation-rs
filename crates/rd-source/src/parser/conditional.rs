@@ -3,7 +3,7 @@ use rd_ast::{RdNode, RdTag};
 
 use super::{
     Parser,
-    frame::{Frame, FrameRequest, Mode},
+    frame::{Frame, FrameRequest, LocatedNode, Mode},
     rlike::RLikeState,
     spec::Context,
 };
@@ -16,10 +16,11 @@ impl<'a> Parser<'a> {
         context: Context,
         enclosing_rlike_state: &mut RLikeState,
         enclosing_rlike_brace_depth: &mut usize,
-    ) -> RdNode {
+        track_extents: bool,
+    ) -> LocatedNode {
         let directive = self.tokens[self.index].range.clone();
         self.index += 1;
-        let target = self.consume_directive_tail(directive.end);
+        let (target, target_range) = self.consume_directive_tail(directive.end);
         let body = self.parse_frame(FrameRequest {
             frame: Frame::new(frame.mode, true)
                 .with_item_policy(frame.item_policy)
@@ -30,6 +31,7 @@ impl<'a> Parser<'a> {
             stop_at_endif: true,
             initial_rlike_state: (frame.mode == Mode::RLike)
                 .then(|| (enclosing_rlike_state.clone(), *enclosing_rlike_brace_depth)),
+            track_extents,
         });
         if let Some(state) = body.rlike_state {
             *enclosing_rlike_state = state;
@@ -41,23 +43,47 @@ impl<'a> Parser<'a> {
             self.warn(
                 DiagnosticCode::MissingEndIf,
                 "unexpected '}' while parsing conditional",
-                frame.opener.clone().unwrap_or(directive),
+                frame.opener.clone().unwrap_or(directive.clone()),
             );
         }
-        RdNode::tagged(
+        let target_group = LocatedNode::group(
+            {
+                let mut nodes = super::frame::NodeBatch::new(track_extents);
+                nodes.push(LocatedNode::leaf(
+                    RdNode::Text(target),
+                    target_range.clone(),
+                    track_extents,
+                ));
+                nodes
+            },
+            target_range.clone(),
+            track_extents,
+        );
+        let body_group = LocatedNode::group(
+            body.nodes,
+            target_range.end..body.content_end,
+            track_extents,
+        );
+        LocatedNode::tagged(
             tag,
             None,
-            vec![
-                RdNode::group(vec![RdNode::Text(target)]),
-                RdNode::group(body.nodes),
-            ],
+            {
+                let mut nodes = super::frame::NodeBatch::new(track_extents);
+                nodes.push(target_group);
+                nodes.push(body_group);
+                nodes
+            },
+            directive.start..body.consumed_end,
+            track_extents,
         )
     }
 
-    fn consume_directive_tail(&mut self, start: usize) -> String {
+    fn consume_directive_tail(&mut self, start: usize) -> (String, std::ops::Range<usize>) {
         let mut value = String::new();
+        let mut end = start;
         while let Some(token) = self.tokens.get(self.index) {
             value.push_str(self.canonical(token));
+            end = token.range.end;
             let newline = token.kind == crate::lexer::TokenKind::Newline;
             self.index += 1;
             if newline {
@@ -67,19 +93,28 @@ impl<'a> Parser<'a> {
         if value.is_empty() && start < self.input.len() {
             // This branch is only reachable for a malformed final line; retain
             // the same source-based behavior as ordinary token consumption.
-            String::from_utf8_lossy(&self.input[start..]).into_owned()
+            (
+                String::from_utf8_lossy(&self.input[start..]).into_owned(),
+                start..self.input.len(),
+            )
         } else {
-            value
+            (value, start..end)
         }
     }
 
-    pub(super) fn discard_directive_line(&mut self) {
+    pub(super) fn discard_directive_line(&mut self) -> usize {
+        let mut end = self
+            .tokens
+            .get(self.index.saturating_sub(1))
+            .map_or(0, |token| token.range.end);
         while let Some(token) = self.tokens.get(self.index) {
             let newline = token.kind == crate::lexer::TokenKind::Newline;
+            end = token.range.end;
             self.index += 1;
             if newline {
                 break;
             }
         }
+        end
     }
 }

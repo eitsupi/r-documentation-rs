@@ -1,6 +1,6 @@
 use super::{
     Parser,
-    frame::{Frame, FrameRequest, FrameState, ItemPolicy, Mode},
+    frame::{Frame, FrameRequest, FrameState, ItemPolicy, LocatedNode, Mode},
     spec::{self, Context, tag_spec},
 };
 use crate::{
@@ -25,7 +25,12 @@ impl<'a> Parser<'a> {
                         && !request.bracket
                         && !state.rlike_state.is_raw_string() =>
                 {
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
                     let tag = if token.kind == TokenKind::IfDef {
                         RdTag::IfDef
                     } else {
@@ -37,6 +42,7 @@ impl<'a> Parser<'a> {
                         request.context,
                         &mut state.rlike_state,
                         &mut state.brace_depth,
+                        request.track_extents,
                     );
                     state.out.push(conditional);
                 }
@@ -48,7 +54,9 @@ impl<'a> Parser<'a> {
                     let value = self.canonical(token).to_string();
                     self.append_content(
                         &mut state.buf,
+                        &mut state.buf_range,
                         &value,
+                        token.range.clone(),
                         request.frame.mode,
                         &mut state.rlike_state,
                     );
@@ -59,13 +67,26 @@ impl<'a> Parser<'a> {
                         && !state.rlike_state.is_raw_string() =>
                 {
                     if request.stop_at_endif {
-                        self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
-                        self.discard_directive_line();
+                        self.flush(
+                            &mut state.out,
+                            &mut state.buf,
+                            &mut state.buf_range,
+                            request.frame.leaf,
+                        );
+                        let terminator_start = token.range.start;
+                        let consumed_end = self.discard_directive_line();
                         state.closed = true;
                         state.terminated_by_endif = true;
+                        state.content_end = Some(terminator_start);
+                        state.consumed_end = Some(consumed_end);
                         break;
                     }
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
                     self.warn(
                         DiagnosticCode::UnexpectedEndIf,
                         "unexpected ENDIF '#endif'",
@@ -79,28 +100,49 @@ impl<'a> Parser<'a> {
                     self.warn(
                         DiagnosticCode::UnexpectedConditional,
                         "unexpected conditional, expecting ']'",
-                        range,
+                        range.clone(),
                     );
                     self.append_content(
                         &mut state.buf,
+                        &mut state.buf_range,
                         &value,
+                        range.clone(),
                         request.frame.mode,
                         &mut state.rlike_state,
                     );
                     self.index += 1;
                 }
                 TokenKind::RBracket if request.argument && request.bracket => {
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
+                    state.content_end = Some(token.range.start);
                     self.index += 1;
+                    state.consumed_end = Some(token.range.end);
                     state.closed = true;
                     break;
                 }
                 TokenKind::RBrace if request.argument && request.bracket => {
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
+                    state.content_end = Some(token.range.start);
+                    state.consumed_end = Some(token.range.start);
                     break;
                 }
                 TokenKind::RBrace if !request.argument => {
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
                     self.diagnostics.push(Diagnostic::new(
                         Severity::Error,
                         DiagnosticCode::UnexpectedClosingDelimiter,
@@ -119,19 +161,32 @@ impl<'a> Parser<'a> {
                             || state.rlike_state.is_transient_opener()
                             || state.rlike_state.is_comment()) =>
                 {
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    let range = token.range.clone();
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
                     self.warn(
                         DiagnosticCode::UnexpectedClosingDelimiter,
                         "unexpected closing delimiter",
-                        token.range.clone(),
+                        range.clone(),
                     );
                     self.index += 1;
                 }
                 TokenKind::RBrace if request.argument && !request.bracket => {
                     match request.frame.mode {
                         Mode::Latex if state.brace_depth == 0 => {
-                            self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                            self.flush(
+                                &mut state.out,
+                                &mut state.buf,
+                                &mut state.buf_range,
+                                request.frame.leaf,
+                            );
+                            state.content_end = Some(token.range.start);
                             self.index += 1;
+                            state.consumed_end = Some(token.range.end);
                             state.closed = true;
                             break;
                         }
@@ -142,14 +197,28 @@ impl<'a> Parser<'a> {
                                 && state.brace_depth == 0 =>
                         {
                             state.rlike_state.clear_transient_opener();
-                            self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                            self.flush(
+                                &mut state.out,
+                                &mut state.buf,
+                                &mut state.buf_range,
+                                request.frame.leaf,
+                            );
+                            state.content_end = Some(token.range.start);
                             self.index += 1;
+                            state.consumed_end = Some(token.range.end);
                             state.closed = true;
                             break;
                         }
                         Mode::Verbatim | Mode::Equation if state.brace_depth == 0 => {
-                            self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                            self.flush(
+                                &mut state.out,
+                                &mut state.buf,
+                                &mut state.buf_range,
+                                request.frame.leaf,
+                            );
+                            state.content_end = Some(token.range.start);
                             self.index += 1;
+                            state.consumed_end = Some(token.range.end);
                             state.closed = true;
                             break;
                         }
@@ -161,7 +230,9 @@ impl<'a> Parser<'a> {
                             {
                                 self.append_content(
                                     &mut state.buf,
+                                    &mut state.buf_range,
                                     "}",
+                                    token.range.clone(),
                                     request.frame.mode,
                                     &mut state.rlike_state,
                                 );
@@ -171,7 +242,9 @@ impl<'a> Parser<'a> {
                             state.brace_depth -= 1;
                             self.append_content(
                                 &mut state.buf,
+                                &mut state.buf_range,
                                 "}",
+                                token.range.clone(),
                                 request.frame.mode,
                                 &mut state.rlike_state,
                             );
@@ -183,13 +256,20 @@ impl<'a> Parser<'a> {
                     let raw_body = state.rlike_state.is_raw_string();
                     self.append_content(
                         &mut state.buf,
+                        &mut state.buf_range,
                         "\n",
+                        token.range.clone(),
                         request.frame.mode,
                         &mut state.rlike_state,
                     );
                     self.index += 1;
                     if !raw_body {
-                        self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                        self.flush(
+                            &mut state.out,
+                            &mut state.buf,
+                            &mut state.buf_range,
+                            request.frame.leaf,
+                        );
                     }
                 }
                 TokenKind::Escape(kind) => {
@@ -211,7 +291,9 @@ impl<'a> Parser<'a> {
                     };
                     self.append_content(
                         &mut state.buf,
+                        &mut state.buf_range,
                         &value,
+                        token.range.clone(),
                         request.frame.mode,
                         &mut state.rlike_state,
                     );
@@ -229,7 +311,9 @@ impl<'a> Parser<'a> {
                         let spelling = self.text(token).to_string();
                         self.append_content(
                             &mut state.buf,
+                            &mut state.buf_range,
                             &spelling,
+                            token.range.clone(),
                             request.frame.mode,
                             &mut state.rlike_state,
                         );
@@ -241,7 +325,9 @@ impl<'a> Parser<'a> {
                     if quoted && !spec::recognized_in_ordinary_quote(&name) {
                         self.append_content(
                             &mut state.buf,
+                            &mut state.buf_range,
                             &name,
+                            token.range.clone(),
                             request.frame.mode,
                             &mut state.rlike_state,
                         );
@@ -256,10 +342,22 @@ impl<'a> Parser<'a> {
                         // swallowed into it. Options nested in inline content
                         // close at their enclosing close instead.
                         if request.bracket && request.frame.section_sync && spec.section {
-                            self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                            self.flush(
+                                &mut state.out,
+                                &mut state.buf,
+                                &mut state.buf_range,
+                                request.frame.leaf,
+                            );
+                            state.content_end = Some(token.range.start);
+                            state.consumed_end = Some(token.range.start);
                             break;
                         }
-                        self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                        self.flush(
+                            &mut state.out,
+                            &mut state.buf,
+                            &mut state.buf_range,
+                            request.frame.leaf,
+                        );
                         if name == r"\item" && request.frame.item_policy == ItemPolicy::Unknown {
                             self.diagnostics.push(Diagnostic::new(
                                 Severity::Error,
@@ -268,7 +366,11 @@ impl<'a> Parser<'a> {
                                 self.map.span(token.range.clone()),
                             ));
                             self.index += 1;
-                            state.out.push(RdNode::Text(name));
+                            state.out.push(LocatedNode::leaf(
+                                RdNode::Text(name),
+                                token.range.clone(),
+                                state.track_extents,
+                            ));
                         } else {
                             state.out.push(self.parse_tag(
                                 name,
@@ -276,11 +378,17 @@ impl<'a> Parser<'a> {
                                 request.context,
                                 quoted,
                                 request.frame.item_policy,
+                                request.track_extents,
                             ));
                         }
                         state.surplus_group_at = Some(self.index);
                     } else {
-                        self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                        self.flush(
+                            &mut state.out,
+                            &mut state.buf,
+                            &mut state.buf_range,
+                            request.frame.leaf,
+                        );
                         self.diagnostics.push(Diagnostic::new(
                             Severity::Error,
                             DiagnosticCode::UnknownTag,
@@ -295,6 +403,7 @@ impl<'a> Parser<'a> {
                             request.context,
                             false,
                             request.frame.item_policy,
+                            request.track_extents,
                         ));
                         state.surplus_group_at = Some(self.index);
                     }
@@ -311,7 +420,9 @@ impl<'a> Parser<'a> {
                     let range = token.range.clone();
                     self.append_content(
                         &mut state.buf,
+                        &mut state.buf_range,
                         "%",
+                        range.start..range.start + 1,
                         request.frame.mode,
                         &mut state.rlike_state,
                     );
@@ -328,10 +439,17 @@ impl<'a> Parser<'a> {
                             || state.rlike_state.is_comment()) =>
                 {
                     state.rlike_state.clear_raw_prefix();
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
-                    state
-                        .out
-                        .push(RdNode::Comment(self.text(token).to_string()));
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
+                    state.out.push(LocatedNode::leaf(
+                        RdNode::Comment(self.text(token).to_string()),
+                        token.range.clone(),
+                        state.track_extents,
+                    ));
                     self.index += 1;
                 }
                 TokenKind::Comment => {
@@ -344,7 +462,9 @@ impl<'a> Parser<'a> {
                         let range = token.range.clone();
                         self.append_content(
                             &mut state.buf,
+                            &mut state.buf_range,
                             "%",
+                            range.start..range.start + 1,
                             request.frame.mode,
                             &mut state.rlike_state,
                         );
@@ -353,32 +473,57 @@ impl<'a> Parser<'a> {
                         }
                         continue;
                     }
-                    state.buf.push_str(self.text(token));
+                    let value = self.text(token).to_owned();
+                    self.append_content(
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        &value,
+                        token.range.clone(),
+                        request.frame.mode,
+                        &mut state.rlike_state,
+                    );
                     self.index += 1;
                 }
                 TokenKind::LBrace
                     if request.bracket && matches!(request.frame.mode, Mode::Latex) =>
                 {
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
+                    state.content_end = Some(token.range.start);
+                    state.consumed_end = Some(token.range.start);
                     break;
                 }
                 TokenKind::LBrace
                     if matches!(request.frame.mode, Mode::Latex) && request.argument =>
                 {
+                    let opener = token.range.clone();
                     self.index += 1;
                     let result = self.parse_frame(FrameRequest {
-                        frame: Frame::new(Mode::Latex, true)
-                            .with_opener(self.tokens[self.index - 1].range.clone()),
+                        frame: Frame::new(Mode::Latex, true).with_opener(opener.clone()),
                         argument: true,
                         bracket: false,
                         context: Context::Latex,
                         stop_at_endif: false,
                         initial_rlike_state: None,
+                        track_extents: request.track_extents,
                     });
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
-                    state
-                        .out
-                        .push(RdNode::tagged(RdTag::List, None, result.nodes));
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
+                    state.out.push(LocatedNode::tagged(
+                        RdTag::List,
+                        None,
+                        result.nodes,
+                        opener.start..result.consumed_end,
+                        state.track_extents,
+                    ));
                 }
                 TokenKind::LBrace if matches!(request.frame.mode, Mode::Latex) => {
                     // A bare group directly after a macro that stopped at its
@@ -386,20 +531,30 @@ impl<'a> Parser<'a> {
                     // 10); any other top-level bare group is forbidden and is
                     // stripped with a diagnostic (rule 5).
                     if state.surplus_group_at == Some(self.index) {
+                        let opener = token.range.clone();
                         self.index += 1;
                         let result = self.parse_frame(FrameRequest {
-                            frame: Frame::new(Mode::Latex, true)
-                                .with_opener(self.tokens[self.index - 1].range.clone()),
+                            frame: Frame::new(Mode::Latex, true).with_opener(opener.clone()),
                             argument: true,
                             bracket: false,
                             context: Context::Latex,
                             stop_at_endif: false,
                             initial_rlike_state: None,
+                            track_extents: request.track_extents,
                         });
-                        self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
-                        state
-                            .out
-                            .push(RdNode::tagged(RdTag::List, None, result.nodes));
+                        self.flush(
+                            &mut state.out,
+                            &mut state.buf,
+                            &mut state.buf_range,
+                            request.frame.leaf,
+                        );
+                        state.out.push(LocatedNode::tagged(
+                            RdTag::List,
+                            None,
+                            result.nodes,
+                            opener.start..result.consumed_end,
+                            state.track_extents,
+                        ));
                         state.surplus_group_at = Some(self.index);
                         continue;
                     }
@@ -412,8 +567,14 @@ impl<'a> Parser<'a> {
                         context: request.context,
                         stop_at_endif: false,
                         initial_rlike_state: None,
+                        track_extents: request.track_extents,
                     });
-                    self.flush(&mut state.out, &mut state.buf, request.frame.leaf);
+                    self.flush(
+                        &mut state.out,
+                        &mut state.buf,
+                        &mut state.buf_range,
+                        request.frame.leaf,
+                    );
                     self.diagnostics.push(Diagnostic::new(
                         Severity::Error,
                         DiagnosticCode::UnexpectedOpeningDelimiter,
@@ -427,7 +588,9 @@ impl<'a> Parser<'a> {
                         state.brace_depth += 1;
                         self.append_content(
                             &mut state.buf,
+                            &mut state.buf_range,
                             "{",
+                            token.range.clone(),
                             request.frame.mode,
                             &mut state.rlike_state,
                         );
@@ -441,7 +604,9 @@ impl<'a> Parser<'a> {
                     {
                         self.append_content(
                             &mut state.buf,
+                            &mut state.buf_range,
                             "{",
+                            token.range.clone(),
                             request.frame.mode,
                             &mut state.rlike_state,
                         );
@@ -452,7 +617,9 @@ impl<'a> Parser<'a> {
                     state.brace_depth += 1;
                     self.append_content(
                         &mut state.buf,
+                        &mut state.buf_range,
                         "{",
+                        token.range.clone(),
                         request.frame.mode,
                         &mut state.rlike_state,
                     );
@@ -470,7 +637,9 @@ impl<'a> Parser<'a> {
                     let value = self.canonical(token).to_string();
                     self.append_content(
                         &mut state.buf,
+                        &mut state.buf_range,
                         &value,
+                        token.range.clone(),
                         request.frame.mode,
                         &mut state.rlike_state,
                     );
