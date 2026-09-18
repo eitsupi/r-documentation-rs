@@ -2,6 +2,8 @@ use std::{fmt, ops::Range};
 
 use rd_ast::RdDocument;
 
+use crate::source_map::RdSourceMap;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourcePosition {
     line: u32,
@@ -44,16 +46,25 @@ impl SourceSpan {
     }
 }
 
+/// A parsed Rd document, its diagnostics, and the source map for that exact
+/// parser snapshot. Equality includes the map, so source spelling changes can
+/// make otherwise equivalent documents compare unequal.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parsed {
     document: RdDocument,
     diagnostics: Vec<Diagnostic>,
+    source_map: RdSourceMap,
 }
 impl Parsed {
-    pub(crate) fn new(document: RdDocument, diagnostics: Vec<Diagnostic>) -> Self {
+    pub(crate) fn new(
+        document: RdDocument,
+        diagnostics: Vec<Diagnostic>,
+        source_map: RdSourceMap,
+    ) -> Self {
         Self {
             document,
             diagnostics,
+            source_map,
         }
     }
     pub fn document(&self) -> &RdDocument {
@@ -62,8 +73,18 @@ impl Parsed {
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }
-    pub fn into_parts(self) -> (RdDocument, Vec<Diagnostic>) {
-        (self.document, self.diagnostics)
+    /// Returns the exact source map for this parsed document snapshot.
+    ///
+    /// The map is tied to this parse result's original input and uses exact
+    /// canonical-path lookup. It is not a map for independently constructed
+    /// or RDS-lowered ASTs.
+    pub fn source_map(&self) -> &RdSourceMap {
+        &self.source_map
+    }
+    /// Decomposes this parse result, retaining its source map as the third
+    /// component.
+    pub fn into_parts(self) -> (RdDocument, Vec<Diagnostic>, RdSourceMap) {
+        (self.document, self.diagnostics, self.source_map)
     }
 }
 

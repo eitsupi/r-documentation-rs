@@ -18,7 +18,6 @@ impl<'a> Parser<'a> {
         context: Context,
         quoted: bool,
         item_policy: ItemPolicy,
-        track_extents: bool,
     ) -> LocatedNode {
         let unknown = spec.is_none();
         let spec = spec.unwrap_or(spec::TagSpec {
@@ -62,7 +61,6 @@ impl<'a> Parser<'a> {
                     context: Context::Latex,
                     stop_at_endif: false,
                     initial_rlike_state: None,
-                    track_extents,
                 });
                 if !result.closed {
                     self.diagnostics.push(Diagnostic::new(
@@ -82,13 +80,7 @@ impl<'a> Parser<'a> {
                 self.tokens[self.index.saturating_sub(1)].range.end,
                 |(_, range)| range.end,
             );
-            return LocatedNode::tagged(
-                tag,
-                option,
-                NodeBatch::new(track_extents),
-                tag_start..end,
-                track_extents,
-            );
+            return LocatedNode::tagged(tag, option, NodeBatch::new(), tag_start..end);
         }
         if self
             .tokens
@@ -106,15 +98,9 @@ impl<'a> Parser<'a> {
                 self.tokens[self.index.saturating_sub(1)].range.end,
                 |(_, range)| range.end,
             );
-            return LocatedNode::tagged(
-                tag,
-                option,
-                NodeBatch::new(track_extents),
-                tag_start..end,
-                track_extents,
-            );
+            return LocatedNode::tagged(tag, option, NodeBatch::new(), tag_start..end);
         }
-        let mut children = NodeBatch::new(track_extents);
+        let mut children = NodeBatch::new();
         for argument in arguments {
             if self
                 .tokens
@@ -135,9 +121,8 @@ impl<'a> Parser<'a> {
                     return LocatedNode::tagged(
                         tag,
                         None,
-                        NodeBatch::new(track_extents),
+                        NodeBatch::new(),
                         tag_start..self.tokens[self.index.saturating_sub(1)].range.end,
-                        track_extents,
                     );
                 }
                 continue;
@@ -166,7 +151,6 @@ impl<'a> Parser<'a> {
                 },
                 stop_at_endif: false,
                 initial_rlike_state: None,
-                track_extents,
             });
             if name == r"\encoding" && self.fatal_error.is_none() {
                 let start = self.tokens[open].range.end;
@@ -209,17 +193,13 @@ impl<'a> Parser<'a> {
                 children.extend(argument_children.nodes);
             } else {
                 let extent = self.tokens[open].range.start..argument_children.consumed_end;
-                children.push(LocatedNode::group(
-                    argument_children.nodes,
-                    extent,
-                    track_extents,
-                ));
+                children.push(LocatedNode::group(argument_children.nodes, extent));
             }
         }
         let end = self.tokens.get(self.index.saturating_sub(1)).map_or_else(
             || option.as_ref().map_or(tag_start, |(_, range)| range.end),
             |t| t.range.end,
         );
-        LocatedNode::tagged(tag, option, children, tag_start..end, track_extents)
+        LocatedNode::tagged(tag, option, children, tag_start..end)
     }
 }

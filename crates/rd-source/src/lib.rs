@@ -14,6 +14,7 @@ pub const MAX_INPUT_SIZE: usize = 64 * 1024 * 1024;
 pub use diagnostic::{
     Diagnostic, DiagnosticCode, ParseError, Parsed, Severity, SourcePosition, SourceSpan,
 };
+pub use source_map::RdSourceMap;
 
 /// Parse a UTF-8 Rd source document.
 pub fn parse(input: &[u8]) -> Result<Parsed, ParseError> {

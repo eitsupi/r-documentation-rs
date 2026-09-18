@@ -46,41 +46,41 @@ pub(super) struct FrameResult {
 }
 pub(super) struct LocatedNode {
     pub(super) node: rd_ast::RdNode,
-    pub(super) source: Option<SourceExtentNode>,
+    pub(super) source: SourceExtentNode,
 }
 
 pub(super) struct NodeBatch {
     pub(super) nodes: Vec<rd_ast::RdNode>,
-    pub(super) extents: Option<Vec<SourceExtentNode>>,
+    pub(super) extents: Vec<SourceExtentNode>,
 }
 
 impl NodeBatch {
-    pub(super) fn new(track_extents: bool) -> Self {
+    pub(super) fn new() -> Self {
         Self {
             nodes: Vec::new(),
-            extents: track_extents.then(Vec::new),
+            extents: Vec::new(),
         }
     }
 
     pub(super) fn push(&mut self, node: LocatedNode) {
         self.nodes.push(node.node);
-        if let Some(extents) = &mut self.extents {
-            extents.push(node.source.expect("extent tracking alignment"));
-        }
+        debug_assert_eq!(self.nodes.len(), self.extents.len() + 1);
+        self.extents.push(node.source);
     }
 
     pub(super) fn extend(&mut self, other: Self) {
+        debug_assert_eq!(self.nodes.len(), self.extents.len());
+        debug_assert_eq!(other.nodes.len(), other.extents.len());
         self.nodes.extend(other.nodes);
-        if let (Some(extents), Some(other_extents)) = (&mut self.extents, other.extents) {
-            extents.extend(other_extents);
-        }
+        self.extents.extend(other.extents);
+        assert_eq!(self.nodes.len(), self.extents.len());
     }
 }
 
 impl LocatedNode {
-    pub(super) fn leaf(node: rd_ast::RdNode, extent: Range<usize>, track_extents: bool) -> Self {
+    pub(super) fn leaf(node: rd_ast::RdNode, extent: Range<usize>) -> Self {
         Self {
-            source: track_extents.then(|| SourceExtentNode::leaf(extent)),
+            source: SourceExtentNode::leaf(extent),
             node,
         }
     }
@@ -90,32 +90,31 @@ impl LocatedNode {
         option: Option<(NodeBatch, Range<usize>)>,
         children: NodeBatch,
         extent: Range<usize>,
-        track_extents: bool,
     ) -> Self {
         let (option_nodes, option_source) = option.map_or((None, None), |(nodes, bytes)| {
-            (
-                Some(nodes.nodes),
-                nodes
-                    .extents
-                    .map(|nodes| SourceExtentSequence { bytes, nodes }),
-            )
+            debug_assert_eq!(nodes.nodes.len(), nodes.extents.len());
+            let option_source = Some(SourceExtentSequence {
+                bytes,
+                nodes: nodes.extents,
+            });
+            (Some(nodes.nodes), option_source)
         });
         let child_nodes = children.nodes;
+        debug_assert_eq!(child_nodes.len(), children.extents.len());
         let child_sources = children.extents;
         Self {
             node: rd_ast::RdNode::tagged(tag, option_nodes, child_nodes),
-            source: track_extents
-                .then(|| SourceExtentNode::with_children(extent, option_source, child_sources)),
+            source: SourceExtentNode::with_children(extent, option_source, child_sources),
         }
     }
 
-    pub(super) fn group(children: NodeBatch, extent: Range<usize>, track_extents: bool) -> Self {
+    pub(super) fn group(children: NodeBatch, extent: Range<usize>) -> Self {
         let child_nodes = children.nodes;
+        debug_assert_eq!(child_nodes.len(), children.extents.len());
         let child_sources = children.extents;
         Self {
             node: rd_ast::RdNode::group(child_nodes),
-            source: track_extents
-                .then(|| SourceExtentNode::with_children(extent, None, child_sources)),
+            source: SourceExtentNode::with_children(extent, None, child_sources),
         }
     }
 }
@@ -127,11 +126,9 @@ pub(super) struct FrameRequest {
     pub(super) context: Context,
     pub(super) stop_at_endif: bool,
     pub(super) initial_rlike_state: Option<(super::RLikeState, usize)>,
-    pub(super) track_extents: bool,
 }
 pub(super) struct FrameState {
     pub(super) out: NodeBatch,
-    pub(super) track_extents: bool,
     pub(super) buf: String,
     pub(super) buf_range: Option<Range<usize>>,
     pub(super) brace_depth: usize,
@@ -155,8 +152,7 @@ impl FrameState {
             .map(|(state, _)| state.clone())
             .unwrap_or_default();
         Self {
-            out: NodeBatch::new(request.track_extents),
-            track_extents: request.track_extents,
+            out: NodeBatch::new(),
             buf: String::new(),
             buf_range: None,
             brace_depth,

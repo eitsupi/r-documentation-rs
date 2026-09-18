@@ -7,6 +7,13 @@
 - [rd-rds] Add thin installed-package metadata readers for the canonical
   `Meta/nsInfo.rds` and `Meta/package.rds` artifacts, with explicit separation
   between bounded file-read and typed-view validation errors.
+- [rd-source] Add exact canonical-path source maps to parsed documents, with
+  original-byte spans for nodes and present options.
+
+### Changed
+
+- [rd-source] `Parsed::into_parts()` now returns the source map as a third
+  value, and `Parsed` equality includes source-map provenance.
 
 ## [0.5.0-alpha.1] - 2026-09-13
 

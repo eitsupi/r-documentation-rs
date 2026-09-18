@@ -16,7 +16,6 @@ impl<'a> Parser<'a> {
         context: Context,
         enclosing_rlike_state: &mut RLikeState,
         enclosing_rlike_brace_depth: &mut usize,
-        track_extents: bool,
     ) -> LocatedNode {
         let directive = self.tokens[self.index].range.clone();
         self.index += 1;
@@ -31,7 +30,6 @@ impl<'a> Parser<'a> {
             stop_at_endif: true,
             initial_rlike_state: (frame.mode == Mode::RLike)
                 .then(|| (enclosing_rlike_state.clone(), *enclosing_rlike_brace_depth)),
-            track_extents,
         });
         if let Some(state) = body.rlike_state {
             *enclosing_rlike_state = state;
@@ -48,33 +46,26 @@ impl<'a> Parser<'a> {
         }
         let target_group = LocatedNode::group(
             {
-                let mut nodes = super::frame::NodeBatch::new(track_extents);
+                let mut nodes = super::frame::NodeBatch::new();
                 nodes.push(LocatedNode::leaf(
                     RdNode::Text(target),
                     target_range.clone(),
-                    track_extents,
                 ));
                 nodes
             },
             target_range.clone(),
-            track_extents,
         );
-        let body_group = LocatedNode::group(
-            body.nodes,
-            target_range.end..body.content_end,
-            track_extents,
-        );
+        let body_group = LocatedNode::group(body.nodes, target_range.end..body.content_end);
         LocatedNode::tagged(
             tag,
             None,
             {
-                let mut nodes = super::frame::NodeBatch::new(track_extents);
+                let mut nodes = super::frame::NodeBatch::new();
                 nodes.push(target_group);
                 nodes.push(body_group);
                 nodes
             },
             directive.start..body.consumed_end,
-            track_extents,
         )
     }
 

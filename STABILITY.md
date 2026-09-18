@@ -48,15 +48,13 @@ byte ranges normative. Public node-level inspection becomes cursor-based;
 strict `inspect_*` names remain, while best-effort accessors gain an explicit
 `*_lossy` suffix. These are source-breaking changes and belong in 0.5.0.
 
-The source parser map is planned as a follow-up provenance layer owned by
-`rd-source::Parsed`. Its planned field on `Parsed` would be private, while
-`rd_source::RdSourceMap` would be a public opaque, re-exported type used
-through public methods. It would not add spans to `RdDocument` or `RdNode`.
-`Parsed::into_parts()` would remain a two-value projection and a new projection
-would return the map. `Parsed` equality would continue to compare the document
-and diagnostics while excluding the map. This would preserve the existing
-comparison rule while allowing LF and CRLF inputs to have different source
-spans once the follow-up design is implemented.
+The source parser map is an implemented provenance layer owned by
+`rd-source::Parsed`. `rd_source::RdSourceMap` is a public opaque,
+re-exported type used through its exact `span(&RdAstPath)` method. It does not
+add spans to `RdDocument` or `RdNode`. `Parsed::into_parts()` returns the
+document, diagnostics, and map. `Parsed` equality includes the map, so LF and
+CRLF inputs can compare differently even when their canonical documents and
+diagnostics are equal.
 
 The migration does not change canonical producer semantics, parser recovery,
 Raw preservation, or the existing low-level storage and iterator APIs. Standard

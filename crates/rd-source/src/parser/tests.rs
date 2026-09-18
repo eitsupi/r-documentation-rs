@@ -68,15 +68,6 @@ body
 }
 
 #[test]
-fn ordinary_parser_path_disables_extent_collection() {
-    let input = br#"\title{x}\link[opt]{y}"#;
-    let (_, extents) = Parser::new(input, std::str::from_utf8(input).unwrap())
-        .parse_internal(false)
-        .unwrap();
-    assert!(extents.is_none());
-}
-
-#[test]
 fn source_extents_preserve_original_spelling_for_escapes_unicode_and_crlf() {
     let input = "é\\%x\r\n".as_bytes();
     let (parsed, extents) = parse_with_extents(input);
@@ -214,6 +205,215 @@ fn source_extents_pin_recovery_flattening_and_conditional_boundaries() {
         Some(&(18..23))
     );
     assert_eq!(parsed.diagnostics().len(), 2);
+}
+
+#[test]
+fn public_source_map_uses_exact_canonical_paths() {
+    let input = br#"\link[]{a{b}}"#;
+    let parsed = crate::parse(input).unwrap();
+    let map = parsed.source_map();
+    let top = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+
+    assert_eq!(
+        map.span(&rd_ast::RdAstPath::new(Vec::new()))
+            .unwrap()
+            .bytes(),
+        0..input.len()
+    );
+    assert_eq!(map.span(&top).unwrap().bytes(), 0..13);
+    assert_eq!(map.span(&top.with_option()).unwrap().bytes(), 5..7);
+    assert_eq!(map.span(&top.with_child(0)).unwrap().bytes(), 8..9);
+    assert_eq!(map.span(&top.with_child(1)).unwrap().bytes(), 9..12);
+    assert_eq!(
+        map.span(&top.with_child(1).with_child(0)).unwrap().bytes(),
+        10..11
+    );
+
+    assert!(
+        map.span(&rd_ast::RdAstPath::new(vec![
+            rd_ast::RdAstPathSegment::Child(0)
+        ]))
+        .is_none()
+    );
+    assert!(map.span(&top.with_option().with_option()).is_none());
+    assert!(map.span(&top.with_child(99)).is_none());
+}
+
+fn assert_public_map_tree(nodes: &[RdNode], map: &crate::RdSourceMap, path: rd_ast::RdAstPath) {
+    for (index, node) in nodes.iter().enumerate() {
+        let path = if path.segments().is_empty() {
+            rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(index)])
+        } else {
+            path.with_child(index)
+        };
+        assert!(map.span(&path).is_some(), "missing public extent at {path}");
+        match node {
+            RdNode::Tagged(tagged) => {
+                if let Some(option) = tagged.option() {
+                    assert!(map.span(&path.with_option()).is_some());
+                    assert_public_map_tree(option, map, path.with_option());
+                }
+                assert_public_map_tree(tagged.children(), map, path);
+            }
+            RdNode::Group(group) => assert_public_map_tree(group.children(), map, path),
+            RdNode::Raw(_) => panic!("parser does not emit Raw"),
+            RdNode::Text(_) | RdNode::RCode(_) | RdNode::Verb(_) | RdNode::Comment(_) => {}
+            _ => panic!("unsupported AST node in parser output"),
+        }
+    }
+}
+
+#[test]
+fn public_source_map_covers_fixture_corpus_nodes() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rd");
+    for entry in std::fs::read_dir(root).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_some_and(|extension| extension == "Rd") {
+            let input = std::fs::read(path).unwrap();
+            let parsed = crate::parse(&input).unwrap();
+            assert!(
+                parsed
+                    .source_map()
+                    .span(&rd_ast::RdAstPath::new(Vec::new()))
+                    .is_some()
+            );
+            assert_public_map_tree(
+                parsed.document().nodes(),
+                parsed.source_map(),
+                rd_ast::RdAstPath::new(Vec::new()),
+            );
+        }
+    }
+}
+
+#[test]
+fn public_source_map_covers_empty_duplicate_nested_sexpr_and_conditional_nodes() {
+    for input in [
+        br"\title{}".as_slice(),
+        br"\description{a}\description{b}".as_slice(),
+        br"\link[]{a{b}}".as_slice(),
+        br"\Sexpr[stage=render]{x + 1}".as_slice(),
+        br"\tabular{a \tab b}".as_slice(),
+        b"#ifdef unix\nbody\n#endif\n".as_slice(),
+    ] {
+        let parsed = crate::parse(input).unwrap();
+        assert_public_map_tree(
+            parsed.document().nodes(),
+            parsed.source_map(),
+            rd_ast::RdAstPath::new(Vec::new()),
+        );
+    }
+
+    let input = br#"\tabular{ll}{a\tab b\cr c\tab d}"#;
+    let parsed = crate::parse(input).unwrap();
+    let table = parsed
+        .document()
+        .top_level()
+        .iter()
+        .next()
+        .unwrap()
+        .inspect_tabular()
+        .unwrap()
+        .unwrap();
+    assert!(table.diagnostics().is_empty());
+    let anchor = table.rows()[0].cells()[0].anchor_path();
+    assert_eq!(
+        anchor,
+        &rd_ast::RdAstPath::new(vec![
+            rd_ast::RdAstPathSegment::TopLevel(0),
+            rd_ast::RdAstPathSegment::Child(1),
+            rd_ast::RdAstPathSegment::Child(0),
+        ])
+    );
+    assert_eq!(parsed.source_map().span(anchor).unwrap().bytes(), 13..14);
+
+    let input = br#"\description{a}\description{b}"#;
+    let parsed = crate::parse(input).unwrap();
+    let first = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    let second = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(1)]);
+    assert_eq!(parsed.source_map().span(&first).unwrap().bytes(), 0..15);
+    assert_eq!(parsed.source_map().span(&second).unwrap().bytes(), 15..30);
+}
+
+#[test]
+fn public_source_map_keeps_unicode_crlf_positions_and_recovery_boundaries() {
+    let input = "é\\%x\r\n".as_bytes();
+    let parsed = crate::parse(input).unwrap();
+    let leaf = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    let span = parsed.source_map().span(&leaf).unwrap();
+    assert_eq!(span.bytes(), 0..input.len());
+    assert_eq!(span.start().line(), 1);
+    assert_eq!(span.start().column(), 1);
+    assert_eq!(span.end().line(), 2);
+    assert_eq!(span.end().column(), 1);
+
+    let input = br#"\link[bad
+\title{x}"#;
+    let parsed = crate::parse(input).unwrap();
+    let link = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    let title = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(1)]);
+    assert_eq!(parsed.source_map().span(&link).unwrap().bytes(), 0..10);
+    assert_eq!(parsed.source_map().span(&title).unwrap().bytes(), 10..19);
+}
+
+#[test]
+fn public_source_map_preserves_recovery_and_original_leaf_spelling() {
+    let input = br#"\link[bad
+\title{x}"#;
+    let parsed = crate::parse(input).unwrap();
+    let link = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    let title = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(1)]);
+    assert_eq!(parsed.source_map().span(&link).unwrap().bytes(), 0..10);
+    assert_eq!(
+        parsed
+            .source_map()
+            .span(&link.with_option())
+            .unwrap()
+            .bytes(),
+        5..10
+    );
+    assert_eq!(parsed.source_map().span(&title).unwrap().bytes(), 10..19);
+
+    let escaped = crate::parse(br#"\%x"#).unwrap();
+    let leaf = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(escaped.document().nodes(), &[RdNode::Text("%x".into())]);
+    assert_eq!(escaped.source_map().span(&leaf).unwrap().bytes(), 0..3);
+}
+
+#[test]
+fn parsed_equality_includes_source_spelling_map() {
+    let lf = crate::parse(b"text\n").unwrap();
+    let crlf = crate::parse(b"text\r\n").unwrap();
+    assert_eq!(lf.document(), crlf.document());
+    assert_eq!(lf.diagnostics(), crlf.diagnostics());
+    assert_ne!(
+        lf.source_map()
+            .span(&rd_ast::RdAstPath::new(vec![
+                rd_ast::RdAstPathSegment::TopLevel(0)
+            ]))
+            .unwrap()
+            .bytes(),
+        crlf.source_map()
+            .span(&rd_ast::RdAstPath::new(vec![
+                rd_ast::RdAstPathSegment::TopLevel(0)
+            ]))
+            .unwrap()
+            .bytes()
+    );
+    assert_ne!(lf, crlf);
+
+    let (document, diagnostics, source_map) = crate::parse(b"x").unwrap().into_parts();
+    assert_eq!(document.nodes(), &[RdNode::Text("x".into())]);
+    assert!(diagnostics.is_empty());
+    assert_eq!(
+        source_map
+            .span(&rd_ast::RdAstPath::new(vec![
+                rd_ast::RdAstPathSegment::TopLevel(0)
+            ]))
+            .unwrap()
+            .bytes(),
+        0..1
+    );
 }
 
 #[test]
@@ -741,7 +941,7 @@ fn known_and_unknown_tags_have_distinct_diagnostics_and_nodes() {
 }
 
 #[test]
-// CONTRACT.md §13 class 3: general user macros lose association and have no v1 macro environment.
+// CONTRACT.md §14 class 3: general user macros lose association and have no v1 macro environment.
 fn recovery_newcommand_is_unknown_and_does_not_define_a_macro() {
     let parsed = crate::parse(
         br"\newcommand{\mymac}{\emph{#1}}
@@ -793,7 +993,7 @@ fn recovery_newcommand_is_unknown_and_does_not_define_a_macro() {
 }
 
 #[test]
-// CONTRACT.md §13 class 3: general user macros lose association and have no v1 macro environment.
+// CONTRACT.md §14 class 3: general user macros lose association and have no v1 macro environment.
 fn recovery_renewcommand_is_unknown_without_a_macro_environment() {
     let parsed = crate::parse(br"\renewcommand{\mymac}{\emph{#1}}").unwrap();
     assert_eq!(parsed.diagnostics().len(), 2);
@@ -831,7 +1031,7 @@ fn recovery_renewcommand_is_unknown_without_a_macro_environment() {
 }
 
 #[test]
-// CONTRACT.md §13 class 3: general user macros lose association and have no v1 macro environment.
+// CONTRACT.md §14 class 3: general user macros lose association and have no v1 macro environment.
 fn recovery_unknown_macro_keeps_only_first_argument_as_invocation_child() {
     let parsed = crate::parse(br"\unknownmac{a}{b}{c}").unwrap();
     assert_eq!(parsed.diagnostics().len(), 1);
@@ -858,7 +1058,7 @@ fn recovery_unknown_macro_keeps_only_first_argument_as_invocation_child() {
 }
 
 #[test]
-// CONTRACT.md §13 class 3: general user macros lose association and have no v1 macro environment.
+// CONTRACT.md §14 class 3: general user macros lose association and have no v1 macro environment.
 fn recovery_unknown_macro_keeps_later_arguments_as_list_siblings_in_a_section() {
     let parsed = crate::parse(br"\description{before \unknownmac{a}{b}{c} after}").unwrap();
     assert_eq!(parsed.diagnostics().len(), 1);
