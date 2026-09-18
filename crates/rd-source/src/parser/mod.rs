@@ -11,7 +11,7 @@ use crate::{
     lexer::{self, Token, TokenKind},
     source_map::{SourceExtents, SourceMap},
 };
-use frame::{Frame, FrameRequest, FrameState, LocatedNode, Mode};
+use frame::{Frame, FrameRequest, FrameState, Mode};
 use rd_ast::{RdDocument, RdNode};
 use rlike::RLikeState;
 use spec::Context;
@@ -44,10 +44,20 @@ impl<'a> Parser<'a> {
         }
     }
     pub(crate) fn parse(self) -> Result<Parsed, ParseError> {
-        self.parse_with_extents().map(|(parsed, _)| parsed)
+        self.parse_internal(false).map(|(parsed, _)| parsed)
     }
 
-    pub(crate) fn parse_with_extents(mut self) -> Result<(Parsed, SourceExtents), ParseError> {
+    #[allow(dead_code)]
+    pub(crate) fn parse_with_extents(self) -> Result<(Parsed, SourceExtents), ParseError> {
+        let (parsed, extents) = self.parse_internal(true)?;
+        let extents = extents.expect("extent tracking enabled");
+        Ok((parsed, extents))
+    }
+
+    fn parse_internal(
+        mut self,
+        track_extents: bool,
+    ) -> Result<(Parsed, Option<SourceExtents>), ParseError> {
         let nodes = self
             .parse_frame(FrameRequest {
                 frame: Frame::new(Mode::Latex, false),
@@ -56,24 +66,26 @@ impl<'a> Parser<'a> {
                 context: Context::Document,
                 stop_at_endif: false,
                 initial_rlike_state: None,
+                track_extents,
             })
             .nodes;
         if let Some(error) = self.fatal_error {
             return Err(error);
         }
-        let (nodes, top_level) = nodes.into_iter().map(LocatedNode::into_parts).unzip();
+        let top_level = nodes.extents;
+        let nodes = nodes.nodes;
         Ok((
             Parsed::new(RdDocument::new(nodes), self.diagnostics),
-            SourceExtents {
+            top_level.map(|top_level| SourceExtents {
                 root: 0..self.input.len(),
                 top_level,
-            },
+            }),
         ))
     }
     fn parse_frame(&mut self, request: FrameRequest) -> frame::FrameResult {
         if self.fatal_error.is_some() {
             return frame::FrameResult {
-                nodes: Vec::new(),
+                nodes: frame::NodeBatch::new(request.track_extents),
                 closed: false,
                 terminated_by_endif: false,
                 content_end: self.index_start(),
@@ -90,7 +102,7 @@ impl<'a> Parser<'a> {
                 .unwrap_or_else(|| self.map.span(0..0));
             self.fatal_error = Some(ParseError::NestingLimitExceeded { span });
             return frame::FrameResult {
-                nodes: Vec::new(),
+                nodes: frame::NodeBatch::new(request.track_extents),
                 closed: false,
                 terminated_by_endif: false,
                 content_end: self.index_start(),
@@ -162,7 +174,7 @@ impl<'a> Parser<'a> {
     }
     fn flush(
         &self,
-        out: &mut Vec<LocatedNode>,
+        out: &mut frame::NodeBatch,
         buf: &mut String,
         buf_range: &mut Option<Range<usize>>,
         leaf: frame::Leaf,
@@ -175,7 +187,7 @@ impl<'a> Parser<'a> {
                 frame::Leaf::RCode => RdNode::RCode(value),
                 frame::Leaf::Verb => RdNode::Verb(value),
             };
-            out.push(LocatedNode::leaf(node, range));
+            out.push(frame::LocatedNode::leaf(node, range, out.extents.is_some()));
         } else {
             *buf_range = None;
         }

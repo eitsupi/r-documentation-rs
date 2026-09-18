@@ -68,6 +68,15 @@ body
 }
 
 #[test]
+fn ordinary_parser_path_disables_extent_collection() {
+    let input = br#"\title{x}\link[opt]{y}"#;
+    let (_, extents) = Parser::new(input, std::str::from_utf8(input).unwrap())
+        .parse_internal(false)
+        .unwrap();
+    assert!(extents.is_none());
+}
+
+#[test]
 fn source_extents_preserve_original_spelling_for_escapes_unicode_and_crlf() {
     let input = "é\\%x\r\n".as_bytes();
     let (parsed, extents) = parse_with_extents(input);
