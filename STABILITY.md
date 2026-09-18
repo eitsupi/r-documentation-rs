@@ -58,10 +58,13 @@ two-value projection that intentionally discards provenance, while
 even when their source spans differ.
 
 The migration does not change canonical producer semantics, parser recovery,
-Raw preservation, or the existing low-level storage and iterator APIs. Standard
+Raw preservation, or the existing low-level storage and iterator APIs. The
+exact canonical-path source map for parser-produced AST snapshots is included
+in 0.5.0; decoded-leaf substring mapping, multiple-origin provenance, and
+provenance inheritance after AST transformations are not. Standard
 topic-section classification, usage-sibling association, general macro
-interpretation, RDS lowering relocation, and fine-grained source mapping are
-outside 0.5.0 and require a later minor-release decision.
+interpretation, and RDS lowering relocation remain outside 0.5.0 and require a
+later minor-release decision.
 
 ### rd-source
 

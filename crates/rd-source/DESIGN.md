@@ -2,7 +2,7 @@
 
 ## 1. Scope and conformance oracle
 
-`rd-source` parses `.Rd` source text into `rd_ast::RdDocument`. Its conformance oracle is `tools::parse_Rd`, exercised through the differential harness in `tests/`. The future parser is a source producer of the same AST; it is not a second, source-specific document model.
+`rd-source` parses `.Rd` source text into `rd_ast::RdDocument`. Its conformance oracle is `tools::parse_Rd`, exercised through the differential harness in `tests/`. The parser is a source producer of the same AST; it is not a second, source-specific document model.
 
 `crates/rd-ast/CONTRACT.md` defines producer-agnostic invariants: canonical leaf strings, ordering and whitespace, comment representation, group obligations, option presence, and equivalence between producers. This design document defines source-grammar-specific behavior: lexer interpretation, parser modes, tag argument modes, source delimiters, and oracle-observed leaf flush boundaries. The division is intentional: a rule about `\usage` being R-like belongs here, while a rule that all producers preserve child order belongs in the AST contract.
 
