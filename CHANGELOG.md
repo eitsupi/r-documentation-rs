@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- [rd-rds] Add thin installed-package metadata readers for the canonical
+  `Meta/nsInfo.rds` and `Meta/package.rds` artifacts, with explicit separation
+  between bounded file-read and typed-view validation errors.
+
 ## [0.5.0-alpha.1] - 2026-09-13
 
 This prerelease begins the 0.5.0 breaking API series. It makes canonical

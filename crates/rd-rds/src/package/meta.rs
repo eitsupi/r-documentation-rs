@@ -1,6 +1,6 @@
 use super::{
-    ValueKindName, ViewError, decode_optional, decode_required, duplicate, expect_list, missing,
-    named_values, unexpected_length, unexpected_type,
+    InstalledMetadataError, ValueKindName, ViewError, decode_optional, decode_required, duplicate,
+    expect_list, missing, named_values, unexpected_length, unexpected_type,
 };
 use crate::{RObject, RValue};
 use std::{collections::BTreeMap, fmt};
@@ -13,6 +13,24 @@ pub struct PackageMeta {
 }
 
 impl PackageMeta {
+    /// Reads and validates `Meta/package.rds` below an installed package
+    /// directory.
+    pub fn read_installed(
+        package_dir: impl AsRef<std::path::Path>,
+    ) -> Result<Self, InstalledMetadataError> {
+        Self::read_installed_with_options(package_dir, &crate::file::ReadOptions::default())
+    }
+
+    /// Reads and validates `Meta/package.rds` with explicit file and decode
+    /// bounds.
+    pub fn read_installed_with_options(
+        package_dir: impl AsRef<std::path::Path>,
+        options: &crate::file::ReadOptions,
+    ) -> Result<Self, InstalledMetadataError> {
+        let (path, object) = super::read_installed_object(package_dir, "package.rds", options)?;
+        Self::from_object(&object).map_err(|source| InstalledMetadataError::View { path, source })
+    }
+
     /// Validates and copies a `packageDescription2` R object.
     pub fn from_object(object: &RObject) -> Result<Self, ViewError> {
         let items = expect_list(object, "PackageMeta", None)?;
