@@ -181,7 +181,7 @@ dependencies = [
 
 [[package]]
 name = "rd-ast"
-version = "0.5.0-alpha.1"
+version = "0.5.0-rc.1"
 dependencies = [
  "flate2",
  "rd-rds",
@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "rd-helpdb"
-version = "0.5.0-alpha.1"
+version = "0.5.0-rc.1"
 dependencies = [
  "rd-ast",
  "rd-rds",
@@ -200,7 +200,7 @@ dependencies = [
 
 [[package]]
 name = "rd-rds"
-version = "0.5.0-alpha.1"
+version = "0.5.0-rc.1"
 dependencies = [
  "bzip2",
  "flate2",
@@ -211,7 +211,7 @@ dependencies = [
 
 [[package]]
 name = "rd-source"
-version = "0.5.0-alpha.1"
+version = "0.5.0-rc.1"
 dependencies = [
  "rd-ast",
  "rd-rds",
@@ -221,7 +221,7 @@ dependencies = [
 
 [[package]]
 name = "rd-writer"
-version = "0.5.0-alpha.1"
+version = "0.5.0-rc.1"
 dependencies = [
  "rd-ast",
  "rd-source",

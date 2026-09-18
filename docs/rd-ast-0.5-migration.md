@@ -3,8 +3,8 @@
 This document is the migration contract for the 0.5.0 breaking release. It
 describes the public API changes required to make structural
 locations available to consumers while preserving the canonical Rd syntax
-model. It is a design and migration document; it does not change the 0.4.x
-implementation.
+model. It is a design and migration document describing the 0.5.0
+implementation and the consumer changes required to use it.
 
 ## Release boundary
 
