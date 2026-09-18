@@ -381,7 +381,7 @@ fn public_source_map_preserves_recovery_and_original_leaf_spelling() {
 }
 
 #[test]
-fn parsed_equality_includes_source_spelling_map() {
+fn parsed_equality_excludes_source_spelling_map() {
     let lf = crate::parse(b"text\n").unwrap();
     let crlf = crate::parse(b"text\r\n").unwrap();
     assert_eq!(lf.document(), crlf.document());
@@ -400,9 +400,13 @@ fn parsed_equality_includes_source_spelling_map() {
             .unwrap()
             .bytes()
     );
-    assert_ne!(lf, crlf);
+    assert_eq!(lf, crlf);
 
-    let (document, diagnostics, source_map) = crate::parse(b"x").unwrap().into_parts();
+    let (document, diagnostics) = crate::parse(b"x").unwrap().into_parts();
+    assert_eq!(document.nodes(), &[RdNode::Text("x".into())]);
+    assert!(diagnostics.is_empty());
+    let (document, diagnostics, source_map) =
+        crate::parse(b"x").unwrap().into_parts_with_source_map();
     assert_eq!(document.nodes(), &[RdNode::Text("x".into())]);
     assert!(diagnostics.is_empty());
     assert_eq!(

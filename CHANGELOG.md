@@ -12,8 +12,9 @@
 
 ### Changed
 
-- [rd-source] `Parsed::into_parts()` now returns the source map as a third
-  value, and `Parsed` equality includes source-map provenance.
+- [rd-source] `Parsed::into_parts()` remains the document/diagnostics
+  projection; use `into_parts_with_source_map()` for owned provenance.
+  `Parsed` equality intentionally excludes the source map.
 
 ## [0.5.0-alpha.1] - 2026-09-13
 

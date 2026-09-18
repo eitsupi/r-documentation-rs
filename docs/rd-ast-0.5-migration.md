@@ -294,7 +294,9 @@ child container.
 ## Current source-map contract
 
 `rd-source::Parsed` owns an opaque, public `rd_source::RdSourceMap`, available
-through `source_map()`. `into_parts()` returns
+through `source_map()`. `into_parts()` remains the two-value
+`(RdDocument, Vec<Diagnostic>)` projection and intentionally discards
+provenance; `into_parts_with_source_map()` returns
 `(RdDocument, Vec<Diagnostic>, RdSourceMap)`. `RdSourceMap::span` performs
 exact canonical `RdAstPath` lookup, including the empty document-root path;
 there is no ancestor fallback. The map is valid only with the document
@@ -312,8 +314,9 @@ Recovery ends at its actual synchronization point or EOF. The map does not
 provide multiple origins, sibling ranges, or provenance inheritance after AST
 transformation.
 
-`Parsed` equality includes the source map. Therefore LF and CRLF inputs may
-have equal documents and diagnostics but compare unequal as `Parsed` values.
+`Parsed` equality excludes the source map. Therefore LF and CRLF inputs may
+have equal documents and diagnostics and compare equal as `Parsed` values
+while their source-map spans differ.
 
 ## Consumer examples
 
@@ -368,9 +371,9 @@ replace the dynamic-markup API.
 Consumers should first replace hand-built paths with `document.top_level()` or
 `document.walk()` and use the path carried by each cursor. Replace direct
 public fields on `RdArgument` and `RdSection` with accessors and use `_ref`
-accessors when a recursive converter needs provenance. `into_parts()` now
-returns the document, diagnostics, and source map; retain the third value when
-provenance is needed and explicitly discard it when it is not.
+accessors when a recursive converter needs provenance. `into_parts()` remains
+the two-value projection; use `into_parts_with_source_map()` when owned
+provenance is needed.
 
 The migration changes receiver and result types, path names, view opacity,
 and lossy method names. It does not require a consumer to adopt a cursor for

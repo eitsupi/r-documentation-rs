@@ -12,7 +12,7 @@ use std::ops::Range;
 /// not provide ancestor fallback, multiple origins, or transformation
 /// inheritance; delimiters discarded while canonicalizing the AST are not
 /// represented as separate entries.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct RdSourceMap {
     root: SourceSpan,
     top_level: Vec<RdSourceSpanNode>,

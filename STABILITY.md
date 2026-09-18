@@ -51,10 +51,11 @@ strict `inspect_*` names remain, while best-effort accessors gain an explicit
 The source parser map is an implemented provenance layer owned by
 `rd-source::Parsed`. `rd_source::RdSourceMap` is a public opaque,
 re-exported type used through its exact `span(&RdAstPath)` method. It does not
-add spans to `RdDocument` or `RdNode`. `Parsed::into_parts()` returns the
-document, diagnostics, and map. `Parsed` equality includes the map, so LF and
-CRLF inputs can compare differently even when their canonical documents and
-diagnostics are equal.
+add spans to `RdDocument` or `RdNode`. `Parsed::into_parts()` remains a
+two-value projection that intentionally discards provenance, while
+`into_parts_with_source_map()` returns the document, diagnostics, and map.
+`Parsed` equality excludes the map, so LF and CRLF inputs can compare equal
+even when their source spans differ.
 
 The migration does not change canonical producer semantics, parser recovery,
 Raw preservation, or the existing low-level storage and iterator APIs. Standard

@@ -258,7 +258,9 @@ notes MUST be additive.
 
 Successful parser results own a public, opaque `rd_source::RdSourceMap`,
 available through `Parsed::source_map()`. `Parsed::into_parts()` returns the
-triple `(RdDocument, Vec<Diagnostic>, RdSourceMap)`. `RdSourceMap::span` takes
+two-value `(RdDocument, Vec<Diagnostic>)` projection and intentionally
+discards provenance; `into_parts_with_source_map()` returns the triple
+`(RdDocument, Vec<Diagnostic>, RdSourceMap)`. `RdSourceMap::span` takes
 only a canonical `RdAstPath` and performs exact lookup: it never falls back to
 an ancestor. The empty path identifies the document root. The map is valid
 only with the document snapshot returned by that parse call; independently
@@ -277,8 +279,9 @@ covered range.
 
 The map intentionally does not provide multiple origins, ancestor fallback,
 sibling ranges, substring maps, or provenance inheritance across AST
-transformations. `Parsed` equality includes the source map, so equal
-documents and diagnostics from LF and CRLF input can still compare unequal.
+transformations. `Parsed` equality excludes the source map, so equal
+documents and diagnostics from LF and CRLF input can compare equal even when
+their spans differ.
 
 ## 12. Differential-testing contract
 
