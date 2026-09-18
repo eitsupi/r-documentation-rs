@@ -2,33 +2,29 @@
 
 ## [Unreleased]
 
+## [0.5.0-rc.1] - 2026-09-18
+
+This release candidate completes the planned 0.5.0 feature set. It makes
+canonical `rd-ast` structure locations explicit, carries them through
+position-aware cursors and located semantic views, exposes exact source
+provenance from `rd-source` parser results, and adds bounded installed-package
+metadata and stored-code facts. Intentional best-effort APIs use a `_lossy`
+suffix.
+
 ### Added
 
-- [rd-rds] Add thin installed-package metadata readers for the canonical
-  `Meta/nsInfo.rds` and `Meta/package.rds` artifacts, with explicit separation
-  between bounded file-read and typed-view validation errors.
 - [rd-source] Add exact canonical-path source maps to parsed documents, with
-  original-byte spans for nodes and present options.
-
-### Changed
-
-- [rd-source] `Parsed::into_parts()` remains the document/diagnostics
-  projection; use `into_parts_with_source_map()` for owned provenance.
-  `Parsed` equality intentionally excludes the source map.
-
-## [0.5.0-alpha.1] - 2026-09-13
-
-This prerelease begins the 0.5.0 breaking API series. It makes canonical
-`rd-ast` structure locations explicit and carries them through position-aware
-cursors, sibling ranges, and located semantic views. Intentional best-effort
-APIs now use a `_lossy` suffix. Source-map support is planned for a later
-0.5.0 prerelease and is not included here.
-
-### Added
-
+  original-byte spans for nodes and present options. The map is exposed as an
+  opaque `RdSourceMap`; source-map lookup is covered by consumer-oriented
+  contracts, including writer error paths and located semantic views (#52,
+  #53, #54).
 - [rd-rds] Add bounded installed-package metadata and code-database inspection:
+  - Thin installed-package readers cover the canonical `Meta/nsInfo.rds` and
+    `Meta/package.rds` artifacts, with explicit separation between bounded
+    file-read and typed-view validation errors (#51).
   - `package::InstalledCodeDb` provides explicit `R/<pkg>.rdx`/`.rdb` access,
-    index-order stored bindings, last-wins name lookup, direct and compound
+    an index-order stored-binding inventory, structured unknown and duplicate
+    handling for ambiguity-aware inspection, direct and compound
     persistence-reference handling, raw and zlib records, and best-effort
     database provenance (#40).
   - The opt-in `lazyload` feature provides bounded `.rdx` index and `.rdb`
@@ -52,6 +48,9 @@ APIs now use a `_lossy` suffix. Source-map support is planned for a later
 
 ### Changed
 
+- [rd-source] `Parsed::into_parts()` remains the document/diagnostics
+  projection; use `into_parts_with_source_map()` for owned provenance.
+  `Parsed` equality intentionally excludes the source map (#53).
 - [rd-ast] Split the breaking location model: canonical `RdAstPath` is now
   separate from producer-side `LowerPath`; position-aware cursors and sibling
   ranges are available, and node-level semantic inspection goes through

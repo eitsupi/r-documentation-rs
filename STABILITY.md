@@ -38,7 +38,7 @@ Supported: alias, topic, search, vignette, and demo reading for an explicitly na
 
 Documented contract: the canonical model, producer obligations, and `Raw`/`Unknown` preservation rules in [crates/rd-ast/CONTRACT.md](crates/rd-ast/CONTRACT.md). Evolving: the fine-grained semantic view APIs, whose breaking changes require a minor version bump. The [serde representation shape](crates/rd-ast/CONTRACT.md#12-stability) is for same-version round-trip only and is not a stable interchange or storage format.
 
-The planned 0.5.0 API migration is specified in
+The 0.5.0 API migration is specified in
 [the migration document](docs/rd-ast-0.5-migration.md). It replaces the
 canonical `RdPath` surface with `RdAstPath`, separates producer-internal RDS
 lowering locations, and carries paths through borrowed cursors and positioned
@@ -46,7 +46,7 @@ node sequences. It also makes the structural walk order and the distinction
 between node paths, sibling ranges, diagnostic anchors, and canonical leaf
 byte ranges normative. Public node-level inspection becomes cursor-based;
 strict `inspect_*` names remain, while best-effort accessors gain an explicit
-`*_lossy` suffix. These are source-breaking changes and belong in 0.5.0.
+`*_lossy` suffix. These source-breaking changes are included in 0.5.0.
 
 The source parser map is an implemented provenance layer owned by
 `rd-source::Parsed`. `rd_source::RdSourceMap` is a public opaque,
@@ -58,10 +58,13 @@ two-value projection that intentionally discards provenance, while
 even when their source spans differ.
 
 The migration does not change canonical producer semantics, parser recovery,
-Raw preservation, or the existing low-level storage and iterator APIs. Standard
+Raw preservation, or the existing low-level storage and iterator APIs. The
+exact canonical-path source map for parser-produced AST snapshots is included
+in 0.5.0; decoded-leaf substring mapping, multiple-origin provenance, and
+provenance inheritance after AST transformations are not. Standard
 topic-section classification, usage-sibling association, general macro
-interpretation, RDS lowering relocation, and fine-grained source mapping are
-outside 0.5.0 and require a later minor-release decision.
+interpretation, and RDS lowering relocation remain outside 0.5.0 and require a
+later minor-release decision.
 
 ### rd-source
 
