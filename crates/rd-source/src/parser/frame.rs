@@ -1,4 +1,6 @@
 use super::spec::Context;
+use crate::source_map::{SourceExtentNode, SourceExtentSequence};
+use std::ops::Range;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Mode {
@@ -30,11 +32,80 @@ pub(super) struct Frame {
     pub(super) item_policy: ItemPolicy,
 }
 pub(super) struct FrameResult {
-    pub(super) nodes: Vec<rd_ast::RdNode>,
+    pub(super) nodes: Vec<LocatedNode>,
     pub(super) closed: bool,
     pub(super) terminated_by_endif: bool,
+    /// End of the frame's actual content, before a closing delimiter or a
+    /// synchronization directive that was left for the enclosing frame.
+    pub(super) content_end: usize,
+    /// End of the source consumed by this frame, including a closing
+    /// delimiter or conditional terminator when one was consumed.
+    pub(super) consumed_end: usize,
     pub(super) rlike_state: Option<super::RLikeState>,
     pub(super) rlike_brace_depth: Option<usize>,
+}
+pub(super) struct LocatedNode {
+    pub(super) node: rd_ast::RdNode,
+    pub(super) source: SourceExtentNode,
+}
+
+impl LocatedNode {
+    pub(super) fn leaf(node: rd_ast::RdNode, extent: Range<usize>) -> Self {
+        Self {
+            source: SourceExtentNode::leaf(extent.clone()),
+            node,
+        }
+    }
+
+    pub(super) fn tagged(
+        tag: rd_ast::RdTag,
+        option: Option<(Vec<Self>, Range<usize>)>,
+        children: Vec<Self>,
+        extent: Range<usize>,
+    ) -> Self {
+        let (option_nodes, option_source) = option.map_or((None, None), |(nodes, bytes)| {
+            let (values, sources) = split_nodes(Some(nodes));
+            (
+                values,
+                Some(SourceExtentSequence {
+                    bytes,
+                    nodes: sources.unwrap_or_default(),
+                }),
+            )
+        });
+        let (child_nodes, child_sources) = split_nodes(Some(children));
+        Self {
+            node: rd_ast::RdNode::tagged(tag, option_nodes, child_nodes.unwrap_or_default()),
+            source: SourceExtentNode::with_children(extent, option_source, child_sources),
+        }
+    }
+
+    pub(super) fn group(children: Vec<Self>, extent: Range<usize>) -> Self {
+        let (child_nodes, child_sources) = split_nodes(Some(children));
+        Self {
+            node: rd_ast::RdNode::group(child_nodes.unwrap_or_default()),
+            source: SourceExtentNode::with_children(extent, None, child_sources),
+        }
+    }
+
+    pub(super) fn into_parts(self) -> (rd_ast::RdNode, SourceExtentNode) {
+        (self.node, self.source)
+    }
+}
+
+fn split_nodes(
+    nodes: Option<Vec<LocatedNode>>,
+) -> (Option<Vec<rd_ast::RdNode>>, Option<Vec<SourceExtentNode>>) {
+    let Some(nodes) = nodes else {
+        return (None, None);
+    };
+    let mut values = Vec::with_capacity(nodes.len());
+    let mut sources = Vec::with_capacity(nodes.len());
+    for node in nodes {
+        values.push(node.node);
+        sources.push(node.source);
+    }
+    (Some(values), Some(sources))
 }
 pub(super) struct FrameRequest {
     pub(super) frame: Frame,
@@ -45,13 +116,16 @@ pub(super) struct FrameRequest {
     pub(super) initial_rlike_state: Option<(super::RLikeState, usize)>,
 }
 pub(super) struct FrameState {
-    pub(super) out: Vec<rd_ast::RdNode>,
+    pub(super) out: Vec<LocatedNode>,
     pub(super) buf: String,
+    pub(super) buf_range: Option<Range<usize>>,
     pub(super) brace_depth: usize,
     pub(super) rlike_state: super::RLikeState,
     pub(super) closed: bool,
     pub(super) terminated_by_endif: bool,
     pub(super) surplus_group_at: Option<usize>,
+    pub(super) content_end: Option<usize>,
+    pub(super) consumed_end: Option<usize>,
 }
 impl FrameState {
     pub(super) fn new(request: &FrameRequest) -> Self {
@@ -68,11 +142,14 @@ impl FrameState {
         Self {
             out: Vec::new(),
             buf: String::new(),
+            buf_range: None,
             brace_depth,
             rlike_state,
             closed: false,
             terminated_by_endif: false,
             surplus_group_at: None,
+            content_end: None,
+            consumed_end: None,
         }
     }
 }

@@ -1,6 +1,254 @@
 use crate::ParseError;
 use rd_ast::{RdNode, RdTag};
 
+use super::Parser;
+use crate::source_map::SourceExtents;
+
+fn parse_with_extents(input: &[u8]) -> (crate::Parsed, SourceExtents) {
+    let source = std::str::from_utf8(input).unwrap();
+    Parser::new(input, source).parse_with_extents().unwrap()
+}
+
+fn assert_extent_tree(
+    nodes: &[RdNode],
+    extents: &SourceExtents,
+    path: rd_ast::RdAstPath,
+    expected: &mut usize,
+) {
+    for (index, node) in nodes.iter().enumerate() {
+        let path = if path.segments().is_empty() {
+            rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(index)])
+        } else {
+            path.with_child(index)
+        };
+        assert!(extents.at(&path).is_some(), "missing extent at {path}");
+        *expected += 1;
+        match node {
+            RdNode::Tagged(tagged) => {
+                if tagged.option().is_some() {
+                    assert!(extents.at(&path.with_option()).is_some());
+                    *expected += 1;
+                    assert_extent_tree(
+                        tagged.option().unwrap(),
+                        extents,
+                        path.with_option(),
+                        expected,
+                    );
+                }
+                assert_extent_tree(tagged.children(), extents, path, expected);
+            }
+            RdNode::Group(group) => assert_extent_tree(group.children(), extents, path, expected),
+            RdNode::Raw(_) => panic!("parser does not emit Raw"),
+            RdNode::Text(_) | RdNode::RCode(_) | RdNode::Verb(_) | RdNode::Comment(_) => {}
+            _ => panic!("unsupported AST node in parser output"),
+        }
+    }
+}
+
+#[test]
+fn source_extents_cover_canonical_nodes_and_options_without_stale_entries() {
+    let input = br#"\name{x}
+\link[opt]{a{b}}\if{target
+body
+\endif
+"#;
+    let (parsed, extents) = parse_with_extents(input);
+    assert_eq!(
+        extents.at(&rd_ast::RdAstPath::new(Vec::new())),
+        Some(&(0..input.len()))
+    );
+    let mut count = 1;
+    assert_extent_tree(
+        parsed.document().nodes(),
+        &extents,
+        rd_ast::RdAstPath::new(Vec::new()),
+        &mut count,
+    );
+    assert!(count > parsed.document().nodes().len());
+}
+
+#[test]
+fn source_extents_preserve_original_spelling_for_escapes_unicode_and_crlf() {
+    let input = "é\\%x\r\n".as_bytes();
+    let (parsed, extents) = parse_with_extents(input);
+    let path = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(parsed.document().nodes(), &[RdNode::Text("é%x\n".into())]);
+    assert_eq!(extents.at(&path), Some(&(0..input.len())));
+}
+
+#[test]
+fn source_extent_lookup_rejects_noncanonical_paths() {
+    let input = br#"\link[opt]{x}"#;
+    let (_, extents) = parse_with_extents(input);
+    assert!(
+        extents
+            .at(&rd_ast::RdAstPath::new(vec![
+                rd_ast::RdAstPathSegment::Child(0)
+            ]))
+            .is_none()
+    );
+    assert!(
+        extents
+            .at(&rd_ast::RdAstPath::new(vec![
+                rd_ast::RdAstPathSegment::TopLevel(0),
+                rd_ast::RdAstPathSegment::TopLevel(0),
+            ]))
+            .is_none()
+    );
+    assert!(
+        extents
+            .at(&rd_ast::RdAstPath::new(vec![
+                rd_ast::RdAstPathSegment::TopLevel(0),
+                rd_ast::RdAstPathSegment::Option,
+                rd_ast::RdAstPathSegment::Option,
+            ]))
+            .is_none()
+    );
+}
+
+#[test]
+fn source_extents_cover_the_complete_fixture_corpus() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rd");
+    let mut paths: Vec<_> = std::fs::read_dir(root)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    paths.sort();
+    assert_eq!(paths.len(), 76);
+    for path in paths {
+        let input = std::fs::read(&path).unwrap();
+        let (parsed, extents) = parse_with_extents(&input);
+        let mut count = 1;
+        assert_extent_tree(
+            parsed.document().nodes(),
+            &extents,
+            rd_ast::RdAstPath::new(Vec::new()),
+            &mut count,
+        );
+        assert_eq!(extents.entry_count(), count, "{}", path.display());
+    }
+}
+
+#[test]
+fn source_extents_pin_recovery_flattening_and_conditional_boundaries() {
+    let (parsed, extents) = parse_with_extents(br#"\link[]{a{b}}"#);
+    let top = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(extents.at(&top), Some(&(0..13)));
+    assert_eq!(extents.at(&top.with_option()), Some(&(5..7)));
+    assert_eq!(extents.at(&top.with_child(0)), Some(&(8..9)));
+    assert_eq!(extents.at(&top.with_child(1)), Some(&(9..12)));
+    assert_eq!(
+        extents.at(&top.with_child(1).with_child(0)),
+        Some(&(10..11))
+    );
+    assert!(parsed.diagnostics().is_empty());
+
+    let (parsed, extents) = parse_with_extents(br#"\title{a}{b}"#);
+    let title = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    let list = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(1)]);
+    assert_eq!(extents.at(&title), Some(&(0..9)));
+    assert_eq!(extents.at(&title.with_child(0)), Some(&(7..8)));
+    assert_eq!(extents.at(&list), Some(&(9..12)));
+    assert_eq!(extents.at(&list.with_child(0)), Some(&(10..11)));
+    assert!(parsed.diagnostics().is_empty());
+
+    let (parsed, extents) = parse_with_extents(br#"{a}"#);
+    let promoted = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(extents.at(&promoted), Some(&(1..2)));
+    assert_eq!(extents.entry_count(), 2);
+    assert_eq!(parsed.diagnostics().len(), 1);
+
+    let input = br#"\link[bad
+\title{x}"#;
+    let (parsed, extents) = parse_with_extents(input);
+    let link = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    let title = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(1)]);
+    assert_eq!(extents.at(&link), Some(&(0..10)));
+    assert_eq!(extents.at(&link.with_option()), Some(&(5..10)));
+    assert_eq!(extents.at(&title), Some(&(10..19)));
+    assert_eq!(parsed.diagnostics().len(), 2);
+
+    let input = br#"\link[pkg{target}"#;
+    let (parsed, extents) = parse_with_extents(input);
+    let link = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(extents.at(&link), Some(&(0..17)));
+    assert_eq!(extents.at(&link.with_option()), Some(&(5..9)));
+    assert_eq!(extents.at(&link.with_option().with_child(0)), Some(&(6..9)));
+    assert_eq!(extents.at(&link.with_child(0)), Some(&(10..16)));
+    assert_eq!(parsed.diagnostics().len(), 1);
+
+    let input = br#"\link{bad"#;
+    let (parsed, extents) = parse_with_extents(input);
+    let link = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(extents.at(&link), Some(&(0..9)));
+    assert_eq!(extents.at(&link.with_child(0)), Some(&(6..9)));
+    assert_eq!(parsed.diagnostics().len(), 1);
+
+    let input = b"#ifdef unix\nbody\n#endif\n";
+    let (parsed, extents) = parse_with_extents(input);
+    let conditional = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(extents.at(&conditional), Some(&(0..input.len())));
+    assert_eq!(extents.at(&conditional.with_child(0)), Some(&(6..12)));
+    assert_eq!(extents.at(&conditional.with_child(1)), Some(&(12..17)));
+    assert!(parsed.diagnostics().is_empty());
+
+    let input = b"#ifdef unix\npre\n}\npost\n";
+    let (parsed, extents) = parse_with_extents(input);
+    let conditional = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(extents.at(&conditional), Some(&(0..input.len())));
+    assert_eq!(
+        extents.at(&conditional.with_child(1)),
+        Some(&(12..input.len()))
+    );
+    assert_eq!(
+        extents.at(&conditional.with_child(1).with_child(2)),
+        Some(&(18..23))
+    );
+    assert_eq!(parsed.diagnostics().len(), 2);
+}
+
+#[test]
+fn source_extents_cover_relexed_r_like_percent_tail() {
+    let input = br#"\examples{f(%tail)}"#;
+    let (parsed, extents) = parse_with_extents(input);
+    let root = rd_ast::RdAstPath::new(vec![rd_ast::RdAstPathSegment::TopLevel(0)]);
+    assert_eq!(extents.at(&root), Some(&(0..input.len())));
+    assert_eq!(extents.at(&root.with_child(0)), Some(&(10..12)));
+    assert_eq!(extents.at(&root.with_child(1)), Some(&(12..19)));
+    assert_eq!(parsed.diagnostics().len(), 1);
+}
+
+#[test]
+fn source_extents_scale_to_long_many_leaf_and_deep_inputs() {
+    for (label, input) in [
+        (
+            "long-line",
+            format!(r"\title{{{}}}", "x".repeat(256 * 1024)),
+        ),
+        ("many-leaves", r"\link{x}".repeat(2_000)),
+        (
+            "deep-tree",
+            format!("{}x{}", r"\emph{".repeat(100), "}".repeat(100)),
+        ),
+    ] {
+        let input = input.into_bytes();
+        let (parsed, extents) = parse_with_extents(&input);
+        let mut count = 1;
+        assert_extent_tree(
+            parsed.document().nodes(),
+            &extents,
+            rd_ast::RdAstPath::new(Vec::new()),
+            &mut count,
+        );
+        assert_eq!(extents.entry_count(), count, "{label}");
+        assert!(!parsed.document().nodes().is_empty(), "{label}");
+        eprintln!(
+            "{label}: input_bytes={}, extent_entries={count}",
+            input.len()
+        );
+    }
+}
+
 #[test]
 fn quoted_link_restores_string_state_after_nested_markup() {
     let parsed = crate::parse(br#"\examples{"\link{x} } %"}"#).unwrap();

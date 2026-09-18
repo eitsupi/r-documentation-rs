@@ -6,7 +6,7 @@ use rd_ast::{RdNode, RdTag};
 
 use super::{
     Parser,
-    frame::{Frame, FrameRequest, ItemPolicy, Mode},
+    frame::{Frame, FrameRequest, ItemPolicy, LocatedNode, Mode},
     spec::{self, Context},
 };
 
@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
         context: Context,
         quoted: bool,
         item_policy: ItemPolicy,
-    ) -> RdNode {
+    ) -> LocatedNode {
         let unknown = spec.is_none();
         let spec = spec.unwrap_or(spec::TagSpec {
             option_policy: spec::OptionPolicy::Optional { mode: Mode::Latex },
@@ -27,6 +27,7 @@ impl<'a> Parser<'a> {
             section: false,
         });
         let tag = RdTag::from_rd_tag(&name);
+        let tag_start = self.tokens[self.index].range.start;
         self.index += 1;
         if !unknown && !quoted && !spec.allowed_contexts.contains(&context) {
             self.diagnostics.push(Diagnostic::new(
@@ -66,15 +67,20 @@ impl<'a> Parser<'a> {
                         Severity::Error,
                         DiagnosticCode::UnclosedOption,
                         "unclosed option",
-                        self.map.span(opener),
+                        self.map.span(opener.clone()),
                     ));
                 }
-                Some(result.nodes)
+                let option_end = result.consumed_end;
+                Some((result.nodes, opener.start..option_end))
             }
             _ => None,
         };
         if arguments.is_empty() {
-            return RdNode::tagged(tag, option, Vec::new());
+            let end = option.as_ref().map_or(
+                self.tokens[self.index.saturating_sub(1)].range.end,
+                |(_, range)| range.end,
+            );
+            return LocatedNode::tagged(tag, option, Vec::new(), tag_start..end);
         }
         if self
             .tokens
@@ -88,7 +94,11 @@ impl<'a> Parser<'a> {
                 format!("missing argument for {name}"),
                 self.map.span(self.tokens[self.index - 1].range.clone()),
             ));
-            return RdNode::tagged(tag, option, Vec::new());
+            let end = option.as_ref().map_or(
+                self.tokens[self.index.saturating_sub(1)].range.end,
+                |(_, range)| range.end,
+            );
+            return LocatedNode::tagged(tag, option, Vec::new(), tag_start..end);
         }
         let mut children = Vec::new();
         for argument in arguments {
@@ -108,7 +118,12 @@ impl<'a> Parser<'a> {
                         .span(self.tokens[self.index.saturating_sub(1)].range.clone()),
                 ));
                 if spec.arguments.len() == 1 {
-                    return RdNode::tagged(tag, None, Vec::new());
+                    return LocatedNode::tagged(
+                        tag,
+                        None,
+                        Vec::new(),
+                        tag_start..self.tokens[self.index.saturating_sub(1)].range.end,
+                    );
                 }
                 continue;
             }
@@ -148,11 +163,11 @@ impl<'a> Parser<'a> {
                 let all_text = argument_children
                     .nodes
                     .iter()
-                    .all(|node| matches!(node, RdNode::Text(_)));
+                    .all(|node| matches!(node.node, RdNode::Text(_)));
                 let value = argument_children
                     .nodes
                     .iter()
-                    .filter_map(|node| match node {
+                    .filter_map(|node| match &node.node {
                         RdNode::Text(value) => Some(value.as_str()),
                         _ => None,
                     })
@@ -175,9 +190,14 @@ impl<'a> Parser<'a> {
             if arguments.len() == 1 && !preserve_single_argument_group {
                 children.extend(argument_children.nodes);
             } else {
-                children.push(RdNode::group(argument_children.nodes));
+                let extent = self.tokens[open].range.start..argument_children.consumed_end;
+                children.push(LocatedNode::group(argument_children.nodes, extent));
             }
         }
-        RdNode::tagged(tag, option, children)
+        let end = self.tokens.get(self.index.saturating_sub(1)).map_or_else(
+            || option.as_ref().map_or(tag_start, |(_, range)| range.end),
+            |t| t.range.end,
+        );
+        LocatedNode::tagged(tag, option, children, tag_start..end)
     }
 }
