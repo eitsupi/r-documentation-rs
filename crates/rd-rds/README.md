@@ -17,17 +17,31 @@ The API has three layers:
 - `matrix::CharacterMatrix` provides a validated, owned view of general R
   character matrices, including matrices without `dimnames`.
 
-With the opt-in `lazyload` feature, [`lazyload`] provides bounded access to an
-installed package's `R/<pkg>.rdx` and `R/<pkg>.rdb` pair. It retains stored
-variables in index order (including duplicate names), resolves name lookups
-with last-wins semantics, and reads direct records without an R session. The
-record layer recognizes uncompressed and zlib records. bzip2 and xz entries
-are recognized in the index and always report an explicit unsupported error;
-their codecs are outside this milestone. Compound persistence references are
-described by their eager and lazy record locations but are not resolved. The
-API returns both the exact addressed bytes and the decompressed payload, with
-independent 256 MiB default bounds. Raw records are already XDR bytes and do
-not carry a length prefix; zlib records carry a four-byte declared length.
+With the opt-in `lazyload` feature, [`lazyload::LazyLoadIndex`] reads an `.rdx`
+index without requiring its companion `.rdb` data file. Its `open` and
+`open_with_options` constructors expose stored variables, persistence-reference
+descriptors, and record compression. Variables and references retain their
+index order and duplicate names; name lookups return the last matching entry.
+For example, callers can enumerate code or lazy-data names with
+`LazyLoadIndex::open(path)?.variables()` without loading any records.
+
+`Options::max_index_bytes` bounds both stored and decompressed index bytes,
+each to 256 MiB by default. The index reader also applies the default RDS
+decoder limits. Record-size options apply only to record reads. Index parsing
+validates descriptors; it does not check their ranges against a data file.
+The returned `Compression` describes records, independently of the index
+file's compression envelope.
+
+[`lazyload::LazyLoadDb`] uses the same index reader and opens the `.rdx`/`.rdb`
+pair to read direct records without an R session. The record layer recognizes
+uncompressed and zlib records. bzip2 and xz records are recognized in the
+index, but reading them reports an explicit unsupported error. Compound
+persistence references are described by their eager and lazy record locations
+but are not resolved. Unrecognized persistence descriptors are retained as
+`RecordReference::Unsupported`. Record reads return both the exact addressed
+bytes and the decompressed payload, with independent 256 MiB default bounds.
+Raw records are already XDR bytes and do not carry a length prefix; zlib
+records carry a four-byte declared length.
 
 With the same feature, [`package::InstalledCodeDb`] provides the package-level
 API for that pair. The caller supplies the installed package directory; the

@@ -1,10 +1,13 @@
-//! Bounded access to an installed package's lazy-load database.
+//! Bounded access to lazy-load indexes and database records.
 //!
 //! A lazy-load database is an `.rdx` index and a sibling `.rdb` file.  The
 //! index is an RDS object. Raw records are the XDR bytes addressed by the
 //! index; zlib records have a four-byte big-endian uncompressed length before
 //! their compressed payload. This module deliberately exposes records through
 //! names in the index; it does not expose an arbitrary offset reader.
+//!
+//! [`LazyLoadIndex`] reads the index alone, without requiring a data file.
+//! [`LazyLoadDb`] opens both files and adds bounded record reads.
 
 use std::{
     collections::HashMap,
@@ -28,7 +31,7 @@ pub enum Compression {
     Xz,
 }
 
-/// A checked byte range in the data file.
+/// A byte range described by an index entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RecordLocation {
     offset: u64,
@@ -137,7 +140,9 @@ impl RecordBytes {
     }
 }
 
-/// Limits for opening and reading a lazy-load database.
+/// Limits for opening lazy-load indexes and reading database records.
+///
+/// Each limit defaults to 256 MiB. [`LazyLoadIndex`] uses only the index limit.
 #[derive(Debug, Clone, Copy)]
 pub struct Options {
     max_index_bytes: usize,
@@ -156,7 +161,7 @@ impl Default for Options {
 }
 
 impl Options {
-    /// Sets the maximum number of bytes read from the index file.
+    /// Sets the maximum size of both the stored and decompressed index.
     #[must_use]
     pub fn max_index_bytes(mut self, value: usize) -> Self {
         self.max_index_bytes = value;
@@ -228,32 +233,51 @@ pub enum Error {
     DataFileChanged,
 }
 
-/// A reader over an installed package's `.rdx`/`.rdb` pair.
+/// A parsed `.rdx` index that does not require a companion `.rdb` file.
+///
+/// Entries retain their index order and duplicate names. Name lookups return
+/// the last matching entry. Record descriptors are validated while parsing,
+/// but their ranges are checked against the data file only when [`LazyLoadDb`]
+/// reads a record. Compound persistence references are described, not resolved;
+/// unrecognized persistence descriptors are retained as [`RecordReference::Unsupported`].
+///
+/// ```no_run
+/// use rd_rds::lazyload::LazyLoadIndex;
+///
+/// let index = LazyLoadIndex::open("/library/pkg/R/pkg.rdx")?;
+/// for variable in index.variables() {
+///     println!("{}", variable.name());
+/// }
+/// # Ok::<(), rd_rds::lazyload::Error>(())
+/// ```
 #[derive(Debug)]
-pub struct LazyLoadDb {
-    data_path: PathBuf,
+pub struct LazyLoadIndex {
     compression: Compression,
     variables: Vec<Variable>,
     variable_lookup: HashMap<String, usize>,
     references: Vec<(String, RecordReference)>,
-    options: Options,
-    data_metadata: FileSnapshot,
 }
 
-impl LazyLoadDb {
-    /// Opens an index and its sibling data file.
-    pub fn open(index_path: impl AsRef<Path>, data_path: impl AsRef<Path>) -> Result<Self, Error> {
-        Self::open_with_options(index_path, data_path, Options::default())
+impl LazyLoadIndex {
+    /// Reads an index with default resource limits, without accessing a data file.
+    pub fn open(index_path: impl AsRef<Path>) -> Result<Self, Error> {
+        Self::open_with_options(index_path, Options::default())
     }
 
     /// Opens an index with explicit resource limits.
+    ///
+    /// The index limit bounds both stored and decompressed bytes. RDS decoding
+    /// uses [`crate::ParseOptions::default`], including its structural limits.
+    /// Record-size limits do not apply. Metadata checks before and after the
+    /// read detect some concurrent changes, but do not guarantee a transaction.
+    /// Stored-size violations return [`Error::IndexSizeLimitExceeded`];
+    /// decompression, decoding, and schema failures retain the database's
+    /// [`Error::InvalidIndex`] or [`Error::InvalidVariable`] classification.
     pub fn open_with_options(
         index_path: impl AsRef<Path>,
-        data_path: impl AsRef<Path>,
         options: Options,
     ) -> Result<Self, Error> {
         let index_path = index_path.as_ref();
-        let data_path = data_path.as_ref().to_path_buf();
         let index_before = snapshot(index_path)?;
         let mut index_file = File::open(index_path).map_err(|source| Error::Io {
             path: index_path.to_path_buf(),
@@ -300,27 +324,28 @@ impl LazyLoadDb {
             message: error.to_string(),
         })?;
 
-        let compression = parse_compression(&root)?;
-        let variables = parse_variables(&root)?;
-        let references = parse_references(&root)?;
+        Self::from_root(&root)
+    }
+
+    fn from_root(root: &RObject) -> Result<Self, Error> {
+        let compression = parse_compression(root)?;
+        let variables = parse_variables(root)?;
+        let references = parse_references(root)?;
         let variable_lookup = variables
             .iter()
             .enumerate()
             .map(|(index, variable)| (variable.name.clone(), index))
             .collect();
-        let data_metadata = snapshot(&data_path)?;
-
         Ok(Self {
-            data_path,
             compression,
             variables,
             variable_lookup,
             references,
-            options,
-            data_metadata,
         })
     }
 
+    /// Returns the record compression declared by the index's `compressed`
+    /// field, not the compression envelope of the index file itself.
     #[must_use]
     pub fn compression(&self) -> Compression {
         self.compression
@@ -341,12 +366,13 @@ impl LazyLoadDb {
             .and_then(|index| self.variables.get(*index))
     }
 
-    /// Returns every persistence reference in `.rdx` order.
+    /// Returns every persistence reference in `.rdx` order, including duplicates.
     #[must_use]
     pub fn references(&self) -> &[(String, RecordReference)] {
         &self.references
     }
 
+    /// Returns the last persistence reference with this name.
     #[must_use]
     pub fn reference(&self, name: &str) -> Option<&RecordReference> {
         self.references
@@ -354,6 +380,70 @@ impl LazyLoadDb {
             .rev()
             .find(|(key, _)| key == name)
             .map(|(_, reference)| reference)
+    }
+}
+
+/// A reader over an installed package's `.rdx`/`.rdb` pair.
+#[derive(Debug)]
+pub struct LazyLoadDb {
+    data_path: PathBuf,
+    index: LazyLoadIndex,
+    options: Options,
+    data_metadata: FileSnapshot,
+}
+
+impl LazyLoadDb {
+    /// Opens an index and its sibling data file.
+    pub fn open(index_path: impl AsRef<Path>, data_path: impl AsRef<Path>) -> Result<Self, Error> {
+        Self::open_with_options(index_path, data_path, Options::default())
+    }
+
+    /// Opens an index and its data file with explicit resource limits.
+    pub fn open_with_options(
+        index_path: impl AsRef<Path>,
+        data_path: impl AsRef<Path>,
+        options: Options,
+    ) -> Result<Self, Error> {
+        let data_path = data_path.as_ref().to_path_buf();
+        let index = LazyLoadIndex::open_with_options(index_path, options)?;
+        let data_metadata = snapshot(&data_path)?;
+        Ok(Self {
+            data_path,
+            index,
+            options,
+            data_metadata,
+        })
+    }
+
+    /// Returns the record compression declared by the index.
+    #[must_use]
+    pub fn compression(&self) -> Compression {
+        self.index.compression()
+    }
+
+    /// Returns every stored variable in `.rdx` order, including duplicates.
+    #[must_use]
+    pub fn variables(&self) -> &[Variable] {
+        self.index.variables()
+    }
+
+    /// Returns the last variable with this name, matching the database's
+    /// list-to-environment lookup behavior.
+    #[must_use]
+    pub fn variable(&self, name: &str) -> Option<&Variable> {
+        self.index.variable(name)
+    }
+
+    /// Returns every persistence reference in `.rdx` order, including duplicates.
+    #[must_use]
+    pub fn references(&self) -> &[(String, RecordReference)] {
+        self.index.references()
+    }
+
+    /// Returns the last persistence reference with this name.
+    #[must_use]
+    pub fn reference(&self, name: &str) -> Option<&RecordReference> {
+        self.index.reference(name)
     }
 
     /// Reads a direct record addressed by a variable name.
@@ -450,10 +540,10 @@ impl LazyLoadDb {
                 {
                     return Err(Error::DataFileChanged);
                 }
-                let decompressed = decode_stored_record(&stored, self.compression, self.options)?;
+                let decompressed = decode_stored_record(&stored, self.compression(), self.options)?;
                 Ok(RecordBytes {
                     location,
-                    compression: self.compression,
+                    compression: self.compression(),
                     stored,
                     decompressed,
                 })
@@ -885,6 +975,146 @@ mod tests {
             RValue::List(values),
             Attributes::new(vec![Attribute::new(Symbol::from("names"), strings(names))]),
         )
+    }
+
+    fn index_root(variables: RObject, references: RObject) -> RObject {
+        named_list(
+            &["variables", "references", "compressed"],
+            vec![
+                variables,
+                references,
+                RObject::from_parts(RValue::Logical(vec![Some(false)]), Attributes::default()),
+            ],
+        )
+    }
+
+    #[test]
+    fn index_accepts_unnamed_empty_maps() {
+        let empty = RObject::from_parts(RValue::List(vec![]), Attributes::default());
+        let index = LazyLoadIndex::from_root(&index_root(empty.clone(), empty)).unwrap();
+        assert!(index.variables().is_empty());
+        assert!(index.references().is_empty());
+        assert_eq!(index.variable("missing"), None);
+        assert_eq!(index.reference("missing"), None);
+    }
+
+    #[test]
+    fn index_preserves_reference_descriptors_order_and_duplicate_lookup() {
+        let direct = |offset, length| {
+            RObject::from_parts(
+                RValue::Integer(vec![Some(offset), Some(length)]),
+                Attributes::default(),
+            )
+        };
+        let compound = named_list(
+            &["eagerKey", "lazyKeys"],
+            vec![
+                direct(10, 20),
+                named_list(&["binding"], vec![direct(30, 40)]),
+            ],
+        );
+        let root = index_root(
+            named_list(&["compound"], vec![compound.clone()]),
+            named_list(
+                &["duplicate", "compound", "unknown", "duplicate"],
+                vec![direct(1, 2), compound, string("future"), direct(5, 6)],
+            ),
+        );
+        let index = LazyLoadIndex::from_root(&root).unwrap();
+        let compound = RecordReference::Compound {
+            eager_key: Some(RecordLocation::new(10, 20)),
+            lazy_keys: vec![("binding".into(), RecordLocation::new(30, 40))],
+        };
+        assert_eq!(
+            index.references(),
+            &[
+                (
+                    "duplicate".into(),
+                    RecordReference::Direct(RecordLocation::new(1, 2))
+                ),
+                ("compound".into(), compound.clone()),
+                ("unknown".into(), RecordReference::Unsupported),
+                (
+                    "duplicate".into(),
+                    RecordReference::Direct(RecordLocation::new(5, 6))
+                ),
+            ]
+        );
+        assert_eq!(index.reference("duplicate"), Some(&index.references()[3].1));
+        assert_eq!(
+            index.reference("unknown"),
+            Some(&RecordReference::Unsupported)
+        );
+        assert_eq!(index.variable("compound").unwrap().reference(), &compound);
+        assert_eq!(index.variable("compound").unwrap().location(), None);
+    }
+
+    #[test]
+    fn index_rejects_missing_duplicate_and_malformed_fields() {
+        let names = ["variables", "references", "compressed"];
+        let values = vec![
+            named_list(&[], vec![]),
+            named_list(&[], vec![]),
+            RObject::from_parts(RValue::Logical(vec![Some(false)]), Attributes::default()),
+        ];
+        for i in 0..names.len() {
+            let mut missing_names = names.to_vec();
+            let mut missing_values = values.clone();
+            missing_names.remove(i);
+            missing_values.remove(i);
+            let mut duplicate_names = names.to_vec();
+            let mut duplicate_values = values.clone();
+            duplicate_names.push(names[i]);
+            duplicate_values.push(values[i].clone());
+            let mut malformed_values = values.clone();
+            malformed_values[i] = string("invalid");
+            for root in [
+                named_list(&missing_names, missing_values),
+                named_list(&duplicate_names, duplicate_values),
+                named_list(&names, malformed_values),
+            ] {
+                assert!(matches!(
+                    LazyLoadIndex::from_root(&root),
+                    Err(Error::InvalidIndex { .. })
+                ));
+            }
+        }
+        for root in [string("invalid"), named_list(&names[..2], values)] {
+            assert!(matches!(
+                LazyLoadIndex::from_root(&root),
+                Err(Error::InvalidIndex { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn index_rejects_malformed_locations_in_variables_and_references() {
+        for value in [
+            None,
+            Some(-1.0),
+            Some(0.5),
+            Some(f64::INFINITY),
+            Some(f64::NAN),
+            Some(2_f64.powi(53)),
+        ] {
+            let entry = named_list(
+                &["bad"],
+                vec![RObject::from_parts(
+                    RValue::Real(vec![value, Some(1.0)]),
+                    Attributes::default(),
+                )],
+            );
+            let variable_root = index_root(entry.clone(), named_list(&[], vec![]));
+            assert!(matches!(
+                LazyLoadIndex::from_root(&variable_root),
+                Err(Error::InvalidVariable { name, .. }) if name == "bad"
+            ));
+            let reference_root = index_root(named_list(&[], vec![]), entry);
+            assert!(matches!(
+                LazyLoadIndex::from_root(&reference_root),
+                Err(Error::InvalidIndex { .. })
+            ));
+        }
     }
 
     #[test]

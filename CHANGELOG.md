@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- [rd-rds] Add `lazyload::LazyLoadIndex` for bounded `.rdx` reads without a
+  companion `.rdb`, exposing ordered variables, persistence-reference
+  descriptors, and record compression. `LazyLoadDb` shares the index reader
+  and preserves its existing lookup and record-reading behavior.
+
 ## [0.5.0-rc.1] - 2026-09-18
 
 This release candidate completes the planned 0.5.0 feature set. It makes
