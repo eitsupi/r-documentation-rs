@@ -48,15 +48,23 @@ pub struct HelpTopicEntry {
 }
 
 impl HelpTopicEntry {
-    /// Derives the help-database key by removing one trailing, case-sensitive
-    /// `.Rd` suffix from [`Self::file`]. Values without that suffix are
-    /// unchanged; paths and empty strings are not normalized. This is a
-    /// stored key, not a filesystem path, and does not establish that a
+    /// Derives the help-database key from the basename of [`Self::file`],
+    /// removing one trailing `.Rd` or `.rd` suffix as R does. Trailing path
+    /// separators are ignored. The stored file value is unchanged, and an
+    /// empty basename yields an empty key. This does not establish that a
     /// corresponding topic exists in the help database.
     pub fn topic_key(&self) -> Option<&str> {
-        self.file
-            .as_str()
-            .map(|file| file.strip_suffix(".Rd").unwrap_or(file))
+        self.file.as_str().map(|file| {
+            let basename = file
+                .trim_end_matches(std::path::is_separator)
+                .rsplit(std::path::is_separator)
+                .next()
+                .unwrap_or(file);
+            basename
+                .strip_suffix(".Rd")
+                .or_else(|| basename.strip_suffix(".rd"))
+                .unwrap_or(basename)
+        })
     }
 }
 

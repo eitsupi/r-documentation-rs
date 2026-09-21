@@ -263,26 +263,30 @@ fn rejects_invalid_root_names_and_required_alias_schema() {
 }
 
 #[test]
-fn topic_keys_only_strip_one_exact_rd_suffix() {
-    let root = replace_column(
-        metadata(),
-        "File",
-        Some(object(RValue::Character(
-            ["dir/topic.Rd", "topic.rd", "no-extension", ""]
-                .map(text)
-                .to_vec(),
-        ))),
-    );
-    let index = HelpTopicIndex::from_object(&root).unwrap();
-    assert_eq!(
-        index.entries().map(|e| e.topic_key()).collect::<Vec<_>>(),
-        [
-            Some("dir/topic"),
-            Some("topic.rd"),
-            Some("no-extension"),
-            Some("")
-        ]
-    );
+fn topic_keys_match_r_basename_and_rd_suffix_rules() {
+    let index = HelpTopicIndex::from_object(&metadata()).unwrap();
+    let mut entry = index.entries().next().unwrap().clone();
+    for (file, key) in [
+        ("topic.Rd", "topic"),
+        ("topic.rd", "topic"),
+        ("dir/topic.Rd", "topic"),
+        ("dir/topic.rd", "topic"),
+        ("/dir//topic.rd", "topic"),
+        ("dir/topic.Rd/", "topic"),
+        ("dir/.", "."),
+        ("dir/..", ".."),
+        ("nested.Rd.Rd", "nested.Rd"),
+        ("nested.rd.rd", "nested.rd"),
+        ("topic.RD", "topic.RD"),
+        ("topic.rD", "topic.rD"),
+        ("no-extension", "no-extension"),
+        ("", ""),
+        ("/", ""),
+    ] {
+        entry.file = HelpTopicText::Text(file.into());
+        assert_eq!(entry.topic_key(), Some(key), "source file: {file:?}");
+        assert_eq!(entry.file.as_str(), Some(file));
+    }
 }
 
 struct Package(PathBuf);

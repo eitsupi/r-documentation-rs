@@ -33,8 +33,9 @@ Each entry's `title` and `file` distinguish absent columns, NA values,
 malformed fields, and decoded text through `HelpTopicText`. Invalid optional
 fields leave other metadata available; `as_str()` returns only usable text.
 The required `Aliases` column and data-frame structure are validated.
-`topic_key()` strips one exact `.Rd` suffix from the stored `File` value.
-It does not check whether the resulting topic exists.
+`topic_key()` takes the basename of the stored `File` value and strips one
+`.Rd` or `.rd` suffix, matching R's help-database keys. It preserves the
+stored value and does not check whether the resulting topic exists.
 
 The [help-with-fallback example](examples/help_with_fallback.rs) combines
 metadata and compiled help. Its consumer policy keeps the metadata title
