@@ -135,6 +135,38 @@ fn alias_lookup_uses_the_first_row_without_discarding_duplicates() {
 }
 
 #[test]
+fn alias_lookup_distinguishes_na_empty_groups_and_empty_strings() {
+    let root = replace_column(
+        metadata(),
+        "Aliases",
+        Some(object(RValue::List(vec![
+            object(RValue::Character(vec![RStr::Na])),
+            object(RValue::Character(vec![])),
+            object(RValue::Character(vec![
+                text(""),
+                text("late"),
+                text("late"),
+            ])),
+            object(RValue::Character(vec![text("late"), text("NA")])),
+        ]))),
+    );
+    let index = HelpTopicIndex::from_object(&root).unwrap();
+    let entries: Vec<_> = index.entries().collect();
+    assert_eq!(entries.len(), 4);
+    assert_eq!(entries[0].aliases, [None]);
+    assert!(entries[1].aliases.is_empty());
+    assert_eq!(
+        entries[2].aliases,
+        [Some("".into()), Some("late".into()), Some("late".into())]
+    );
+    assert_eq!(index.find_alias(""), Some(entries[2]));
+    assert_eq!(index.find_alias("late"), Some(entries[2]));
+    assert_eq!(index.find_alias("NA"), Some(entries[3]));
+    assert!(index.find_alias("na").is_none());
+    assert!(index.find_alias("unknown").is_none());
+}
+
+#[test]
 fn missing_optional_columns_and_empty_metadata_are_explicit() {
     for version in [2, 3] {
         let root =
@@ -149,6 +181,7 @@ fn missing_optional_columns_and_empty_metadata_are_explicit() {
         let index = HelpTopicIndex::from_object(&root).unwrap();
         assert!(index.is_empty());
         assert_eq!(index.entries().len(), 0);
+        assert!(index.find_alias("unknown").is_none());
     }
 }
 

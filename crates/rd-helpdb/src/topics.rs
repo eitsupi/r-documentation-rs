@@ -1,6 +1,9 @@
 //! Typed access to `Meta/Rd.rds`, independent of the compiled help database.
 
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+};
 
 use rd_rds::{RObject, RValue, file::ReadOptions};
 
@@ -79,6 +82,7 @@ impl HelpTopicEntry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HelpTopicIndex {
     entries: Vec<HelpTopicEntry>,
+    alias_lookup: HashMap<String, usize>,
 }
 
 impl HelpTopicIndex {
@@ -187,7 +191,16 @@ impl HelpTopicIndex {
                 file: optional_text(column("File"), "File", row, nrow),
             });
         }
-        Ok(Self { entries })
+        let mut alias_lookup = HashMap::new();
+        for (row, entry) in entries.iter().enumerate() {
+            for alias in entry.aliases.iter().flatten() {
+                alias_lookup.entry(alias.clone()).or_insert(row);
+            }
+        }
+        Ok(Self {
+            entries,
+            alias_lookup,
+        })
     }
 
     /// Iterates over entries in stored row order.
@@ -199,12 +212,7 @@ impl HelpTopicIndex {
     /// Lookup is case-sensitive and does not normalize text. A first match
     /// with unavailable optional fields still wins over later matches.
     pub fn find_alias(&self, alias: &str) -> Option<&HelpTopicEntry> {
-        self.entries.iter().find(|entry| {
-            entry
-                .aliases
-                .iter()
-                .any(|value| value.as_deref() == Some(alias))
-        })
+        self.alias_lookup.get(alias).map(|&row| &self.entries[row])
     }
 
     /// Returns the number of stored rows, including rows with no aliases.
