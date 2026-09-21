@@ -2,25 +2,14 @@
 
 ## [Unreleased]
 
-### Added
+## [0.5.0-rc.2] - 2026-09-21
 
-- [rd-helpdb] Add `HelpTopicIndex` for bounded `Meta/Rd.rds` reads without a
-  compiled help database. Preserve ordered alias groups, source file names,
-  and optional titles, with explicit missing, NA, and invalid field states
-  and first-match metadata alias lookup.
-- [rd-rds] Add `lazyload::LazyLoadIndex` for bounded `.rdx` reads without a
-  companion `.rdb`, exposing ordered variables, persistence-reference
-  descriptors, and record compression. `LazyLoadDb` shares the index reader
-  and preserves its existing lookup and record-reading behavior.
-
-## [0.5.0-rc.1] - 2026-09-18
-
-This release candidate completes the planned 0.5.0 feature set. It makes
+This release candidate consolidates the planned 0.5.0 feature set. It makes
 canonical `rd-ast` structure locations explicit, carries them through
 position-aware cursors and located semantic views, exposes exact source
 provenance from `rd-source` parser results, and adds bounded installed-package
-metadata and stored-code facts. Intentional best-effort APIs use a `_lossy`
-suffix.
+metadata, help-topic indexes, and stored-code facts. Intentional best-effort
+APIs use a `_lossy` suffix.
 
 ### Added
 
@@ -41,7 +30,8 @@ suffix.
   - The opt-in `lazyload` feature provides bounded `.rdx` index and `.rdb`
     record reading, preserving stored variables and persistence references in
     index order. It includes the standalone `gzip` feature required by normal
-    installed-package `.rdx` indexes (#35).
+    installed-package `.rdx` indexes (#35). `LazyLoadIndex` also supports
+    bounded `.rdx` inspection without a companion `.rdb` (#58).
   - Bounded closure-prefix inspection preserves formal order and default
     presence, validates reference alignment, stops after the body tag without
     constructing an `RObject`, and enforces independent byte and formal-count
@@ -53,6 +43,10 @@ suffix.
   - Add an R CMD INSTALL-generated fixture covering named exports,
     `import(..., except = ...)`, aliased `importFrom`, and S3 declarations
     (#37).
+- [rd-helpdb] Add `HelpTopicIndex` for bounded `Meta/Rd.rds` reads without a
+  compiled help database. Preserve ordered alias groups, source file names,
+  and optional titles, with explicit missing, NA, and invalid field states
+  and first-match metadata alias lookup (#59).
 - [rd-helpdb] Move compiled help database `.rdx` parsing and `.rdb` record
   access onto `rd-rds`'s bounded `lazyload` reader while retaining the
   `PackageHelpDb` API and lower-level compatibility adapters (#36).
