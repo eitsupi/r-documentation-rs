@@ -6,7 +6,7 @@ use rd_rds::{RObject, RValue, file::ReadOptions};
 
 use crate::{Error, rds::map_file_error, util::rstr_to_string};
 
-/// A title or source file name in help-topic metadata.
+/// A topic name, title, or source file name in help-topic metadata.
 ///
 /// Missing columns, R `NA`, and malformed values remain distinct. An invalid
 /// optional field does not prevent reading the other fields or rows.
@@ -41,6 +41,8 @@ impl HelpTopicText {
 pub struct HelpTopicEntry {
     /// Aliases in stored order, including duplicates and R `NA` as `None`.
     pub aliases: Vec<Option<String>>,
+    /// The optional `Name` value, preserved exactly as decoded.
+    pub name: HelpTopicText,
     /// The optional `Title` value. No whitespace normalization is applied.
     pub title: HelpTopicText,
     /// The optional `File` value, preserved exactly as decoded.
@@ -116,7 +118,7 @@ impl HelpTopicIndex {
     /// are retained but never match a lookup. Invalid alias strings are
     /// errors. Additional columns are ignored.
     ///
-    /// `Title` and `File` are optional character columns. Missing columns
+    /// `Name`, `Title`, and `File` are optional character columns. Missing columns
     /// and NA values are retained explicitly. Wrong column types, excess
     /// values, missing row values in short columns, and undecodable strings
     /// become [`HelpTopicText::Invalid`], preserving usable neighboring
@@ -180,6 +182,7 @@ impl HelpTopicIndex {
                 .collect::<Result<_, _>>()?;
             entries.push(HelpTopicEntry {
                 aliases,
+                name: optional_text(column("Name"), "Name", row, nrow),
                 title: optional_text(column("Title"), "Title", row, nrow),
                 file: optional_text(column("File"), "File", row, nrow),
             });
@@ -194,7 +197,7 @@ impl HelpTopicIndex {
 
     /// Finds the first row containing this alias, ignoring NA alias values.
     /// Lookup is case-sensitive and does not normalize text. A first match
-    /// with an unavailable title or file still wins over later matches.
+    /// with unavailable optional fields still wins over later matches.
     pub fn find_alias(&self, alias: &str) -> Option<&HelpTopicEntry> {
         self.entries.iter().find(|entry| {
             entry

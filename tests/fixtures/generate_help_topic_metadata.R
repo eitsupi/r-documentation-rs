@@ -5,6 +5,7 @@ out <- "crates/rd-helpdb/tests/fixtures/data"
 
 metadata <- structure(list(
   Title = c("First topic title", NA_character_, "Title without a page", ""),
+  Name = c("first", NA_character_, "unlisted-topic", ""),
   Aliases = list(c("shared", "first", NA_character_, "first"),
                  c("shared", "second"), "title-only", character()),
   File = c("first-topic.Rd", "second-topic.Rd", NA_character_, "nested.Rd.Rd"),

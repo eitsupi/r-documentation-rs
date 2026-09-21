@@ -26,10 +26,10 @@ decode limits.
 The view preserves row order and alias groups, including duplicate and NA
 aliases. `find_alias` returns the first matching metadata row. This is
 independent of `PackageHelpDb::resolve_alias`, which reads `aliases.rds` and
-uses the last duplicate occurrence. Missing titles or file names in the first
-matching row do not cause lookup to select a later row.
+uses the last duplicate occurrence. Missing names, titles, or file names in
+the first matching row do not cause lookup to select a later row.
 
-Each entry's `title` and `file` distinguish absent columns, NA values,
+Each entry's `name`, `title`, and `file` distinguish absent columns, NA values,
 malformed fields, and decoded text through `HelpTopicText`. Invalid optional
 fields leave other metadata available; `as_str()` returns only usable text.
 The required `Aliases` column and data-frame structure are validated.

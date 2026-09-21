@@ -82,12 +82,16 @@ fn retains_rows_alias_groups_na_and_source_names_in_both_formats() {
                 Some("first".into())
             ]
         );
+        assert_eq!(entries[0].name.as_str(), Some("first"));
         assert_eq!(entries[0].title.as_str(), Some("First topic title"));
         assert_eq!(entries[0].file.as_str(), Some("first-topic.Rd"));
         assert_eq!(entries[0].topic_key(), Some("first-topic"));
+        assert_eq!(entries[1].name, HelpTopicText::Na);
         assert_eq!(entries[1].title, HelpTopicText::Na);
+        assert_eq!(entries[2].name.as_str(), Some("unlisted-topic"));
         assert_eq!(entries[2].file, HelpTopicText::Na);
         assert_eq!(entries[2].topic_key(), None);
+        assert_eq!(entries[3].name.as_str(), Some(""));
         assert_eq!(entries[3].title.as_str(), Some(""));
         assert!(entries[3].aliases.is_empty());
         assert_eq!(entries[3].topic_key(), Some("nested.Rd"));
@@ -137,6 +141,7 @@ fn missing_optional_columns_and_empty_metadata_are_explicit() {
             read_rds_file(fixture(&format!("help_topics_aliases_only_v{version}.rds"))).unwrap();
         let index = HelpTopicIndex::from_object(&root).unwrap();
         let entry = index.find_alias("first").unwrap();
+        assert_eq!(entry.name, HelpTopicText::Missing);
         assert_eq!(entry.title, HelpTopicText::Missing);
         assert_eq!(entry.file, HelpTopicText::Missing);
         assert_eq!(entry.topic_key(), None);
@@ -218,6 +223,42 @@ fn malformed_optional_fields_do_not_destroy_other_metadata() {
 }
 
 #[test]
+fn malformed_names_preserve_other_metadata() {
+    let root = metadata();
+    let original = HelpTopicIndex::from_object(&root).unwrap();
+    let bad_string = RStr::new(&[0xff], REncoding::Utf8, NativeEncodingSource::Unknown);
+    for (value, names) in [
+        (RValue::Integer(vec![Some(1); 4]), [None; 4]),
+        (
+            RValue::Character(vec![text("first")]),
+            [Some("first"), None, None, None],
+        ),
+        (RValue::Character(vec![text("extra"); 5]), [None; 4]),
+        (
+            RValue::Character(vec![
+                bad_string,
+                text("second"),
+                text("title-only"),
+                text(""),
+            ]),
+            [None, Some("second"), Some("title-only"), Some("")],
+        ),
+    ] {
+        let root = replace_column(root.clone(), "Name", Some(object(value)));
+        let index = HelpTopicIndex::from_object(&root).unwrap();
+        for ((entry, original), name) in index.entries().zip(original.entries()).zip(names) {
+            match name {
+                Some(name) => assert_eq!(entry.name.as_str(), Some(name)),
+                None => assert!(matches!(entry.name, HelpTopicText::Invalid(_))),
+            }
+            assert_eq!(entry.aliases, original.aliases);
+            assert_eq!(entry.title, original.title);
+            assert_eq!(entry.file, original.file);
+        }
+    }
+}
+
+#[test]
 fn rejects_invalid_root_names_and_required_alias_schema() {
     let (value, _) = metadata().into_parts();
     for root in [
@@ -241,8 +282,10 @@ fn rejects_invalid_root_names_and_required_alias_schema() {
             Err(Error::MalformedIndex(_))
         ));
     }
-    let (value, attributes) = metadata().into_parts();
-    for names in [vec![text("Title"); 4], vec![RStr::Na; 4], vec![]] {
+    let root = metadata();
+    let ncol = root.names().unwrap().len();
+    let (value, attributes) = root.into_parts();
+    for names in [vec![text("Title"); ncol], vec![RStr::Na; ncol], vec![]] {
         let attrs = attributes
             .iter()
             .filter(|a| a.name().as_str() != "names")

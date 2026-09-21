@@ -17,6 +17,7 @@ for (package in c("base", "stats", "utils", "tools")) {
   emit("package", hex(path), nrow(metadata))
   for (row in seq_len(nrow(metadata))) {
     fields <- c("row", hex(metadata$File[[row]]), hex(metadata$Title[[row]]),
+                hex(metadata$Name[[row]]),
                 vapply(metadata$Aliases[[row]], hex, ""))
     cat(paste(fields, collapse = "\t"), "\n", sep = "")
   }
@@ -75,9 +76,10 @@ fn metadata_matches_r_and_keys_address_installed_help_topics() {
             assert_eq!(fields[0], "row");
             assert_eq!(entry.file.as_str(), decode(fields[1]).as_deref());
             assert_eq!(entry.title.as_str(), decode(fields[2]).as_deref());
+            assert_eq!(entry.name.as_str(), decode(fields[3]).as_deref());
             assert_eq!(
                 entry.aliases,
-                fields[3..]
+                fields[4..]
                     .iter()
                     .map(|value| decode(value))
                     .collect::<Vec<_>>()
