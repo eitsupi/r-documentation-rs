@@ -4,6 +4,10 @@
 
 ### Added
 
+- [rd-helpdb] Add `HelpTopicIndex` for bounded `Meta/Rd.rds` reads without a
+  compiled help database. Preserve ordered alias groups, source file names,
+  and optional titles, with explicit missing, NA, and invalid field states
+  and first-match metadata alias lookup.
 - [rd-rds] Add `lazyload::LazyLoadIndex` for bounded `.rdx` reads without a
   companion `.rdb`, exposing ordered variables, persistence-reference
   descriptors, and record compression. `LazyLoadDb` shares the index reader

@@ -248,6 +248,7 @@ jobs:
           check_copies() {
             source_dir="$1"
             target_dir="$2"
+            shift 2
             while IFS= read -r -d '' source; do
               basename="${source##*/}"
               target="$target_dir/$basename"
@@ -258,11 +259,13 @@ jobs:
                 echo "mismatching fixture copy: $source != $target"
                 failed=1
               fi
-            done < <(find "$source_dir" -mindepth 1 -maxdepth 1 -type f -print0)
+            done < <(find "$source_dir" -mindepth 1 -maxdepth 1 -type f "$@" -print0)
           }
 
           check_copies crates/rd-ast/tests/fixtures/data crates/rd-rds/tests/fixtures/data
-          check_copies crates/rd-helpdb/tests/fixtures/data tests/fixtures/data
+          # Help-topic fixtures are generated directly in rd-helpdb.
+          check_copies crates/rd-helpdb/tests/fixtures/data tests/fixtures/data \
+            ! -name 'help_topics*'
 
           while IFS= read -r -d '' source; do
             basename="${source##*/}"

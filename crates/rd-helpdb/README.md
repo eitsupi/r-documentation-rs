@@ -1,6 +1,6 @@
 # rd-helpdb
 
-`rd-helpdb` reads the compiled help database of an installed R package and provides alias, topic, help-search, vignette, and demo access.
+`rd-helpdb` reads the compiled help database of an installed R package and provides alias, topic, topic metadata, help-search, vignette, and demo access.
 
 ## Overview
 
@@ -13,6 +13,36 @@ order and last-wins lookup. The compatibility helpers `read_rds_file` and
 `decode_rdb_record` remain available for callers that need the lower-level
 adapters. Consumers that need a canonical document model can lower decoded
 help objects into [`rd-ast`](../rd-ast/README.md).
+
+## Topic metadata without compiled help
+
+`HelpTopicIndex::read_installed(pkg_dir)` reads `Meta/Rd.rds` without opening
+the help database or `aliases.rds`. It returns `None` for a missing file,
+`Some(index)` for present metadata (including zero rows), and an error for
+I/O, RDS decoding, or required-schema failures. Use
+`read_installed_with_options` to customize the underlying `rd-rds` file and
+decode limits.
+
+The view preserves row order and alias groups, including duplicate and NA
+aliases. `find_alias` returns the first matching metadata row. This is
+independent of `PackageHelpDb::resolve_alias`, which reads `aliases.rds` and
+uses the last duplicate occurrence. Missing titles or file names in the first
+matching row do not cause lookup to select a later row.
+
+Each entry's `title` and `file` distinguish absent columns, NA values,
+malformed fields, and decoded text through `HelpTopicText`. Invalid optional
+fields leave other metadata available; `as_str()` returns only usable text.
+The required `Aliases` column and data-frame structure are validated.
+`topic_key()` strips one exact `.Rd` suffix from the stored `File` value.
+It does not check whether the resulting topic exists.
+
+The [help-with-fallback example](examples/help_with_fallback.rs) combines
+metadata and compiled help. Its consumer policy keeps the metadata title
+when the help files are absent or a selected topic fails to decode:
+
+```sh
+cargo run -p rd-helpdb --example help_with_fallback -- /path/to/package alias
+```
 
 ## Features
 
@@ -42,7 +72,7 @@ codecs (and does not remove the required zlib record decoder).
 
 ## Stability
 
-Alias, topic, search, vignette, and demo reading for an explicitly named installed-package directory is supported. Discovering R libraries or packages on a machine is out of scope; see the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md).
+Alias, topic, topic metadata, search, vignette, and demo reading for an explicitly named installed-package directory is supported. Discovering R libraries or packages on a machine is out of scope; see the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md).
 
 ## License
 

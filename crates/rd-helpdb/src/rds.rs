@@ -17,7 +17,11 @@ use crate::Error;
 /// [`rd_rds::RObject`].
 pub fn read_rds_file(path: impl AsRef<Path>) -> Result<rd_rds::RObject, Error> {
     let path = path.as_ref();
-    rd_rds::file::read(path).map_err(|error| match error {
+    rd_rds::file::read(path).map_err(|error| map_file_error(path, error))
+}
+
+pub(crate) fn map_file_error(path: &Path, error: rd_rds::file::ReadError) -> Error {
+    match error {
         rd_rds::file::ReadError::Io { path, source } => Error::io(path, source),
         rd_rds::file::ReadError::UnknownEnvelope { magic } => Error::UnsupportedCompression {
             path: path.to_path_buf(),
@@ -25,7 +29,7 @@ pub fn read_rds_file(path: impl AsRef<Path>) -> Result<rd_rds::RObject, Error> {
         },
         rd_rds::file::ReadError::Decode(error) => Error::Rds(error),
         error => Error::RdsFile(error),
-    })
+    }
 }
 
 /// Decodes a single `.rdb` record: `bytes` is the exact `(offset, length)`
