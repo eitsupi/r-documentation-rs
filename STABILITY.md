@@ -32,7 +32,7 @@ Supported: typed package-metadata and repository-index views exercised by determ
 
 ### rd-helpdb
 
-Supported: alias, topic, search, vignette, and demo reading for an explicitly named installed-package directory. Out of scope: R library discovery, including finding libraries or packages on a machine.
+Supported: alias, topic, topic metadata (`Meta/Rd.rds`), search, vignette, and demo reading for an explicitly named installed-package directory. Out of scope: R library discovery, including finding libraries or packages on a machine.
 
 ### rd-ast
 
