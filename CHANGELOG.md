@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- [rd-rds] Expose bounded prefix inspection of already decompressed XDR streams
+  through `inspection::inspect` and `inspect_with_options`, without optional
+  features. Reuse the same inspector in `InstalledCodeDb` and preserve the
+  existing package-level inspection type paths. Inspection observes root kinds
+  and closure formals without validating unvisited object payloads.
+
 ## [0.5.0-rc.2] - 2026-09-21
 
 This release candidate consolidates the planned 0.5.0 feature set. It makes

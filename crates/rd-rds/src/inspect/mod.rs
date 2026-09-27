@@ -5,51 +5,18 @@
 //! closure body tag, which makes it suitable for answering metadata queries
 //! about large or partially damaged objects.
 
-#![cfg_attr(not(feature = "lazyload"), allow(dead_code))]
-
 use std::fmt;
 
+#[cfg(test)]
+use crate::Limits;
+use crate::inspection::InspectionOptions;
 use crate::wire::{self, CLOSXP, RefEntry};
 #[cfg(test)]
 use crate::wire::{ALTREP_SXP, BCODESXP, EXTPTRSXP};
-use crate::{ByteCursor, Error, Header, Limits, NativeEncodingPolicy, SexpKind};
+use crate::{ByteCursor, Error, Header, NativeEncodingPolicy, SexpKind};
 
 /// The type observed in the serialized root (including unknown type codes).
 pub(crate) type StoredKind = SexpKind;
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct InspectionOptions {
-    limits: Limits,
-    max_formals: usize,
-    max_bytes_visited: usize,
-}
-
-impl Default for InspectionOptions {
-    fn default() -> Self {
-        Self {
-            limits: Limits::default(),
-            max_formals: 1_000_000,
-            max_bytes_visited: 256 * 1024 * 1024,
-        }
-    }
-}
-
-impl InspectionOptions {
-    pub(crate) fn limits(mut self, limits: Limits) -> Self {
-        self.limits = limits;
-        self
-    }
-
-    pub(crate) fn max_formals(mut self, value: usize) -> Self {
-        self.max_formals = value;
-        self
-    }
-
-    pub(crate) fn max_bytes_visited(mut self, value: usize) -> Self {
-        self.max_bytes_visited = value;
-        self
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum InspectionExtent {

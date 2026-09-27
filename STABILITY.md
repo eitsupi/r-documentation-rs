@@ -30,6 +30,13 @@ Supported means intended and covered by tests in the current version. It does no
 
 Supported: typed package-metadata and repository-index views exercised by deterministic tests are the recommended surface. References to concrete third-party files describe verified interoperability profiles, not guarantees that upstream paths or schemas remain available or unchanged. Supported (advanced): the `RObject`/`RValue` object model, with variants subject to addition. Documented scope: unsupported SEXPs are hard errors, with a documented exception for selected environment internals consumed as opaque or discarded wire data.
 
+Supported (advanced): `inspection` observes serialized root kinds and closure
+prefix metadata within explicit limits. Unlike strict decoding, it can report
+unsupported root kinds and does not validate unvisited payloads. The inspection
+and failure boundaries are documented in the
+[crate README](crates/rd-rds/README.md#closure-prefix-inspection). Existing
+package-level inspection type paths remain aliases of these shared types.
+
 ### rd-helpdb
 
 Supported: alias, topic, topic metadata (`Meta/Rd.rds`), search, vignette, and demo reading for an explicitly named installed-package directory. Out of scope: R library discovery, including finding libraries or packages on a machine.

@@ -11,28 +11,16 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use crate::{Limits, SexpKind, inspect};
+use crate::Limits;
+use crate::inspection::{self, InspectionOptions, PrefixFailure, StoredObjectInspection};
 
 use super::super::lazyload::{self, Compression, LazyLoadDb, Options as LazyLoadOptions};
 
 /// Limits applied while opening and inspecting an installed code database.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct InstalledCodeOptions {
     lazyload: LazyLoadOptions,
-    limits: Limits,
-    max_formals: usize,
-    max_bytes_visited: usize,
-}
-
-impl Default for InstalledCodeOptions {
-    fn default() -> Self {
-        Self {
-            lazyload: LazyLoadOptions::default(),
-            limits: Limits::default(),
-            max_formals: 1_000_000,
-            max_bytes_visited: 256 * 1024 * 1024,
-        }
-    }
+    inspection: InspectionOptions,
 }
 
 impl InstalledCodeOptions {
@@ -60,14 +48,14 @@ impl InstalledCodeOptions {
     /// Sets the limits shared by strict decoding and prefix inspection.
     #[must_use]
     pub fn limits(mut self, value: Limits) -> Self {
-        self.limits = value;
+        self.inspection = self.inspection.limits(value);
         self
     }
 
     /// Sets the maximum number of formals collected from one closure.
     #[must_use]
     pub fn max_formals(mut self, value: usize) -> Self {
-        self.max_formals = value;
+        self.inspection = self.inspection.max_formals(value);
         self
     }
 
@@ -80,7 +68,7 @@ impl InstalledCodeOptions {
     /// read or validated by inspection.
     #[must_use]
     pub fn max_bytes_visited(mut self, value: usize) -> Self {
-        self.max_bytes_visited = value;
+        self.inspection = self.inspection.max_bytes_visited(value);
         self
     }
 }
@@ -201,9 +189,6 @@ impl CodeDbProvenance {
     }
 }
 
-/// Public name for the observed serialized S-expression kind.
-pub type StoredKind = SexpKind;
-
 /// One entry from the `.rdx` `variables` map, retained in index order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredBinding {
@@ -215,251 +200,6 @@ impl StoredBinding {
     #[must_use]
     pub fn name(&self) -> &str {
         &self.name
-    }
-}
-
-/// The extent reached by a bounded record inspection.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum InspectionExtent {
-    RootTagOnly,
-    ThroughFormals {
-        body_offset: usize,
-        record_len: usize,
-        body_kind: StoredKind,
-        body_validation: BodyValidation,
-    },
-}
-
-impl InspectionExtent {
-    /// Returns the body tag offset when the closure prefix reached it.
-    #[must_use]
-    pub fn body_offset(&self) -> Option<usize> {
-        match self {
-            Self::ThroughFormals { body_offset, .. } => Some(*body_offset),
-            Self::RootTagOnly => None,
-        }
-    }
-
-    /// Returns the observed body kind when the closure prefix reached it.
-    #[must_use]
-    pub fn body_kind(&self) -> Option<StoredKind> {
-        match self {
-            Self::ThroughFormals { body_kind, .. } => Some(*body_kind),
-            Self::RootTagOnly => None,
-        }
-    }
-
-    /// Returns the body validation status when the body tag was observed.
-    #[must_use]
-    pub fn body_validation(&self) -> Option<BodyValidation> {
-        match self {
-            Self::ThroughFormals {
-                body_validation, ..
-            } => Some(*body_validation),
-            Self::RootTagOnly => None,
-        }
-    }
-
-    /// Returns the complete record length when available.
-    #[must_use]
-    pub fn record_len(&self) -> Option<usize> {
-        match self {
-            Self::ThroughFormals { record_len, .. } => Some(*record_len),
-            Self::RootTagOnly => None,
-        }
-    }
-}
-
-/// Presence of a closure formal's default expression.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum DefaultPresence {
-    Absent,
-    Present,
-}
-
-/// One owned formal name and default-presence observation.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Formal {
-    name: String,
-    default: DefaultPresence,
-}
-
-impl Formal {
-    /// Returns the formal name in serialized order.
-    #[must_use]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Returns whether a default expression was serialized.
-    #[must_use]
-    pub fn default(&self) -> DefaultPresence {
-        self.default
-    }
-}
-
-/// Owned closure formals in serialized order.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FunctionFormals {
-    values: Vec<Formal>,
-}
-
-impl FunctionFormals {
-    /// Returns the owned formal slice.
-    #[must_use]
-    pub fn as_slice(&self) -> &[Formal] {
-        &self.values
-    }
-
-    /// Returns the number of serialized formals.
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    /// Returns whether no formals were serialized.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
-    }
-
-    /// Returns one formal by serialized position.
-    #[must_use]
-    pub fn get(&self, index: usize) -> Option<&Formal> {
-        self.values.get(index)
-    }
-
-    /// Iterates over formals in serialized order.
-    pub fn iter(&self) -> impl Iterator<Item = &Formal> {
-        self.values.iter()
-    }
-}
-
-impl AsRef<[Formal]> for FunctionFormals {
-    fn as_ref(&self) -> &[Formal] {
-        self.as_slice()
-    }
-}
-
-impl std::ops::Index<usize> for FunctionFormals {
-    type Output = Formal;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.values[index]
-    }
-}
-
-/// Closure-formal availability after bounded prefix inspection.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum FormalsInspection {
-    Available(FunctionFormals),
-    NotApplicable(FormalsNotApplicable),
-    Unavailable(FormalsUnavailable),
-}
-
-/// Why a stored object has no closure formals.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum FormalsNotApplicable {
-    BuiltIn,
-    Special,
-    NonClosure,
-}
-
-/// Why closure formals are unavailable.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum FormalsUnavailable {
-    PromiseNotEvaluated,
-    PersistentReferenceUnresolved,
-    Prefix(PrefixFailure),
-}
-
-/// A failure observed after (or while) reading a serialized prefix.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("{phase:?} failure at byte {offset}: {cause:?}")]
-pub struct PrefixFailure {
-    phase: FailurePhase,
-    offset: usize,
-    cause: FailureCause,
-}
-
-impl PrefixFailure {
-    /// Returns the logical phase in which inspection failed.
-    #[must_use]
-    pub fn phase(&self) -> FailurePhase {
-        self.phase
-    }
-
-    /// Returns the serialized byte offset associated with the failure.
-    #[must_use]
-    pub fn offset(&self) -> usize {
-        self.offset
-    }
-
-    /// Returns the failure cause.
-    #[must_use]
-    pub fn cause(&self) -> &FailureCause {
-        &self.cause
-    }
-}
-
-/// Logical inspection phase.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum FailurePhase {
-    Root,
-    Attributes,
-    Environment,
-    Formals,
-    Default(usize),
-    BodyTag,
-}
-
-/// Cause of an inspection prefix failure.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum FailureCause {
-    Unsupported { type_code: u8, kind: StoredKind },
-    Malformed,
-    ResourceLimit,
-}
-
-/// Body bytes are intentionally not validated by prefix inspection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum BodyValidation {
-    NotValidated,
-}
-
-/// Owned metadata observed from one selected stored record.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StoredObjectInspection {
-    kind: StoredKind,
-    extent: InspectionExtent,
-    formals: FormalsInspection,
-}
-
-impl StoredObjectInspection {
-    /// Returns the serialized root kind.
-    #[must_use]
-    pub fn kind(&self) -> StoredKind {
-        self.kind
-    }
-
-    /// Returns how far inspection read the selected record.
-    #[must_use]
-    pub fn extent(&self) -> &InspectionExtent {
-        &self.extent
-    }
-
-    /// Returns the closure formal observation.
-    #[must_use]
-    pub fn formals(&self) -> &FormalsInspection {
-        &self.formals
     }
 }
 
@@ -624,89 +364,11 @@ impl InstalledCodeDb {
             .lazyload
             .read(name)
             .map_err(|error| map_record_error(error, name, &self.data_path))?;
-        let prefix = inspect::inspect_stored_object(
-            record.decompressed_bytes(),
-            inspect::InspectionOptions::default()
-                .limits(self.options.limits)
-                .max_formals(self.options.max_formals)
-                .max_bytes_visited(self.options.max_bytes_visited),
-        )
-        .map_err(|failure| InstalledCodeError::Inspection {
-            name: name.to_owned(),
-            failure: map_prefix_failure(failure),
-        })?;
-        Ok(map_inspection(prefix))
-    }
-}
-
-fn map_inspection(value: inspect::PrefixInspection) -> StoredObjectInspection {
-    let formals = match value.formals {
-        inspect::FormalsInspection::Available(values) => {
-            FormalsInspection::Available(FunctionFormals {
-                values: values
-                    .into_iter()
-                    .map(|formal| Formal {
-                        name: formal.name,
-                        default: match formal.default {
-                            inspect::DefaultPresence::Absent => DefaultPresence::Absent,
-                            inspect::DefaultPresence::Present => DefaultPresence::Present,
-                        },
-                    })
-                    .collect(),
+        inspection::inspect_with_options(record.decompressed_bytes(), self.options.inspection)
+            .map_err(|failure| InstalledCodeError::Inspection {
+                name: name.to_owned(),
+                failure,
             })
-        }
-        inspect::FormalsInspection::NotApplicable => match value.kind {
-            SexpKind::Promise => {
-                FormalsInspection::Unavailable(FormalsUnavailable::PromiseNotEvaluated)
-            }
-            SexpKind::Persist => {
-                FormalsInspection::Unavailable(FormalsUnavailable::PersistentReferenceUnresolved)
-            }
-            SexpKind::BuiltIn => FormalsInspection::NotApplicable(FormalsNotApplicable::BuiltIn),
-            SexpKind::Special => FormalsInspection::NotApplicable(FormalsNotApplicable::Special),
-            _ => FormalsInspection::NotApplicable(FormalsNotApplicable::NonClosure),
-        },
-        inspect::FormalsInspection::Unavailable(failure) => {
-            FormalsInspection::Unavailable(FormalsUnavailable::Prefix(map_prefix_failure(failure)))
-        }
-    };
-    StoredObjectInspection {
-        kind: value.kind,
-        extent: match value.extent {
-            inspect::InspectionExtent::RootTagOnly => InspectionExtent::RootTagOnly,
-            inspect::InspectionExtent::ThroughFormals {
-                body_offset,
-                record_len,
-                body_kind,
-            } => InspectionExtent::ThroughFormals {
-                body_offset,
-                record_len,
-                body_kind,
-                body_validation: BodyValidation::NotValidated,
-            },
-        },
-        formals,
-    }
-}
-
-fn map_prefix_failure(value: inspect::PrefixFailure) -> PrefixFailure {
-    PrefixFailure {
-        phase: match value.phase {
-            inspect::FailurePhase::Root => FailurePhase::Root,
-            inspect::FailurePhase::Attributes => FailurePhase::Attributes,
-            inspect::FailurePhase::Environment => FailurePhase::Environment,
-            inspect::FailurePhase::Formals => FailurePhase::Formals,
-            inspect::FailurePhase::Default(index) => FailurePhase::Default(index),
-            inspect::FailurePhase::BodyTag => FailurePhase::BodyTag,
-        },
-        offset: value.offset,
-        cause: match value.reason {
-            inspect::FailureReason::Unsupported { type_code, kind } => {
-                FailureCause::Unsupported { type_code, kind }
-            }
-            inspect::FailureReason::Malformed => FailureCause::Malformed,
-            inspect::FailureReason::ResourceLimit => FailureCause::ResourceLimit,
-        },
     }
 }
 
@@ -778,41 +440,4 @@ fn file_identity(path: &Path) -> Result<FileIdentity, InstalledCodeError> {
         len: metadata.len(),
         modified_nanos,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn map_kind(kind: SexpKind) -> StoredObjectInspection {
-        map_inspection(inspect::PrefixInspection {
-            kind,
-            extent: inspect::InspectionExtent::RootTagOnly,
-            formals: inspect::FormalsInspection::NotApplicable,
-        })
-    }
-
-    #[test]
-    fn maps_non_closure_formal_reasons_without_inventing_failures() {
-        assert!(matches!(
-            map_kind(SexpKind::BuiltIn).formals(),
-            FormalsInspection::NotApplicable(FormalsNotApplicable::BuiltIn)
-        ));
-        assert!(matches!(
-            map_kind(SexpKind::Special).formals(),
-            FormalsInspection::NotApplicable(FormalsNotApplicable::Special)
-        ));
-        assert!(matches!(
-            map_kind(SexpKind::Integer).formals(),
-            FormalsInspection::NotApplicable(FormalsNotApplicable::NonClosure)
-        ));
-        assert!(matches!(
-            map_kind(SexpKind::Promise).formals(),
-            FormalsInspection::Unavailable(FormalsUnavailable::PromiseNotEvaluated)
-        ));
-        assert!(matches!(
-            map_kind(SexpKind::Persist).formals(),
-            FormalsInspection::Unavailable(FormalsUnavailable::PersistentReferenceUnresolved)
-        ));
-    }
 }
