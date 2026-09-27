@@ -2,13 +2,15 @@
 
 `rd-rds` is a scoped, read-only reader for installed-R-package information and
 selected CRAN-like repository indexes. It is not a general R serialization
-library and never silently accepts an unknown SEXP. Its compression support is
+library; strict decoding rejects unknown SEXPs. Its compression support is
 implemented in pure Rust, so the crate links no C library. See the [workspace
 README](../../README.md) for repository status and crate relationships.
 
-The API has three layers:
+The API provides these entry points:
 
 - `parse` reads a decompressed XDR serialization stream only.
+- `inspection::inspect` observes a decompressed stream's root kind and closure
+  formals without constructing an object or validating its complete payload.
 - `file::from_bytes` and `file::read` accept the complete envelope and apply
   bounded decompression. Supported envelopes are raw `X\n` XDR, gzip, xz,
   bzip2, and zstd (when the corresponding feature is enabled).
@@ -144,22 +146,48 @@ absent `Built` element is represented by `PackageMeta::built() == None`.
 
 ## Closure prefix inspection
 
-The decoder also contains a crate-private bounded inspector for consumers that
-need to classify a serialized object before materializing it. For a closure it
-walks attributes, environment fields, and the formal/default pairlist while
+`inspection::inspect` and `inspection::inspect_with_options` expose the bounded
+inspector without requiring optional features. They accept decompressed XDR
+bytes starting with the serialization header. A consumer
+that already loaded a lazy-load record can inspect and decode the same bytes
+without reopening the database or decompressing twice:
+
+```rust,ignore
+let record = database.read(binding_name)?;
+let observed = rd_rds::inspection::inspect(record.decompressed_bytes())?;
+// A consumer can retain its decoder for expressions the inspector omits.
+let object = consumer_decode(record.decompressed_bytes())?;
+```
+
+The caller retains path selection and duplicate-name policy. Inspection does
+not look up stored bindings, evaluate promises, or resolve persistent references.
+`InstalledCodeDb::inspect_stored_binding` delegates to the same inspector after
+its own lookup and container checks. Existing inspection types at `package::*`
+remain available with `lazyload` and are the same types as `inspection::*`.
+
+For a closure, inspection walks attributes, environment fields, and the
+formal/default pairlist while
 sharing strict decoding's reference registration/resolution, encoding, depth,
 and element accounting. It also applies inspection-specific byte and
-formal-count limits.
+formal-count limits through `InspectionOptions`: 256 MiB and one million formals
+by default. These bounds do not limit the caller's file reads or decompression.
 It reports formal names in wire order (including `...`, duplicate names, and
 non-syntactic UTF-8 names), distinguishes missing defaults from present
 defaults including `NULL`, and stops immediately after observing the body tag.
 The body payload is intentionally not validated. Prefix failures retain their
 phase and byte offset in an unavailable result after the root kind is known;
-failures before the root flags remain top-level errors. This is an internal
-inspection boundary, not a general R object walker or a replacement for
-`parse`. Deterministic plain and compiler-produced format-2/format-3 fixtures,
-along with generated diagnostic, ALTREP, S4, namespace, and persisted-reference
-cases, are produced in the source repository by
+failures before the root flags remain top-level errors. Non-closures return
+`InspectionExtent::RootTagOnly`, including unknown root kinds and records whose
+payloads are missing or invalid. The root kind describes the stored wire tag;
+it does not necessarily describe a materialized value, establish runtime
+callability, or prove that the object can be decoded. In particular, ALTREP
+values still require decoding to determine the materialized value's kind, and
+the shared decoder currently rejects those values as unsupported.
+Unvisited body payloads and trailing bytes remain unchecked. Use `parse` when
+full decoding is required for a supported object. Deterministic plain and
+compiler-produced format-2/format-3 fixtures, along with generated diagnostic,
+ALTREP, S4, namespace, and persisted-reference cases, are produced in the source
+repository by
 `tests/fixtures/generate_closure_inspection_fixture.R`.
 
 ## Runnable examples

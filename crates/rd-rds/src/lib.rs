@@ -9,8 +9,9 @@
 //! deterministic fixtures and verified manually against real files.
 //!
 //! This crate is scoped to installed-R-package information and selected
-//! CRAN-like repository indexes. Unknown SEXP
-//! values are hard errors, never silently accepted. `RObject`/`RValue` are a
+//! CRAN-like repository indexes. Strict decoding rejects unknown SEXP values.
+//! [`mod@inspection`] observes prefix facts without claiming full object
+//! validity. `RObject`/`RValue` are a
 //! supported advanced API with encapsulated fields and non-exhaustive enums;
 //! consumers must include wildcard match arms. The typed [`package`] views and
 //! general [`matrix::CharacterMatrix`] view are the stable convenience surface.
@@ -26,6 +27,7 @@ mod error;
 pub mod file;
 mod header;
 mod inspect;
+pub mod inspection;
 #[cfg(feature = "lazyload")]
 pub mod lazyload;
 pub mod matrix;

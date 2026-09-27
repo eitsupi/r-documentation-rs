@@ -106,6 +106,67 @@ fn opens_explicit_installed_shape_and_inspects_unique_bindings() {
 }
 
 #[test]
+fn loaded_record_inspection_matches_package_results_and_limits() {
+    use rd_rds::inspection::{self, InspectionOptions};
+
+    let package_dir = installed_fixture();
+    let records = rd_rds::lazyload::LazyLoadDb::open(
+        package_dir.join("R/lazyfixture.rdx"),
+        package_dir.join("R/lazyfixture.rdb"),
+    )
+    .unwrap();
+    let db = InstalledCodeDb::open(&package_dir).unwrap();
+    for name in ["lazy_fixture", "lazy_fixture_value"] {
+        let record = records.read(name).unwrap();
+        let result: rd_rds::package::StoredObjectInspection =
+            inspection::inspect(record.decompressed_bytes()).unwrap();
+        assert_eq!(result, db.inspect_stored_binding(name).unwrap());
+    }
+
+    let formal_limited = InstalledCodeDb::open_with_options(
+        &package_dir,
+        InstalledCodeOptions::default().max_formals(0),
+    )
+    .unwrap();
+    let record = records.read("lazy_fixture").unwrap();
+    let result = inspection::inspect_with_options(
+        record.decompressed_bytes(),
+        InspectionOptions::default().max_formals(0),
+    )
+    .unwrap();
+    assert!(matches!(
+        result.formals(),
+        FormalsInspection::Unavailable(_)
+    ));
+    assert_eq!(
+        result,
+        formal_limited
+            .inspect_stored_binding("lazy_fixture")
+            .unwrap()
+    );
+
+    let limited = InstalledCodeDb::open_with_options(
+        &package_dir,
+        InstalledCodeOptions::default().max_bytes_visited(2),
+    )
+    .unwrap();
+    let error = inspection::inspect_with_options(
+        record.decompressed_bytes(),
+        InspectionOptions::default().max_bytes_visited(2),
+    )
+    .unwrap_err();
+    let rd_rds::package::InstalledCodeError::Inspection { failure, name } =
+        limited.inspect_stored_binding("lazy_fixture").unwrap_err()
+    else {
+        panic!("expected an inspection failure");
+    };
+    assert_eq!(name, "lazy_fixture");
+    assert_eq!(failure, error);
+    drop((records, db, formal_limited, limited));
+    fs::remove_dir_all(package_dir).unwrap();
+}
+
+#[test]
 fn missing_index_is_distinct_from_missing_data_file() {
     let package_dir = std::env::temp_dir()
         .join(format!(
