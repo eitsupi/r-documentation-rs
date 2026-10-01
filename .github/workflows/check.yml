@@ -265,7 +265,7 @@ jobs:
           check_copies crates/rd-ast/tests/fixtures/data crates/rd-rds/tests/fixtures/data
           # Help-topic fixtures are generated directly in rd-helpdb.
           check_copies crates/rd-helpdb/tests/fixtures/data tests/fixtures/data \
-            ! -name 'help_topics*'
+            ! -name 'help_topics*' ! -name 'help_search*'
 
           while IFS= read -r -d '' source; do
             basename="${source##*/}"

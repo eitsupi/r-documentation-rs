@@ -4,6 +4,9 @@
 
 ### Added
 
+- [rd-helpdb] Add `HelpSearchIndex` for bounded standalone reads of the four
+  `Meta/hsearch.rds` matrices, preserving stored row order, duplicates, empty
+  strings, and R `NA` values with limited historical schema compatibility.
 - [rd-rds] Expose bounded prefix inspection of already decompressed XDR streams
   through `inspection::inspect` and `inspect_with_options`, without optional
   features. Reuse the same inspector in `InstalledCodeDb` and preserve the
