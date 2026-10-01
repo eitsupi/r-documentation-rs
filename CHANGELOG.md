@@ -2,25 +2,14 @@
 
 ## [Unreleased]
 
-### Added
+## [0.5.0] - 2026-10-01
 
-- [rd-helpdb] Add `HelpSearchIndex` for bounded standalone reads of the four
-  `Meta/hsearch.rds` matrices, preserving stored row order, duplicates, empty
-  strings, and R `NA` values with limited historical schema compatibility.
-- [rd-rds] Expose bounded prefix inspection of already decompressed XDR streams
-  through `inspection::inspect` and `inspect_with_options`, without optional
-  features. Reuse the same inspector in `InstalledCodeDb` and preserve the
-  existing package-level inspection type paths. Inspection observes root kinds
-  and closure formals without validating unvisited object payloads.
-
-## [0.5.0-rc.2] - 2026-09-21
-
-This release candidate consolidates the planned 0.5.0 feature set. It makes
-canonical `rd-ast` structure locations explicit, carries them through
-position-aware cursors and located semantic views, exposes exact source
-provenance from `rd-source` parser results, and adds bounded installed-package
-metadata, help-topic indexes, and stored-code facts. Intentional best-effort
-APIs use a `_lossy` suffix.
+This release makes canonical AST locations and located semantic views
+part of the public `rd-ast` API. Consumers migrating from 0.4.x should follow
+the [`rd-ast` 0.5.0 migration guide](docs/rd-ast-0.5-migration.md), especially
+for the `RdPath` to `RdAstPath` transition and renamed `_lossy` accessors. The
+canonical Rd tree, its ordering, whitespace, and option-presence semantics
+remain unchanged.
 
 ### Added
 
@@ -43,24 +32,28 @@ APIs use a `_lossy` suffix.
     index order. It includes the standalone `gzip` feature required by normal
     installed-package `.rdx` indexes (#35). `LazyLoadIndex` also supports
     bounded `.rdx` inspection without a companion `.rdb` (#58).
-  - Bounded closure-prefix inspection preserves formal order and default
-    presence, validates reference alignment, stops after the body tag without
-    constructing an `RObject`, and enforces independent byte and formal-count
-    limits (#39).
+  - Expose bounded closure-prefix inspection through
+    `inspection::inspect` and `inspect_with_options`, with no optional codec
+    feature requirement. It preserves formal order and default presence,
+    validates reference alignment, stops at the body tag, and enforces
+    explicit byte and formal-count limits without validating unvisited raw
+    payloads. `InstalledCodeDb` reuses the inspector and preserves existing
+    package-level inspection type paths (#39, #65).
   - The owned `package::NamespaceMetadata` view reads static `Meta/nsInfo.rds`
     declarations with field-local diagnostics, import aliases and exclusions,
     source/namespace export pairs, separate S3 registration and evidence
-    information, and explicit S4 export declarations (#37).
-  - Add an R CMD INSTALL-generated fixture covering named exports,
-    `import(..., except = ...)`, aliased `importFrom`, and S3 declarations
+    information, and explicit S4 export declarations. An R CMD INSTALL fixture
+    covers named exports, import exclusions and aliases, and S3 declarations
     (#37).
-- [rd-helpdb] Add `HelpTopicIndex` for bounded `Meta/Rd.rds` reads without a
-  compiled help database. Preserve ordered alias groups, source file names,
-  and optional titles, with explicit missing, NA, and invalid field states
-  and first-match metadata alias lookup (#59).
-- [rd-helpdb] Move compiled help database `.rdx` parsing and `.rdb` record
-  access onto `rd-rds`'s bounded `lazyload` reader while retaining the
-  `PackageHelpDb` API and lower-level compatibility adapters (#36).
+- [rd-helpdb] Add standalone readers for installed-package help metadata:
+  - `HelpTopicIndex` reads `Meta/Rd.rds` without a compiled help database and
+    preserves ordered alias groups, source file names, optional titles, and
+    missing, NA, or invalid field states. Metadata alias lookup uses the first
+    matching row (#59).
+  - `HelpSearchIndex` reads the four `Meta/hsearch.rds` matrices without
+    opening the compiled help database, preserving stored row order,
+    duplicates, empty strings, and R `NA` values with limited historical
+    schema compatibility (#66).
 
 ### Changed
 
@@ -77,10 +70,19 @@ APIs use a `_lossy` suffix.
 - [rd-rds] Rename the lazy-load `UnsupportedVariableReference` error to
   `UnsupportedRecordReference`, covering both variable reads and persistence
   reference reads (#40).
+- [rd-writer] No writer behavior changes in this release. The existing
+  provisional classification rule continues through the 0.5.x series for
+  failures between `WriteError::Verification` and
+  `WriteError::Unserializable`: a future patch release may reclassify
+  `Verification` as `Unserializable` when the input has no faithful Rd source
+  representation, but not the reverse. Existing errors and the successful-
+  write guarantee are unchanged in 0.5.0.
 - [rd-helpdb] The internal `rd-rds/lazyload` feature is now always enabled;
   because it includes gzip for normal `.rdx` files, `--no-default-features`
   still retains gzip while disabling the optional xz, bzip2, and zstd
-  standalone `.rds` codecs (#36).
+  standalone `.rds` codecs. Compiled help database `.rdx` parsing and `.rdb`
+  record access use `rd-rds`'s bounded `lazyload` reader while retaining the
+  `PackageHelpDb` API and lower-level compatibility adapters (#36).
 
 ## [0.4.0] - 2026-08-17
 
