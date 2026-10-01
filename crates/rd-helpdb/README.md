@@ -4,7 +4,7 @@
 
 ## Overview
 
-An installed package help database consists of `help/aliases.rds`, the `help/<pkg>.rdx` index and `help/<pkg>.rdb` record pair, `Meta/hsearch.rds`, and optional `Meta/vignette.rds` and `Meta/demo.rds` indexes. `rd-helpdb` reads the standalone RDS files, exposes validated typed vignette and demo entries, and reads the compressed records addressed by the `.rdx` index; it does not discover package directories through R's `.libPaths()`.
+An installed package help database consists of `help/aliases.rds`, the `help/<pkg>.rdx` index and `help/<pkg>.rdb` record pair, `Meta/hsearch.rds`, and optional `Meta/vignette.rds` and `Meta/demo.rds` indexes. `rd-helpdb` reads the standalone RDS files, exposes validated typed help-search, vignette, and demo entries, and reads the compressed records addressed by the `.rdx` index; it does not discover package directories through R's `.libPaths()`.
 
 Standalone `.rds` envelope handling and the bounded `.rdx`/`.rdb` reader are
 delegated to [`rd-rds`](../rd-rds/README.md). `PackageHelpDb` keeps the public
@@ -45,6 +45,33 @@ when the help files are absent or a selected topic fails to decode:
 cargo run -p rd-helpdb --example help_with_fallback -- /path/to/package alias
 ```
 
+## Help-search metadata without compiled help
+
+`HelpSearchIndex::read_installed(pkg_dir)` reads `Meta/hsearch.rds` without
+opening the compiled help database. The four matrix views are available in
+stored row order through `base_entries()`, `aliases()`, `keywords()`, and
+`concepts()`. Every cell is an `Option<String>`: R `NA`, empty strings, and
+duplicate rows are preserved exactly, and IDs remain strings without
+reference or uniqueness validation.
+
+The reader requires the canonical unnamed four-element root and validates the
+current R schema (`Package`, `LibPath`, `ID`, `Name`, `Title`, `Topic`,
+`Encoding`; and `Alias`, `Keyword`, `Concept`). It also accepts the bounded
+historical shapes observed in R 1.8/R 2.9: lower-case `name`, `title`, and
+`topic`, plural relation names, and Base forms with or without `Encoding`.
+This is shape compatibility, not a guarantee for every old R release. Column
+order is resolved by exact column name; missing, unknown, duplicate, or NA
+column names are errors. The old six-column form without `Encoding` is
+returned with `encoding == Some("")`, matching R's compatibility reader.
+RDS serialization versions 2 and 3 use the profiles supported by `rd-rds`;
+other serialization or historical schema variants are outside this contract.
+
+This API exposes stored metadata only. It does not reimplement
+`utils::help.search()` matching, fuzzy matching, ranking, package discovery,
+or global search policy. Character decoding and file/decompression limits
+remain those provided by `rd-rds` and `ReadOptions`; the `Encoding` column is
+metadata and is not used to reinterpret already decoded payloads.
+
 ## Features
 
 The `xz`, `bzip2`, and `zstd` features are enabled by default and control
@@ -73,7 +100,7 @@ codecs (and does not remove the required zlib record decoder).
 
 ## Stability
 
-Alias, topic, topic metadata, search, vignette, and demo reading for an explicitly named installed-package directory is supported. Discovering R libraries or packages on a machine is out of scope; see the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md).
+Alias, topic, topic metadata, typed help-search, vignette, and demo reading for an explicitly named installed-package directory is supported. Discovering R libraries or packages on a machine is out of scope; see the [workspace stability policy](https://github.com/eitsupi/r-documentation-rs/blob/main/STABILITY.md).
 
 ## License
 

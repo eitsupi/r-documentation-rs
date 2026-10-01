@@ -1,5 +1,6 @@
 //! Reader for installed R package help databases (aliases, `.rdx`/`.rdb`,
-//! topic metadata, help-search, vignette, and demo indexes), built on top of `rd-rds`.
+//! topic metadata, typed help-search, vignette, and demo indexes), built on
+//! top of `rd-rds`.
 //!
 //! An installed package directory looks like:
 //!
@@ -18,11 +19,14 @@
 //! package directory.
 //! [`HelpTopicIndex::read_installed`] reads topic metadata without requiring
 //! the compiled help database, allowing consumers to retain title-only help.
+//! [`HelpSearchIndex::read_installed`] likewise reads the four typed
+//! `Meta/hsearch.rds` matrices without opening compiled help.
 
 mod db;
 pub mod demo;
 mod error;
 mod rds;
+pub mod search;
 pub mod topics;
 mod util;
 pub mod vignette;
@@ -31,5 +35,9 @@ pub use db::PackageHelpDb;
 pub use demo::{DemoEntry, DemoIndex};
 pub use error::Error;
 pub use rds::{decode_rdb_record, read_rds_file};
+pub use search::{
+    HelpSearchAliasEntry, HelpSearchBaseEntry, HelpSearchConceptEntry, HelpSearchIndex,
+    HelpSearchKeywordEntry,
+};
 pub use topics::{HelpTopicEntry, HelpTopicIndex, HelpTopicText};
 pub use vignette::{VignetteEntry, VignetteIndex};

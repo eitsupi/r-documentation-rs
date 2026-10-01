@@ -230,7 +230,10 @@ impl PackageHelpDb {
             .expect("alias_index was just set above"))
     }
 
-    /// Decoded `Meta/hsearch.rds` as a raw [`RObject`] (no typed model yet).
+    /// Decoded `Meta/hsearch.rds` as a raw [`RObject`].
+    ///
+    /// Use [`crate::HelpSearchIndex`] for a validated standalone typed view;
+    /// this compatibility method intentionally keeps its raw return type.
     pub fn search_index(&self) -> Result<RObject, Error> {
         let path = self.pkg_dir.join("Meta").join("hsearch.rds");
         read_rds_file(&path)
